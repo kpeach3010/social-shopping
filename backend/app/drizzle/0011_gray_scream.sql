@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "uq_product_variant_color_size" ON "product_variants" USING btree ("product_id","color_id","size_id");

@@ -1,0 +1,16 @@
+const ApiError = require("../api-error");
+
+const notFoundHandler = (err, req, res, next) => {
+  next(new ApiError(404, "Không tìm thấy tài nguyên"));
+};
+
+const internalHandler = (err, req, res, next) => {
+  res.status(err.statusCode || 500).json({
+    message: err.message || "Lỗi máy chủ nội bộ",
+  });
+};
+
+module.exports = {
+  notFoundHandler,
+  internalHandler,
+};

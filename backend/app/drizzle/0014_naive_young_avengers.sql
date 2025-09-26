@@ -1,0 +1,1 @@
+ALTER TABLE "coupons" DROP COLUMN "require_same_variant";

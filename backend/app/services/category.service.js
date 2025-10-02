@@ -1,6 +1,6 @@
 import { db } from "../db/client.js";
-import { categories } from "../db/schema.js";
-import { eq, ne } from "drizzle-orm";
+import { categories, products } from "../db/schema.js";
+import { eq, ne, inArray } from "drizzle-orm";
 
 export const createCategoryService = async (data) => {
   try {
@@ -119,4 +119,30 @@ export const deleteCategoryService = async (id) => {
     console.error("Error deleting category:", error);
     throw new Error("Failed to delete category");
   }
+};
+
+export const getProductsByCategoryService = async (categoryId) => {
+  // lấy tất cả sub-category ids
+  const subCategories = await db
+    .select({ id: categories.id })
+    .from(categories)
+    .where(eq(categories.parentId, categoryId));
+
+  const subCategoryIds = subCategories.map((c) => c.id);
+
+  // thêm luôn category hiện tại
+  const categoryIds = [categoryId, ...subCategoryIds];
+
+  // query products thuộc các category đó
+  const productsData = await db
+    .select({
+      id: products.id,
+      name: products.name,
+      price: products.price_default,
+      thumbnailUrl: products.thumbnailUrl,
+    })
+    .from(products)
+    .where(inArray(products.categoryId, categoryIds));
+
+  return productsData;
 };

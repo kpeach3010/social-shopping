@@ -5,6 +5,7 @@ const {
   updateCategoryController,
   deleteCategoryController,
   getCategoryByIdController,
+  getProductsByCategoryController,
 } = require("../controllers/category.controller");
 const { authenticate, hasRoles } = require("../middlewares/auth.middleware");
 const Role = require("../enums/role.enum");
@@ -34,11 +35,12 @@ router.delete(
 
 router.get(
   "/category/:id",
-  authenticate,
-  hasRoles(Role.STAFF),
+
   getCategoryByIdController
 );
 
 router.get("/all-categories", getAllCategoriesController);
+
+router.get("/:categoryId/products", getProductsByCategoryController);
 
 module.exports = router;

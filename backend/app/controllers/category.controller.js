@@ -4,6 +4,7 @@ const {
   updateCategoryService,
   deleteCategoryService,
   getCategoryById,
+  getProductsByCategoryService,
 } = require("../services/category.service.js");
 
 // tạo category
@@ -61,5 +62,15 @@ exports.deleteCategoryController = async (req, res) => {
     res.status(200).json(result);
   } catch (error) {
     res.status(400).json({ error: error.message });
+  }
+};
+
+exports.getProductsByCategoryController = async (req, res) => {
+  try {
+    const { categoryId } = req.params;
+    const products = await getProductsByCategoryService(categoryId);
+    res.json(products);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 };

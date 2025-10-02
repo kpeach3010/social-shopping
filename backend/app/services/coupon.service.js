@@ -1,6 +1,11 @@
 import { db } from "../db/client.js";
-import { coupons, couponProducts } from "../db/schema.js";
-import { eq, lte, gte, isNull, lt, and, or } from "drizzle-orm";
+import {
+  coupons,
+  couponProducts,
+  productVariants,
+  orders,
+} from "../db/schema.js";
+import { eq, lte, gte, isNull, lt, and, or, inArray, sql } from "drizzle-orm";
 import GroupKind from "../enums/kind.enum.js";
 import CouponType from "../enums/type.enum.js";
 
@@ -23,7 +28,7 @@ function normalizeType(value) {
 // tao 1 coupon
 export const createCouponService = async (data) => {
   try {
-    // kiem tra trung name
+    // kiểm tra trùng code
     const exists = await db
       .select()
       .from(coupons)
@@ -31,7 +36,7 @@ export const createCouponService = async (data) => {
       .limit(1);
 
     if (exists.length > 0) {
-      throw new Error("coupon name already exists");
+      throw new Error("Coupon code already exists");
     }
 
     const kind = normalizeKind(data.kind);
@@ -45,7 +50,7 @@ export const createCouponService = async (data) => {
       value: data.value,
       startsAt: new Date(data.startsAt),
       endsAt: new Date(data.endsAt),
-      used: data.used,
+      used: data.used ?? 0,
       usage_limit: data.usage_limit,
       perUserLimit: data.perUserLimit,
       stackable: data.stackable ?? false,
@@ -55,7 +60,19 @@ export const createCouponService = async (data) => {
       requireSameVariant: data.requireSameVariant ?? false,
     };
 
+    // Insert coupon
     const [coupon] = await db.insert(coupons).values(payload).returning();
+
+    // Nếu có productIds thì insert vào bảng coupon_products
+    if (Array.isArray(data.productIds) && data.productIds.length > 0) {
+      const rows = data.productIds.map((pid) => ({
+        couponId: coupon.id,
+        productId: pid,
+      }));
+
+      await db.insert(couponProducts).values(rows);
+    }
+
     return coupon;
   } catch (error) {
     console.error("Error creating coupon:", error);
@@ -74,9 +91,10 @@ export const getAllCouponsService = async () => {
 };
 
 // Lấy tất cả coupon còn hiệu lực
-export const getValidCouponsService = async () => {
+export const getValidCouponsService = async (userId = null) => {
   const now = new Date();
 
+  // Lấy coupon còn hạn và chưa hết usage_limit tổng
   const activeCoupons = await db
     .select()
     .from(coupons)
@@ -88,52 +106,81 @@ export const getValidCouponsService = async () => {
       )
     );
 
-  return activeCoupons;
-};
+  if (!userId) return activeCoupons;
 
-// Lấy coupon hợp lệ cho sản phẩm đã chọn
-export const getAvailableCouponsForProductsService = async (productIds) => {
-  if (!Array.isArray(productIds) || productIds.length === 0) return [];
-
-  // gọi hàm tái sử dụng
-  const allCoupons = await getValidCouponsService();
-
+  // Nếu có userId → lọc theo perUserLimit
   const result = [];
-  for (const c of allCoupons) {
-    const appliedProducts = await db
-      .select({ productId: couponProducts.productId })
-      .from(couponProducts)
-      .where(eq(couponProducts.couponId, c.id));
+  for (const c of activeCoupons) {
+    if (c.perUserLimit) {
+      const [{ count }] = await db
+        .select({ count: sql`COUNT(*)`.mapWith(Number) })
+        .from(orders)
+        .where(and(eq(orders.userId, userId), eq(orders.couponCode, c.code)));
 
-    if (appliedProducts.length === 0) {
-      // coupon áp dụng cho toàn bộ sản phẩm
-      result.push({ ...c, applicable: true });
-    } else {
-      const allowedProductIds = appliedProducts.map((p) => p.productId);
-      const hasMatch = productIds.some((pid) =>
-        allowedProductIds.includes(pid)
-      );
-      result.push({ ...c, applicable: hasMatch });
+      if (count >= c.perUserLimit) {
+        // user đã dùng đủ → bỏ qua
+        continue;
+      }
     }
+    result.push(c);
   }
 
   return result;
 };
 
-export const deleteCouponService = async (couponId) => {
-  const [coupon] = await db
-    .select()
-    .from(coupons)
-    .where(eq(coupons.id, couponId))
-    .limit(1);
+export const getAvailableCouponsForProductsService = async ({
+  productIds = [],
+  variantIds = [],
+  userId = null, // thêm userId để lọc theo perUserLimit
+  onlyApplicable = false,
+} = {}) => {
+  const allProductIds = [
+    ...productIds,
+    ...(variantIds.length
+      ? (
+          await db
+            .select({ productId: productVariants.productId })
+            .from(productVariants)
+            .where(inArray(productVariants.id, variantIds))
+        ).map((r) => r.productId)
+      : []),
+  ];
+  const uniqueProductIds = [...new Set(allProductIds)];
+  if (!uniqueProductIds.length) return [];
 
-  if (!coupon) {
-    throw new Error("Coupon không tồn tại");
-  }
+  // lấy coupon hợp lệ (đã lọc theo user nếu có userId)
+  const allCoupons = await getValidCouponsService(userId);
+  if (!allCoupons.length) return [];
 
-  await db.delete(coupons).where(eq(coupons.id, couponId));
+  // Prefetch mapping coupon->product
+  const couponIds = allCoupons.map((c) => c.id);
+  const mappings = await db
+    .select({
+      couponId: couponProducts.couponId,
+      productId: couponProducts.productId,
+    })
+    .from(couponProducts)
+    .where(inArray(couponProducts.couponId, couponIds));
 
-  return { message: "Xóa coupon thành công", couponId };
+  const map = mappings.reduce((acc, m) => {
+    if (!acc.has(m.couponId)) acc.set(m.couponId, new Set());
+    acc.get(m.couponId).add(m.productId);
+    return acc;
+  }, new Map());
+
+  return allCoupons.reduce((result, c) => {
+    const allowedSet = map.get(c.id);
+    const applicable = !allowedSet
+      ? true
+      : uniqueProductIds.every((pid) => allowedSet.has(pid));
+
+    if (onlyApplicable) {
+      if (applicable) result.push({ ...c, applicable: true });
+    } else {
+      result.push({ ...c, applicable });
+    }
+    return result;
+  }, []);
 };
 
 // Cập nhật coupon
@@ -181,4 +228,18 @@ export const updateCouponService = async (couponId, data) => {
     .returning();
 
   return updated;
+};
+
+// xóa 1 hoặc nhiều coupon cùng lúc
+export const deleteCouponService = async (ids) => {
+  if (!Array.isArray(ids)) ids = [ids];
+  if (!ids.length) throw new Error("No coupon id(s) provided");
+  // Xóa mapping trong coupon_products trước
+  await db.delete(couponProducts).where(inArray(couponProducts.couponId, ids));
+  // Xóa coupon
+  const result = await db
+    .delete(coupons)
+    .where(inArray(coupons.id, ids))
+    .returning();
+  return { deletedCount: result.length };
 };

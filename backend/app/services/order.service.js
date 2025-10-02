@@ -44,7 +44,8 @@ export const checkoutService = async (
   items,
   couponCode,
   shipping,
-  paymentMethod = "COD"
+  paymentMethod = "COD",
+  fromCart = true
 ) => {
   if (!items || items.length === 0) {
     throw new Error("Đơn hàng phải có ít nhất 1 sản phẩm");
@@ -122,12 +123,18 @@ export const checkoutService = async (
   // 4) Áp coupon
   let discountTotal = 0;
   if (couponCode) {
-    const validCoupons = await getAvailableCouponsForProductsService(
+    const validCoupons = await getAvailableCouponsForProductsService({
+      variantIds: items.map((i) => i.variantId),
+      onlyApplicable: true,
+    });
+
+    console.log(
+      "VariantIds gửi coupon service:",
       items.map((i) => i.variantId)
     );
-    const coupon = validCoupons.find(
-      (c) => c.code === couponCode && c.applicable
-    );
+    console.log("Valid coupons:", validCoupons);
+
+    const coupon = validCoupons.find((c) => c.code === couponCode);
 
     if (!coupon) throw new Error("Coupon không hợp lệ hoặc không áp dụng được");
     // Kiểm tra tổng số lần sử dụng (usage_limit)
@@ -225,6 +232,42 @@ export const checkoutService = async (
     finalOrderItems.push(oi);
   }
 
+  for (const { variant } of orderItemsData) {
+    const [{ totalStock }] = await db
+      .select({
+        totalStock: sql`SUM(${productVariants.stock})`.mapWith(Number),
+      })
+      .from(productVariants)
+      .where(eq(productVariants.productId, variant.productId));
+
+    await db
+      .update(products)
+      .set({ stock: totalStock })
+      .where(eq(products.id, variant.productId));
+  }
+
+  // 8) Xoá cartItems nếu từ giỏ hàng
+  if (fromCart && userId) {
+    console.log("variantIds xoá cart:", variantIds);
+
+    // Lấy cartId theo userId
+    const [cart] = await db
+      .select({ id: carts.id })
+      .from(carts)
+      .where(eq(carts.userId, userId))
+      .limit(1);
+
+    if (cart) {
+      await db
+        .delete(cartItems)
+        .where(
+          and(
+            eq(cartItems.cartId, cart.id),
+            inArray(cartItems.variantId, variantIds)
+          )
+        );
+    }
+  }
   return { order, orderItems: finalOrderItems };
 };
 
@@ -274,22 +317,47 @@ export const cancelOrderService = async (orderId, userId) => {
 
 // Lấy danh sách order của 1 user
 export const getOrdersByUserService = async (userId) => {
-  const ordersList = await db
-    .select()
+  // lấy orders của user
+  const ordersData = await db
+    .select({
+      id: orders.id,
+      status: orders.status,
+      paymentMethod: orders.paymentMethod,
+      subtotal: orders.subtotal,
+      discountTotal: orders.discountTotal,
+      shippingFee: orders.shippingFee,
+      total: orders.total,
+      couponCode: orders.couponCode,
+      createdAt: orders.createdAt,
+    })
     .from(orders)
-    .where(eq(orders.userId, userId))
-    .orderBy(desc(orders.createdAt));
+    .where(eq(orders.userId, userId));
 
-  // lấy items cho từng order
-  for (const order of ordersList) {
-    const items = await db
-      .select()
-      .from(orderItems)
-      .where(eq(orderItems.orderId, order.id));
-    order.items = items; // gắn vào order
-  }
+  // lấy items cho tất cả orderId
+  const orderIds = ordersData.map((o) => o.id);
+  const itemsData = await db
+    .select({
+      orderId: orderItems.orderId,
+      productName: orderItems.productName,
+      variantName: orderItems.variantName,
+      imageUrl: orderItems.imageUrl,
+      price: orderItems.price,
+      quantity: orderItems.quantity,
+    })
+    .from(orderItems)
+    .where(inArray(orderItems.orderId, orderIds));
 
-  return ordersList;
+  // gắn items vào orders
+  const itemsByOrder = itemsData.reduce((acc, item) => {
+    if (!acc[item.orderId]) acc[item.orderId] = [];
+    acc[item.orderId].push(item);
+    return acc;
+  }, {});
+
+  return ordersData.map((order) => ({
+    ...order,
+    items: itemsByOrder[order.id] || [],
+  }));
 };
 
 // Lấy chi tiết 1 order của user (bao gồm items)

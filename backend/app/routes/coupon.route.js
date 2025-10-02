@@ -3,7 +3,7 @@ const {
   createCouponController,
   getAllCouponsController,
   getValidCouponsController,
-  getCouponsForProductsController,
+  getAvailableCouponsController,
   deleteCouponController,
   updateCouponController,
 } = require("../controllers/coupon.controller");
@@ -21,14 +21,9 @@ router.post(
 );
 
 router.get("/all-coupons", getAllCouponsController);
-router.get("/valid-coupons", getValidCouponsController);
-router.get("/available", getCouponsForProductsController);
-router.delete(
-  "/delete-coupon/:id",
-  authenticate,
-  hasRoles(Role.STAFF),
-  deleteCouponController
-);
+router.get("/valid-coupons", authenticate, getValidCouponsController);
+router.get("/available", authenticate, getAvailableCouponsController);
+router.delete("/delete-coupon/:ids", authenticate, deleteCouponController);
 router.patch(
   "/update-coupon/:id",
   authenticate,

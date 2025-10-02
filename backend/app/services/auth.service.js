@@ -38,7 +38,7 @@ export const registerService = async (registerData) => {
       email: registerData.email,
       fullName: registerData.fullName ?? null,
       phone: registerData.phone ?? null,
-      gender: normalizeGender(registerData.gender), // 'male' | 'female' | 'other' | null
+      gender: normalizeGender(registerData.gender), // 'male' | 'female'  | null
       dateOfBirth: null,
       province: registerData.province ?? null,
       district: registerData.district ?? null,

@@ -51,6 +51,20 @@ async function uploadToBucket(
   };
 }
 
+// Hàm bỏ dấu tiếng Việt + bỏ khoảng trắng để tạo slug an toàn
+function toSlug(str) {
+  return str
+    .toLowerCase()
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "d")
+    .normalize("NFD") // tách dấu
+    .replace(/[\u0300-\u036f]/g, "") // xóa dấu
+    .replace(/\s+/g, "-") // thay khoảng trắng bằng "-"
+    .replace(/[^a-z0-9\-]/g, "") // loại ký tự đặc biệt
+    .replace(/-+/g, "-") // gộp nhiều dấu "-" liên tiếp
+    .replace(/^-|-$/g, ""); // bỏ "-" ở đầu/cuối
+}
+
 // Hàm xây dựng đường dẫn category (nếu có parent)
 async function buildCategoryPath(categoryId) {
   const category = await db
@@ -64,11 +78,7 @@ async function buildCategoryPath(categoryId) {
   }
 
   const current = category[0];
-  const slug = current.name
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // bỏ dấu tiếng Việt
-    .replace(/ /g, "-"); // thay khoảng trắng bằng dấu gạch ngang
+  const slug = await toSlug(current.name);
 
   if (current.parentId) {
     const parentPath = await buildCategoryPath(current.parentId);
@@ -173,16 +183,15 @@ export const createProductService = async (data) => {
       .update(products)
       .set({ thumbnailPath, thumbnailUrl })
       .where(eq(products.id, product.id));
-
-    // 2) Variants
+    // 2) Duyệt variants (colors + sizes)
     let totalStock = 0;
-    for (const v of data.variants) {
-      if (!v.colorName || !v.sizeName) {
-        throw new Error("Variant mới phải có cả colorName và sizeName");
-      }
+    for (const c of data.colors) {
+      if (!c.colorName) throw new Error("Color phải có tên");
 
-      // ----- xử lý color -----
-      const colorNameUpper = v.colorName.trim().toUpperCase();
+      // Xử lý color
+      const colorSlug = toSlug(c.colorName);
+      const colorNameUpper = c.colorName.trim().toUpperCase();
+
       let [color] = await db
         .select()
         .from(colors)
@@ -192,13 +201,12 @@ export const createProductService = async (data) => {
         .limit(1);
 
       if (!color) {
-        // Nếu chưa có color thì insert mới
         let imagePath = null;
         let imageUrl = null;
-        if (v.file && v.file.buffer) {
+        if (c.file && c.file.buffer) {
           const uploaded = await uploadToBucket(
-            v.file.buffer,
-            `${colorNameUpper}.png`,
+            c.file.buffer,
+            `${toSlug(c.colorName)}.png`,
             categoryPath,
             product.id,
             true
@@ -220,36 +228,40 @@ export const createProductService = async (data) => {
 
       const colorId = color.id;
 
-      // ----- xử lý size -----
-      const sizeNameUpper = v.sizeName.trim().toUpperCase();
-      let [size] = await db
-        .select()
-        .from(sizes)
-        .where(
-          and(eq(sizes.productId, product.id), eq(sizes.name, sizeNameUpper))
-        )
-        .limit(1);
+      // Duyệt sizes trong color
+      for (const s of c.sizes) {
+        if (!s.sizeName) throw new Error("Size phải có tên");
 
-      if (!size) {
-        [size] = await db
-          .insert(sizes)
-          .values({ productId: product.id, name: sizeNameUpper })
-          .returning();
+        const sizeNameUpper = s.sizeName.trim().toUpperCase();
+        let [size] = await db
+          .select()
+          .from(sizes)
+          .where(
+            and(eq(sizes.productId, product.id), eq(sizes.name, sizeNameUpper))
+          )
+          .limit(1);
+
+        if (!size) {
+          [size] = await db
+            .insert(sizes)
+            .values({ productId: product.id, name: sizeNameUpper })
+            .returning();
+        }
+
+        const sizeId = size.id;
+
+        // Insert variant
+        await db.insert(productVariants).values({
+          productId: product.id,
+          colorId,
+          sizeId,
+          stockKeepingUnit: generateSku(c.colorName, s.sizeName),
+          stock: Number(s.stock) || 0,
+          price: Number(s.price) || Number(data.price_default),
+        });
+
+        totalStock += Number(s.stock) ?? 0;
       }
-
-      const sizeId = size.id;
-
-      // ----- insert variant -----
-      await db.insert(productVariants).values({
-        productId: product.id,
-        colorId,
-        sizeId,
-        stockKeepingUnit: generateSku(v.colorName, v.sizeName),
-        stock: v.stock ?? 0,
-        price: v.price ?? data.price_default,
-      });
-
-      totalStock += v.stock ?? 0;
     }
 
     // 3) Update stock tổng
@@ -300,7 +312,15 @@ export const createProductService = async (data) => {
 
 export const getAllProductService = async () => {
   try {
-    const allProduct = await db.select().from(products);
+    const allProduct = await db
+      .select({
+        id: products.id,
+        name: products.name,
+        price: products.price_default,
+        thumbnailUrl: products.thumbnailUrl,
+        stock: products.stock,
+      })
+      .from(products);
     return allProduct;
   } catch (error) {
     console.error("Error fetching products:", error);
@@ -350,10 +370,22 @@ export const getProductByIdService = async (productId) => {
       .leftJoin(coupons, eq(couponProducts.couponId, coupons.id))
       .where(eq(couponProducts.productId, productId));
 
+    // Lấy danh sách màu (unique) của sản phẩm
+    const colorsList = await db
+      .select({
+        id: colors.id,
+        name: colors.name,
+        imageUrl: colors.imageUrl,
+        imagePath: colors.imagePath,
+      })
+      .from(colors)
+      .where(eq(colors.productId, productId));
+
     return {
       ...product,
       variants,
       coupons: couponsList.filter((c) => c.id !== null),
+      colors: colorsList,
     };
   } catch (error) {
     console.error("Error fetching product by ID:", error);
@@ -485,34 +517,39 @@ export const deleteVariantService = async (variantId) => {
   }
 };
 
-export const deleteProductService = async (productId) => {
+export const deleteProductService = async (productIds) => {
   try {
-    // 1) Lấy product để biết categoryPath
-    const [product] = await db
-      .select({
-        id: products.id,
-        categoryId: products.categoryId,
-      })
-      .from(products)
-      .where(eq(products.id, productId))
-      .limit(1);
+    // Hỗ trợ truyền 1 id hoặc mảng id
+    const ids = Array.isArray(productIds) ? productIds : [productIds];
+    for (const productId of ids) {
+      // 1) Lấy product để biết categoryPath
+      const [product] = await db
+        .select({
+          id: products.id,
+          categoryId: products.categoryId,
+        })
+        .from(products)
+        .where(eq(products.id, productId))
+        .limit(1);
 
-    if (!product) throw new Error("Product not found");
+      if (!product) continue;
 
-    // 2) Tính path folder
-    const categoryPath = await buildCategoryPath(product.categoryId);
-    const folderPrefix = `categories/${categoryPath}/${product.id}/`;
+      // 2) Tính path folder
+      const categoryPath = await buildCategoryPath(product.categoryId);
+      const folderPrefix = `categories/${categoryPath}/${product.id}/`;
 
-    // 3) Xóa toàn bộ file trong folder productId (đệ quy)
-    await deleteFolderRecursively("product-images", folderPrefix);
+      // 3) Xóa toàn bộ file trong folder productId (đệ quy)
+      await deleteFolderRecursively("product-images", folderPrefix);
 
-    // 4) Xóa bản ghi DB
-    await db.delete(products).where(eq(products.id, productId));
-
-    return { message: "Product and all its files deleted successfully" };
+      // 4) Xóa bản ghi DB
+      await db.delete(products).where(eq(products.id, productId));
+    }
+    return {
+      message: `Deleted ${ids.length} product(s) and all their files successfully`,
+    };
   } catch (error) {
     console.error("Error deleting product:", error);
-    throw new Error("Failed to delete product");
+    throw new Error("Failed to delete product(s)");
   }
 };
 
@@ -685,7 +722,7 @@ export const updateProductService = async (productId, data) => {
               const categoryPath = await buildCategoryPath(product.categoryId);
               const uploaded = await uploadToBucket(
                 v.file.buffer,
-                `${finalColorName}.png`,
+                `${toSlug(finalColorName)}.png`,
                 categoryPath,
                 productId,
                 true
@@ -812,7 +849,7 @@ export const updateProductService = async (productId, data) => {
               const categoryPath = await buildCategoryPath(product.categoryId);
               const uploaded = await uploadToBucket(
                 v.file.buffer,
-                `${colorNameUpper}.png`,
+                `${toSlug(colorNameUpper)}.png`,
                 categoryPath,
                 productId,
                 true
@@ -913,5 +950,37 @@ export const updateProductService = async (productId, data) => {
   } catch (error) {
     console.error("Error in updateProductService:", error);
     throw error;
+  }
+};
+
+// Xóa 1 màu (color) và toàn bộ variants liên quan
+export const deleteColorService = async (colorId) => {
+  try {
+    // 1) Lấy thông tin color
+    const [color] = await db
+      .select()
+      .from(colors)
+      .where(eq(colors.id, colorId))
+      .limit(1);
+    if (!color) throw new Error("Color not found");
+    // 2) Lấy danh sách variants thuộc màu này
+    const variants = await db
+      .select({ id: productVariants.id })
+      .from(productVariants)
+      .where(eq(productVariants.colorId, colorId));
+    // 3) Xóa từng variant
+    for (const v of variants) {
+      await db.delete(productVariants).where(eq(productVariants.id, v.id));
+    }
+    // 4) Xóa ảnh màu trong storage nếu có
+    if (color.imagePath) {
+      await supabase.storage.from("product-images").remove([color.imagePath]);
+    }
+    // 5) Xóa bản ghi color khỏi DB
+    await db.delete(colors).where(eq(colors.id, colorId));
+    return { message: `Deleted color ${colorId} and all related variants.` };
+  } catch (error) {
+    console.error("Error deleting color:", error);
+    throw new Error("Failed to delete color");
   }
 };

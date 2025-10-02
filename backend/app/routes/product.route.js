@@ -8,6 +8,7 @@ const {
   deleteProductController,
   deleteVariantController,
   updateProductController,
+  deleteColorController,
 } = require("../controllers/product.controller");
 const { authenticate, hasRoles } = require("../middlewares/auth.middleware");
 const Role = require("../enums/role.enum");
@@ -31,7 +32,7 @@ router.get("/get-product/:id", getProductByIdController);
 
 // Xóa 1 sản phẩm
 router.delete(
-  "/delete-product/:id",
+  "/delete-many/:ids",
   authenticate,
   hasRoles(Role.STAFF),
   deleteProductController
@@ -51,6 +52,13 @@ router.put(
   hasRoles(Role.STAFF),
   upload.any(),
   updateProductController
+);
+
+router.delete(
+  "/delete-color/:id",
+  authenticate,
+  hasRoles(Role.STAFF),
+  deleteColorController
 );
 
 module.exports = router;

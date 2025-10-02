@@ -11,14 +11,15 @@ const {
 exports.checkoutController = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { items, couponCode, shipping, paymentMethod } = req.body;
+    const { items, couponCode, shipping, paymentMethod, fromCart } = req.body;
 
     const result = await checkoutService(
       userId,
       items,
       couponCode,
       shipping,
-      paymentMethod
+      paymentMethod,
+      fromCart
     );
 
     res.status(201).json({

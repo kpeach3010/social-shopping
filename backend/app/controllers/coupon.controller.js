@@ -28,44 +28,63 @@ exports.getAllCouponsController = async (req, res) => {
 
 exports.getValidCouponsController = async (req, res) => {
   try {
-    const coupons = await getValidCouponsService();
+    const userId = req.user?.id; // lấy từ token hoặc session
+    const coupons = await getValidCouponsService(userId);
     res.status(200).json(coupons);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 };
 
-exports.getCouponsForProductsController = async (req, res) => {
+exports.getAvailableCouponsController = async (req, res) => {
   try {
-    const { productIds } = req.body;
+    let productIds = [];
+    let variantIds = [];
 
-    if (!Array.isArray(productIds) || productIds.length === 0) {
-      return res
-        .status(400)
-        .json({ error: "Danh sách productIds là bắt buộc" });
+    if (req.query.productIds) {
+      productIds = req.query.productIds.split(",");
     }
 
-    const coupons = await getAvailableCouponsForProductsService(productIds);
+    if (req.query.variantIds) {
+      variantIds = req.query.variantIds.split(",");
+    }
 
-    return res.status(200).json({
-      coupons, // danh sách coupon kèm field applicable: true/false
+    const userId = req.user?.id; // thêm userId để check perUserLimit
+
+    const data = await getAvailableCouponsForProductsService({
+      productIds,
+      variantIds,
+      userId,
+      onlyApplicable: true,
     });
-  } catch (error) {
-    console.error("Error fetching coupons for products:", error);
-    return res.status(500).json({
-      error: "Lỗi khi lấy coupon",
-      details: error.message,
-    });
+
+    res.json(data);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 };
 
+// xóa 1 hoặc nhiều coupon
 exports.deleteCouponController = async (req, res) => {
   try {
-    const id = req.params.id;
-    const result = await deleteCouponService(id);
-    res.json(result);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
+    let ids = [];
+    if (req.method === "DELETE" && req.body && Array.isArray(req.body.ids)) {
+      ids = req.body.ids;
+    } else if (req.params.ids) {
+      // Hỗ trợ /delete-many/:ids (id1,id2,id3)
+      ids = req.params.ids
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean);
+    } else if (req.params.id) {
+      ids = [req.params.id];
+    }
+    if (!ids.length)
+      return res.status(400).json({ error: "No coupon id(s) provided" });
+    const result = await deleteCouponService(ids);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
   }
 };
 

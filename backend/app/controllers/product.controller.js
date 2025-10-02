@@ -5,6 +5,7 @@ const {
   deleteProductService,
   deleteVariantService,
   updateProductService,
+  deleteColorService,
 } = require("../services/product.service");
 
 exports.createProductController = async (req, res) => {
@@ -36,16 +37,15 @@ exports.createProductController = async (req, res) => {
     }
 
     // Gán file cho từng variant
-    if (Array.isArray(body.variants)) {
-      body.variants = body.variants.map((v, idx) => {
-        const variantFile = req.files.find(
-          (f) => f.fieldname === `variants[${idx}][file]`
+    if (Array.isArray(body.colors)) {
+      body.colors = body.colors.map((c, idx) => {
+        const colorFile = req.files.find(
+          (f) => f.fieldname === `colors[${idx}][file]`
         );
-        if (variantFile) {
-          v.file = variantFile; // có .buffer
-        }
-        return v;
+        if (colorFile) c.file = colorFile;
+        return c;
       });
+
       body;
       const product = await createProductService(body);
       res.status(201).json({
@@ -83,12 +83,24 @@ exports.getProductByIdController = async (req, res) => {
   }
 };
 
-// xoa 1 product
+// xoa 1 hoặc nhiều product
 exports.deleteProductController = async (req, res) => {
   try {
-    const productId = req.params.id;
-    const result = await deleteProductService(productId);
-
+    let ids = [];
+    if (req.method === "DELETE" && req.body && Array.isArray(req.body.ids)) {
+      ids = req.body.ids;
+    } else if (req.params.ids) {
+      // Hỗ trợ /delete-many/:ids (id1,id2,id3)
+      ids = req.params.ids
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean);
+    } else if (req.params.id) {
+      ids = [req.params.id];
+    }
+    if (!ids.length)
+      return res.status(400).json({ error: "No product id(s) provided" });
+    const result = await deleteProductService(ids);
     res.status(200).json(result);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -146,6 +158,18 @@ exports.updateProductController = async (req, res) => {
     });
   } catch (error) {
     console.error("Error updating product:", error);
+    res.status(400).json({ error: error.message });
+  }
+};
+
+// Xóa 1 màu (color) và toàn bộ variants liên quan
+exports.deleteColorController = async (req, res) => {
+  try {
+    const colorId = req.params.id;
+    console.log("colorId nhận từ FE:", colorId);
+    const result = await deleteColorService(colorId);
+    res.status(200).json(result);
+  } catch (error) {
     res.status(400).json({ error: error.message });
   }
 };

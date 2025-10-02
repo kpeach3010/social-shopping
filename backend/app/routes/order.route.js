@@ -19,8 +19,8 @@ router.use(authenticate);
 
 router.post("/checkout", hasRoles(Role.CUSTOMER), checkoutController);
 router.patch("/cancel/:id", hasRoles(Role.CUSTOMER), cancelOrderController);
-router.get("/my-orders", getMyOrdersController);
-router.get("/my-orders/:id", getMyOrderByIdController);
+router.get("/my-orders", hasRoles(Role.CUSTOMER), getMyOrdersController);
+router.get("/my-orders/:id", hasRoles(Role.CUSTOMER), getMyOrderByIdController);
 router.get(
   "/overview",
   hasRoles(Role.STAFF),

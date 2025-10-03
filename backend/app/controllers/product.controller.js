@@ -6,6 +6,7 @@ const {
   deleteVariantService,
   updateProductService,
   deleteColorService,
+  searchProductByNameService,
 } = require("../services/product.service");
 
 exports.createProductController = async (req, res) => {
@@ -169,6 +170,17 @@ exports.deleteColorController = async (req, res) => {
     console.log("colorId nhận từ FE:", colorId);
     const result = await deleteColorService(colorId);
     res.status(200).json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+// Tìm kiếm sản phẩm theo tên
+exports.searchProductByNameController = async (req, res) => {
+  try {
+    const { name } = req.query;
+    const products = await searchProductByNameService(name);
+    res.status(200).json(products);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }

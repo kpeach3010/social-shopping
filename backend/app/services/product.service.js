@@ -984,3 +984,25 @@ export const deleteColorService = async (colorId) => {
     throw new Error("Failed to delete color");
   }
 };
+
+// Tìm kiếm sản phẩm theo tên (không phân biệt hoa thường, có dấu hoặc không)
+export const searchProductByNameService = async (keyword) => {
+  if (!keyword || typeof keyword !== "string" || !keyword.trim()) return [];
+  const search = `%${keyword.trim().toLowerCase()}%`;
+  try {
+    const results = await db
+      .select({
+        id: products.id,
+        name: products.name,
+        price: products.price_default,
+        thumbnailUrl: products.thumbnailUrl,
+        stock: products.stock,
+      })
+      .from(products)
+      .where(sql`lower(${products.name}) LIKE ${search}`);
+    return results;
+  } catch (error) {
+    console.error("Error searching products:", error);
+    throw new Error("Failed to search products");
+  }
+};

@@ -59,11 +59,7 @@
       </div>
       <!-- Thanh tìm kiếm -->
       <div class="flex-1 mx-6">
-        <input
-          type="text"
-          placeholder="Tìm kiếm sản phẩm..."
-          class="w-full border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-gray-500"
-        />
+        <ProductSearchBox />
       </div>
 
       <!-- Auth -->
@@ -190,6 +186,7 @@
 
 <
 <script setup>
+import ProductSearchBox from "~/components/ProductSearchBox.vue";
 import { useAuthStore } from "~/stores/auth";
 
 const auth = useAuthStore();

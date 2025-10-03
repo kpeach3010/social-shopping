@@ -462,3 +462,61 @@ export const updateOrderStatusService = async (orderId, action, staffId) => {
 
   return updated;
 };
+
+// staff có thể xem chi tiết đơn hàng bao gồm thông tin khách hàng
+export const getOrderWithUserInfoByIdService = async (orderId) => {
+  // Lấy thông tin đơn hàng, user, coupon (chỉ định rõ trường)
+  const [order] = await db
+    .select({
+      id: orders.id,
+      userId: orders.userId,
+      status: orders.status,
+      paymentMethod: orders.paymentMethod,
+      subtotal: orders.subtotal,
+      discountTotal: orders.discountTotal,
+      shippingFee: orders.shippingFee,
+      total: orders.total,
+      couponCode: orders.couponCode,
+      createdAt: orders.createdAt,
+      updatedAt: orders.updatedAt,
+      shippingName: orders.shippingName,
+      shippingPhone: orders.shippingPhone,
+      province: orders.province,
+      district: orders.district,
+      ward: orders.ward,
+      addressDetail: orders.addressDetail,
+      note: orders.note,
+      buyer: {
+        id: users.id,
+        name: users.fullName,
+        phone: users.phone,
+        address: sql`${users.addressDetail}, ${users.ward}, ${users.district}, ${users.province}`,
+      },
+    })
+    .from(orders)
+    .leftJoin(users, eq(orders.userId, users.id))
+    .leftJoin(coupons, eq(orders.couponCode, coupons.code))
+    .where(eq(orders.id, orderId))
+    .limit(1);
+
+  if (!order) throw new Error("Không tìm thấy order");
+
+  // Lấy danh sách sản phẩm trong đơn
+  const items = await db
+    .select({
+      id: orderItems.id,
+      orderId: orderItems.orderId,
+      productId: orderItems.productId,
+      variantId: orderItems.variantId,
+      productName: orderItems.productName,
+      variantName: orderItems.variantName,
+      imagePath: orderItems.imagePath,
+      imageUrl: orderItems.imageUrl,
+      price: orderItems.price,
+      quantity: orderItems.quantity,
+    })
+    .from(orderItems)
+    .where(eq(orderItems.orderId, orderId));
+
+  return { ...order, items };
+};

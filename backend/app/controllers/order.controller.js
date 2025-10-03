@@ -6,6 +6,7 @@ const {
   getAllOrdersService,
   getOrdersOverviewForStaffService,
   cancelOrderService,
+  getOrderWithUserInfoByIdService,
 } = require("../services/order.service");
 
 exports.checkoutController = async (req, res) => {
@@ -71,6 +72,16 @@ exports.getOrdersOverviewForStaffController = async (req, res) => {
   try {
     const orders = await getOrdersOverviewForStaffService();
     res.json(orders);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
+exports.getOrderWithUserInfoByIdController = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const order = await getOrderWithUserInfoByIdService(id);
+    res.json(order);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

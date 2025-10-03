@@ -9,6 +9,7 @@ const {
   deleteVariantController,
   updateProductController,
   deleteColorController,
+  searchProductByNameController,
 } = require("../controllers/product.controller");
 const { authenticate, hasRoles } = require("../middlewares/auth.middleware");
 const Role = require("../enums/role.enum");
@@ -60,5 +61,8 @@ router.delete(
   hasRoles(Role.STAFF),
   deleteColorController
 );
+
+// tim kiem san pham theo ten
+router.get("/search", searchProductByNameController);
 
 module.exports = router;

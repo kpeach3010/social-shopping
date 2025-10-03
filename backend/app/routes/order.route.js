@@ -9,6 +9,7 @@ const {
   getMyOrderByIdController,
   getOrdersOverviewForStaffController,
   cancelOrderController,
+  getOrderWithUserInfoByIdController,
 } = require("../controllers/order.controller");
 const { authenticate, hasRoles } = require("../middlewares/auth.middleware");
 const Role = require("../enums/role.enum");
@@ -21,11 +22,13 @@ router.post("/checkout", hasRoles(Role.CUSTOMER), checkoutController);
 router.patch("/cancel/:id", hasRoles(Role.CUSTOMER), cancelOrderController);
 router.get("/my-orders", hasRoles(Role.CUSTOMER), getMyOrdersController);
 router.get("/my-orders/:id", hasRoles(Role.CUSTOMER), getMyOrderByIdController);
+
 router.get(
   "/overview",
   hasRoles(Role.STAFF),
   getOrdersOverviewForStaffController
 );
+router.get("/:id", hasRoles(Role.STAFF), getOrderWithUserInfoByIdController);
 router.patch("/approve/:id", hasRoles(Role.STAFF), approveOrderController);
 router.patch("/reject/:id", hasRoles(Role.STAFF), rejectOrderController);
 

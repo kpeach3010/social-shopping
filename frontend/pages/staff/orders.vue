@@ -5,6 +5,7 @@ import Header from "@/components/header.vue";
 
 import { Check, X } from "lucide-vue-next";
 import Pagination from "@/components/Pagination.vue";
+import OrderDetailModal from "@/components/staff/OrderDetailModal.vue";
 
 const currentPage = ref(1);
 const perPage = 8;
@@ -17,7 +18,7 @@ const orders = ref([]);
 const loading = ref(false);
 const selectedStatus = ref("all");
 const showDetailModal = ref(false);
-const detailOrder = ref(null);
+const detailOrderId = ref(null);
 const auth = useAuthStore();
 
 const statusOptions = [
@@ -114,7 +115,7 @@ const rejectOrder = async (id) => {
 };
 
 const openDetail = (order) => {
-  detailOrder.value = order;
+  detailOrderId.value = order.id;
   showDetailModal.value = true;
 };
 </script>
@@ -280,90 +281,11 @@ const openDetail = (order) => {
           />
         </div>
 
-        <!-- Modal chi tiết đơn hàng -->
-        <div
-          v-if="showDetailModal"
-          class="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
-        >
-          <div
-            class="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl relative"
-          >
-            <button
-              class="absolute top-2 right-2 text-gray-500 hover:text-black"
-              @click="showDetailModal = false"
-            >
-              ×
-            </button>
-            <h2 class="text-xl font-bold mb-4">Chi tiết đơn hàng</h2>
-            <div v-if="detailOrder" class="space-y-3">
-              <div class="flex flex-wrap gap-4 mb-2">
-                <div class="flex-1 min-w-[200px]">
-                  <b>Mã đơn:</b> {{ detailOrder.id }}
-                </div>
-                <div class="flex-1 min-w-[200px]">
-                  <b>Ngày tạo:</b>
-                  {{ new Date(detailOrder.createdAt).toLocaleString("vi-VN") }}
-                </div>
-              </div>
-              <div class="flex flex-wrap gap-4 mb-2">
-                <div class="flex-1 min-w-[200px]">
-                  <b>Trạng thái:</b>
-                  <span class="capitalize">{{ detailOrder.status }}</span>
-                </div>
-                <div class="flex-1 min-w-[200px]">
-                  <b>Tổng tiền:</b>
-                  <span class="text-lg font-semibold text-green-700">
-                    {{ detailOrder.total.toLocaleString("vi-VN") }} ₫
-                  </span>
-                </div>
-              </div>
-              <div class="mb-2 font-semibold">Danh sách sản phẩm:</div>
-              <div class="overflow-x-auto">
-                <table class="min-w-full border rounded-lg overflow-hidden">
-                  <thead class="bg-gray-100">
-                    <tr>
-                      <th class="px-3 py-2">Ảnh</th>
-                      <th class="px-3 py-2">Tên sản phẩm</th>
-                      <th class="px-3 py-2">Phân loại</th>
-                      <th class="px-3 py-2">Số lượng</th>
-                      <th class="px-3 py-2">Đơn giá</th>
-                      <th class="px-3 py-2">Thành tiền</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr
-                      v-for="item in detailOrder.items"
-                      :key="item.variantName"
-                      class="border-b"
-                    >
-                      <td class="px-3 py-2">
-                        <img
-                          :src="item.imageUrl"
-                          alt="img"
-                          class="w-14 h-14 object-cover rounded border"
-                        />
-                      </td>
-                      <td class="px-3 py-2 font-medium">
-                        {{ item.productName }}
-                      </td>
-                      <td class="px-3 py-2">{{ item.variantName }}</td>
-                      <td class="px-3 py-2">x{{ item.quantity }}</td>
-                      <td class="px-3 py-2">
-                        {{ item.price.toLocaleString("vi-VN") }} ₫
-                      </td>
-                      <td class="px-3 py-2">
-                        {{
-                          (item.price * item.quantity).toLocaleString("vi-VN")
-                        }}
-                        ₫
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
+        <OrderDetailModal
+          :show="showDetailModal"
+          :orderId="detailOrderId"
+          @close="showDetailModal = false"
+        />
       </main>
     </div>
   </div>

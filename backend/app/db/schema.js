@@ -1,3 +1,4 @@
+import { create } from "domain";
 import {
   pgTable,
   varchar,
@@ -19,12 +20,29 @@ export const roleEnum = pgEnum("role_enum", ["admin", "customer", "staff"]);
 export const typeEnum = pgEnum("type_enum", ["percent", "fixed"]);
 export const kindEnum = pgEnum("kind_enum", ["general", "group"]);
 export const statusEnum = pgEnum("status_enum", ["active", "disabled"]);
+export const conversationTypesEnum = pgEnum("conversation_types", [
+  "direct",
+  "group",
+]);
 export const orderStatusEnum = pgEnum("order_status", [
   "pending",
   "confirmed",
   "rejected",
   "completed",
   "cancelled",
+]);
+export const groupOrderStatusEnum = pgEnum("group_order_status", [
+  "pending",
+  "locked",
+  "ordering",
+  "completed",
+  "cancelled",
+]);
+export const messageTypesEnum = pgEnum("message_types", [
+  "text",
+  "image",
+  "file",
+  "system",
 ]);
 
 export const users = pgTable("users", {
@@ -242,4 +260,95 @@ export const orderItems = pgTable("order_items", {
   imageUrl: varchar("image_url"), // public URL để client render
   price: decimal("price", { precision: 12, scale: 2 }).notNull(),
   quantity: integer("quantity").notNull(),
+});
+
+// Thong tin nhom mua chung, status
+export const groupOrders = pgTable("group_orders", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  productId: uuid("product_id").references(() => products.id),
+  creatorId: uuid("creator_id").references(() => users.id),
+  targetMember: integer("target_member").notNull(), // so luong thanh vien muc tieu
+  currentMember: integer("current_member").notNull().default(1), // so luong thanh vien hien tai
+  status: groupOrderStatusEnum("status").notNull().default("pending"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+// Chi tiết thành viên trong nhóm mua chung, chọn variant, qty
+export const groupOrderMembers = pgTable("group_order_members", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  groupOrderId: uuid("group_order_id")
+    .notNull()
+    .references(() => groupOrders.id, { onDelete: "cascade" }),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id),
+  variantId: uuid("variant_id").references(() => productVariants.id),
+  quantity: integer("quantity").notNull().default(1),
+  hasChosen: boolean("has_chosen").notNull().default(false), // da chon variant va qty chua
+  joinedAt: timestamp("joined_at", { withTimezone: true }).defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  // rang buoc 1 user chi dc tham gia 1 lan trong 1 group order
+  uqGroupOrderUser: uniqueIndex("uq_group_order_user").on(
+    "groupOrderId",
+    "userId"
+  ),
+});
+
+// chat schema
+// room chat (1-1, group)
+export const conversations = pgTable("conversations", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  ownerId: uuid("owner_id").references(() => users.id), // nguoi tao nhom
+  groupOrderId: uuid("group_order_id").references(() => groupOrders.id), // neu la nhom mua chung
+  type: messageTypesEnum("type").notNull().default("direct"), // direct, group
+  name: varchar("name", { length: 100 }), // ten nhom || null neu 1-1 || rename
+  invitelink: varchar("invitelink", { length: 255 }).unique(), // link moi nguoi vao nhom
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+// ai thuoc ve conversation nao
+export const conversationMembers = pgTable("conversation_members", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  conversationId: uuid("conversation_id")
+    .notNull()
+    .references(() => conversations.id, { onDelete: "cascade" }),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id),
+  joinedAt: timestamp("joined_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  // rang buoc 1 user chi dc tham gia 1 lan trong 1 conversation
+  uqConversationUser: uniqueIndex("uq_conversation_user").on(
+    "conversationId",
+    "userId"
+  ),
+});
+
+// tin nhan trong conversation
+export const messages = pgTable("messages", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  conversationId: uuid("conversation_id")
+    .notNull()
+    .references(() => conversations.id, { onDelete: "cascade" }),
+  senderId: uuid("sender_id")
+    .notNull()
+    .references(() => users.id),
+  content: text("content").notNull(),
+  type: messageTypesEnum("type").notNull().default("text"), // text, image, file, sticker
+  delivered: boolean("delivered").notNull().default(false), // da gui den clident
+  read: boolean("read").notNull().default(false), // đã đọc
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
 });

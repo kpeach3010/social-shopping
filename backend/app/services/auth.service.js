@@ -20,6 +20,15 @@ function normalizeGender(g) {
 
 export const registerService = async (registerData) => {
   try {
+    // Kiểm tra email đã tồn tại chưa
+    const [existingUser] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, registerData.email));
+    if (existingUser) {
+      throw new Error("Email đã tồn tại, vui lòng dùng email khác.");
+    }
+
     // 1) Tạo user trên Supabase Auth
     const supabaseUser = await register(
       registerData.email,
@@ -38,7 +47,7 @@ export const registerService = async (registerData) => {
       email: registerData.email,
       fullName: registerData.fullName ?? null,
       phone: registerData.phone ?? null,
-      gender: normalizeGender(registerData.gender), // 'male' | 'female'  | null
+      gender: normalizeGender(registerData.gender), // 'male' | 'female'
       dateOfBirth: null,
       province: registerData.province ?? null,
       district: registerData.district ?? null,

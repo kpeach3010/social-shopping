@@ -2,6 +2,7 @@ const {
   createStaffService,
   disableUserService,
   enableUserService,
+  getAllUsersService,
 } = require("../services/user.service");
 
 exports.createStaffController = async (req, res) => {
@@ -29,6 +30,15 @@ exports.enableUserController = async (req, res) => {
     const id = req.params.id;
     const result = await enableUserService(id);
     res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+exports.getAllUsersController = async (req, res) => {
+  try {
+    const allUsers = await getAllUsersService();
+    res.json(allUsers);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }

@@ -276,26 +276,33 @@ export const groupOrders = pgTable("group_orders", {
 });
 
 // Chi tiết thành viên trong nhóm mua chung, chọn variant, qty
-export const groupOrderMembers = pgTable("group_order_members", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  groupOrderId: uuid("group_order_id")
-    .notNull()
-    .references(() => groupOrders.id, { onDelete: "cascade" }),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id),
-  variantId: uuid("variant_id").references(() => productVariants.id),
-  quantity: integer("quantity").notNull().default(1),
-  hasChosen: boolean("has_chosen").notNull().default(false), // da chon variant va qty chua
-  joinedAt: timestamp("joined_at", { withTimezone: true }).defaultNow(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
-  // rang buoc 1 user chi dc tham gia 1 lan trong 1 group order
-  uqGroupOrderUser: uniqueIndex("uq_group_order_user").on(
-    "groupOrderId",
-    "userId"
-  ),
-});
+export const groupOrderMembers = pgTable(
+  "group_order_members",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    groupOrderId: uuid("group_order_id")
+      .notNull()
+      .references(() => groupOrders.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    variantId: uuid("variant_id").references(() => productVariants.id),
+    quantity: integer("quantity").notNull().default(1),
+    hasChosen: boolean("has_chosen").notNull().default(false), // da chon variant va qty chua
+    joinedAt: timestamp("joined_at", { withTimezone: true }).defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    // rang buoc 1 user chi dc tham gia 1 lan trong 1 group order
+  },
+  (table) => {
+    return {
+      uqGroupOrderUser: uniqueIndex("uq_group_order_user").on(
+        table.groupOrderId,
+        table.userId
+      ),
+    };
+  }
+);
 
 // chat schema
 // room chat (1-1, group)
@@ -303,7 +310,7 @@ export const conversations = pgTable("conversations", {
   id: uuid("id").defaultRandom().primaryKey(),
   ownerId: uuid("owner_id").references(() => users.id), // nguoi tao nhom
   groupOrderId: uuid("group_order_id").references(() => groupOrders.id), // neu la nhom mua chung
-  type: messageTypesEnum("type").notNull().default("direct"), // direct, group
+  type: conversationTypesEnum("conversation_types").notNull().default("direct"), // direct, group
   name: varchar("name", { length: 100 }), // ten nhom || null neu 1-1 || rename
   invitelink: varchar("invitelink", { length: 255 }).unique(), // link moi nguoi vao nhom
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -315,22 +322,29 @@ export const conversations = pgTable("conversations", {
 });
 
 // ai thuoc ve conversation nao
-export const conversationMembers = pgTable("conversation_members", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  conversationId: uuid("conversation_id")
-    .notNull()
-    .references(() => conversations.id, { onDelete: "cascade" }),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id),
-  joinedAt: timestamp("joined_at", { withTimezone: true }).defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
-  // rang buoc 1 user chi dc tham gia 1 lan trong 1 conversation
-  uqConversationUser: uniqueIndex("uq_conversation_user").on(
-    "conversationId",
-    "userId"
-  ),
-});
+export const conversationMembers = pgTable(
+  "conversation_members",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    conversationId: uuid("conversation_id")
+      .notNull()
+      .references(() => conversations.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    joinedAt: timestamp("joined_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    // rang buoc 1 user chi dc tham gia 1 lan trong 1 conversation
+  },
+  (table) => {
+    return {
+      uqConversationUser: uniqueIndex("uq_conversation_user").on(
+        table.conversationId,
+        table.userId
+      ),
+    };
+  }
+);
 
 // tin nhan trong conversation
 export const messages = pgTable("messages", {

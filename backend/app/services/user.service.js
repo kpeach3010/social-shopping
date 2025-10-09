@@ -154,3 +154,8 @@ export const enableUserService = async (id) => {
 
   return { message: "Tài khoản đã được khôi phục thành công" };
 };
+
+// lay tat ca user
+export const getAllUsersService = async () => {
+  return await db.select().from(users);
+};

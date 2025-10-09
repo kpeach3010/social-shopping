@@ -8,6 +8,7 @@ const productRoutes = require("./app/routes/product.route");
 const couponRoutes = require("./app/routes/coupon.route");
 const cartRoutes = require("./app/routes/cart.route");
 const orderRoutes = require("./app/routes/order.route");
+const conversationRoutes = require("./app/routes/conversation.route");
 const {
   notFoundHandler,
   internalHandler,
@@ -25,7 +26,7 @@ app.use("/api/product", productRoutes);
 app.use("/api/coupons", couponRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/orders", orderRoutes);
-
+app.use("/api/conversations", conversationRoutes);
 app.get("/", (req, res) => {
   res.json({ message: "Welcome to the Social Shopping App API!" });
 });

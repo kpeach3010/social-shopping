@@ -166,6 +166,9 @@
               type="submit"
               class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-black hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-200"
             >
+              <div v-if="errorMessage" class="text-red-600 mt-2 text-sm">
+                {{ errorMessage }}
+              </div>
               Đăng ký
             </button>
           </div>
@@ -176,6 +179,7 @@
 </template>
 
 <script setup lang="ts">
+definePageMeta({ layout: false });
 const form = reactive({
   email: "",
   password: "",
@@ -190,8 +194,10 @@ const form = reactive({
 });
 
 const config = useRuntimeConfig();
+const errorMessage = ref("");
 
 const onSubmit = async () => {
+  errorMessage.value = "";
   try {
     // Clone form
     const payload = { ...form };
@@ -217,6 +223,13 @@ const onSubmit = async () => {
 
     console.log("Đăng ký thành công:", res);
   } catch (err) {
+    const e = err as any;
+    const msg =
+      e?.response?._data?.error ||
+      e?.data?.error ||
+      e?.message ||
+      "Đăng ký thất bại";
+    errorMessage.value = msg;
     console.error("Lỗi đăng ký:", err);
   }
 };

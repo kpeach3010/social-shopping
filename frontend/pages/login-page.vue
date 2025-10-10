@@ -65,6 +65,8 @@
 </template>
 
 <script setup>
+definePageMeta({ layout: false });
+
 import { useAuthStore } from "@/stores/auth";
 
 const form = reactive({

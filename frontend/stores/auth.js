@@ -9,7 +9,7 @@ export const useAuthStore = defineStore("auth", {
       this.accessToken = token;
       if (process.client) {
         localStorage.setItem("accessToken", token);
-        localStorage.setItem("user", JSON.stringify(user)); // lưu user thật
+        localStorage.setItem("user", JSON.stringify(user));
       }
     },
     logout() {
@@ -18,6 +18,12 @@ export const useAuthStore = defineStore("auth", {
       if (process.client) {
         localStorage.removeItem("accessToken");
         localStorage.removeItem("user");
+      }
+
+      // Reset state chat toàn cục
+      const chatStore = useChatStore?.();
+      if (chatStore) {
+        chatStore.reset();
       }
     },
     loadFromStorage() {

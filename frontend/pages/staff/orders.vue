@@ -1,7 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from "vue";
 import Sidebar from "@/components/staff/Sidebar.vue";
-import Header from "@/components/header.vue";
 
 import { Check, X } from "lucide-vue-next";
 import Pagination from "@/components/Pagination.vue";
@@ -184,7 +183,6 @@ const openDetail = (order) => {
                   <div class="flex items-center gap-1">
                     <template v-if="o.items && o.items.length">
                       <img
-                        v-for="(item, idx) in o.items.slice(0, 2)"
                         :key="item.imageUrl + idx"
                         :src="item.imageUrl"
                         class="w-8 h-8 object-cover rounded border"

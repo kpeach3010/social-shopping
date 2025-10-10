@@ -1,7 +1,5 @@
 <template>
   <div>
-    <Header />
-
     <main class="container mx-auto px-6 py-12 flex gap-8">
       <!-- Sidebar -->
       <aside class="w-1/4">
@@ -362,14 +360,10 @@
         </div>
       </div>
     </div>
-
-    <Footer />
   </div>
 </template>
 
 <script setup>
-import Header from "@/components/header.vue";
-import Footer from "@/components/footer.vue";
 import { useAuthStore } from "@/stores/auth";
 
 const auth = useAuthStore();

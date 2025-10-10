@@ -1,5 +1,4 @@
 <script setup>
-import Header from "@/components/header.vue";
 import { ref, onMounted, computed } from "vue";
 import {
   Shirt,

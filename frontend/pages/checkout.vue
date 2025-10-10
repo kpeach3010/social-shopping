@@ -1,7 +1,5 @@
 <template>
   <div>
-    <Header />
-
     <main class="container mx-auto px-4 py-8">
       <!-- Nếu đặt đơn thành công -->
       <div
@@ -258,14 +256,10 @@
       @close="showCouponModal = false"
       @select="applyCoupon"
     />
-
-    <Footer />
   </div>
 </template>
 
 <script setup>
-import Header from "@/components/header.vue";
-import Footer from "@/components/footer.vue";
 import CouponModal from "@/components/modals/couponModal.vue";
 import { useAuthStore } from "@/stores/auth";
 

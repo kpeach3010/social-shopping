@@ -1,7 +1,5 @@
 <template>
   <div>
-    <Header />
-
     <main class="container mx-auto px-6 py-10">
       <h2 class="text-xl font-bold mb-6">
         <template v-if="parentCategory"> {{ parentCategory.name }} > </template>
@@ -53,14 +51,9 @@
         Không có sản phẩm nào trong danh mục này.
       </div>
     </main>
-
-    <Footer />
   </div>
 </template>
 <script setup>
-import Header from "@/components/header.vue";
-import Footer from "@/components/footer.vue";
-
 const route = useRoute();
 const config = useRuntimeConfig();
 

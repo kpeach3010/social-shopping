@@ -1,7 +1,5 @@
 <template>
   <div>
-    <Header />
-
     <main class="container mx-auto px-4 py-8">
       <h1 class="text-2xl font-bold mb-6">Giỏ hàng của bạn</h1>
 
@@ -123,8 +121,6 @@
         </div>
       </div>
     </main>
-
-    <Footer />
   </div>
   <!-- Coupon Modal -->
   <CouponModal
@@ -136,10 +132,8 @@
 </template>
 
 <script setup>
-import Header from "@/components/header.vue";
-import Footer from "@/components/footer.vue";
 import { useAuthStore } from "@/stores/auth";
-import CouponModal from "@/components/modals/couponModal.vue"; // ✅ nhớ đúng tên file
+import CouponModal from "@/components/modals/couponModal.vue";
 
 const config = useRuntimeConfig();
 const auth = useAuthStore();

@@ -1,6 +1,5 @@
 <template>
   <div>
-    <Header />
     <div class="container mx-auto px-4 py-8 min-h-[60vh]">
       <h1 class="text-2xl font-bold mb-6">
         Kết quả tìm kiếm cho:
@@ -48,13 +47,10 @@
         </div>
       </div>
     </div>
-    <Footer />
   </div>
 </template>
 
 <script setup>
-import Header from "~/components/header.vue";
-import Footer from "~/components/footer.vue";
 import { ref, watch } from "vue";
 const results = ref([]);
 const loading = ref(false);

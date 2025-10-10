@@ -1,9 +1,6 @@
 <template>
-  <div>
-    <!-- Header -->
-    <Header />
-
-    <!-- Banner lớn -->
+  <div class="flex flex-col min-h-screen">
+    <!-- Banner -->
     <section class="relative">
       <img
         src="/banner.png"
@@ -63,26 +60,17 @@
         </div>
       </div>
     </section>
-
-    <!-- Footer -->
-    <Footer />
   </div>
 </template>
 
 <script setup>
-// Import Header + Footer
-import Header from "@/components/header.vue";
-import Footer from "@/components/footer.vue";
-
 const config = useRuntimeConfig();
 const products = ref([]);
-
 onMounted(async () => {
   try {
     const res = await $fetch("/product/all-products", {
       baseURL: config.public.apiBase,
     });
-    console.log("Products API:", res);
     products.value = res;
   } catch (err) {
     console.error("Lỗi fetch products:", err);

@@ -1,5 +1,4 @@
 <script setup>
-import Header from "@/components/header.vue";
 import { ref, onMounted } from "vue";
 import { PencilLine, Trash2 } from "lucide-vue-next";
 import Sidebar from "@/components/staff/Sidebar.vue";

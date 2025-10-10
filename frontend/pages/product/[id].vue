@@ -1,8 +1,6 @@
 lỗi k hiển thị coupon nữa
 <template>
   <div>
-    <Header />
-
     <main class="container mx-auto px-4 py-10" v-if="!loading && product">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
         <!-- Ảnh -->
@@ -225,14 +223,10 @@ lỗi k hiển thị coupon nữa
         </div>
       </div>
     </main>
-
-    <Footer />
   </div>
 </template>
 
 <script setup>
-import Header from "@/components/header.vue";
-import Footer from "@/components/footer.vue";
 import { useAuthStore } from "@/stores/auth";
 
 const route = useRoute();

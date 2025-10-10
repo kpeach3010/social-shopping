@@ -357,8 +357,8 @@ export const messages = pgTable("messages", {
     .references(() => users.id),
   content: text("content").notNull(),
   type: messageTypesEnum("type").notNull().default("text"), // text, image, file, sticker
-  delivered: boolean("delivered").notNull().default(false), // da gui den clident
-  read: boolean("read").notNull().default(false), // đã đọc
+  // delivered: boolean("delivered").notNull().default(false), // da gui den clident
+  // read: boolean("read").notNull().default(false), // đã đọc
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

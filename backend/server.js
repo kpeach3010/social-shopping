@@ -1,4 +1,7 @@
 const app = require("./app");
+const {
+  startInviteLinkCleanupCron,
+} = require("./app/cron/cleanupInviteLinks.js");
 const config = require("./app/config");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -94,6 +97,7 @@ async function startServer() {
 
     server.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
+      startInviteLinkCleanupCron();
     });
 
     // Kiểm tra và tạo user admin nếu chưa tồn tại

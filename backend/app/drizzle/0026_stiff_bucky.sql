@@ -1,0 +1,1 @@
+ALTER TABLE "invite_links" ADD COLUMN "updated_at" timestamp with time zone DEFAULT now();

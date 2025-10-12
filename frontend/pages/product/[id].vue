@@ -112,34 +112,68 @@ lỗi k hiển thị coupon nữa
           <div class="mt-6">
             <h3 class="font-semibold mb-2">Mã giảm giá</h3>
 
-            <!-- Nếu có coupon -->
             <div v-if="coupons.length" class="space-y-2">
               <div
                 v-for="c in coupons"
                 :key="c.id"
-                class="flex items-center px-3 py-2 border rounded-lg bg-white shadow-sm hover:shadow-md transition text-sm"
+                class="flex items-center justify-between px-3 py-2 border rounded-lg bg-white shadow-sm hover:shadow-md transition text-sm"
               >
-                <span class="font-semibold text-gray-600 mr-2">
-                  {{ c.kind === "general" ? "Mã cá nhân:" : "Mã nhóm:" }}
-                </span>
+                <!-- Thông tin coupon -->
+                <div>
+                  <span class="font-semibold text-gray-600 mr-2">
+                    {{ c.kind === "general" ? "Mã cá nhân:" : "Mã nhóm:" }}
+                  </span>
 
-                <span class="font-mono font-semibold text-gray-900 mr-2">
-                  {{ c.code }}
-                </span>
+                  <span class="font-mono font-semibold text-gray-900 mr-2">
+                    {{ c.code }}
+                  </span>
 
-                <span class="text-green-600 font-bold mx-2">
-                  Giảm
-                  <span v-if="c.type === 'percent'">{{ c.value }}%</span>
-                  <span v-else>{{ formatPrice(c.value) }}</span>
-                </span>
+                  <span class="text-green-600 font-bold mx-2">
+                    Giảm
+                    <span v-if="c.type === 'percent'">{{ c.value }}%</span>
+                    <span v-else>{{ formatPrice(c.value) }}</span>
+                  </span>
 
-                <span v-if="c.endsAt" class="text-red-500 text-xs">
-                  Hết hạn {{ formatDate(c.endsAt) }}
-                </span>
+                  <span v-if="c.endsAt" class="text-red-500 text-xs">
+                    Hết hạn {{ formatDate(c.endsAt) }}
+                  </span>
+                </div>
+
+                <!-- Nút tạo nhóm nếu là coupon group -->
+                <div
+                  v-if="c.kind === 'group'"
+                  class="ml-4 flex flex-col items-end"
+                >
+                  <button
+                    @click="createGroupOrder(c.id)"
+                    class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs mb-1"
+                  >
+                    Tạo nhóm
+                  </button>
+                  <div
+                    v-if="groupInviteLinks[c.id]"
+                    class="text-xs text-blue-700 break-all mt-1"
+                  >
+                    <span>Link mời: </span>
+                    <a
+                      href="#"
+                      @click.prevent="
+                        handleInviteClick(groupInviteLinks[c.id], c.id)
+                      "
+                      class="underline text-blue-700"
+                      >{{ groupInviteLinks[c.id] }}</a
+                    >
+                    <button
+                      @click="copyInviteLink(groupInviteLinks[c.id])"
+                      class="ml-2 text-xs text-blue-600 underline"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <!-- Nếu không có coupon -->
             <div
               v-else
               class="p-4 border rounded-lg bg-gray-50 text-center text-gray-500"
@@ -241,6 +275,68 @@ const selectedSize = ref(null);
 const quantity = ref(1);
 const coupons = ref([]);
 const showReply = ref(false);
+const groupInviteLinks = ref({});
+const joiningGroup = ref(false);
+const joinError = ref("");
+
+async function handleInviteClick(link, couponId) {
+  if (!auth.accessToken) {
+    alert("Bạn cần đăng nhập để tham gia nhóm");
+    return;
+  }
+  const token = link.split("/invite/")[1];
+  if (!token) return;
+  joiningGroup.value = true;
+  joinError.value = "";
+  try {
+    const res = await $fetch("/conversations/join-group", {
+      method: "POST",
+      baseURL: config.public.apiBase,
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+      body: { invitelink: token },
+    });
+    // Mở chatbox group, truyền dữ liệu cho chatbox
+    window.dispatchEvent(
+      new CustomEvent("open-group-chat", { detail: res.conversation })
+    );
+  } catch (e) {
+    joinError.value =
+      e?.data?.message || e.message || "Không thể tham gia nhóm";
+    // Không alert, chỉ hiển thị lỗi trên giao diện nếu cần
+  } finally {
+    joiningGroup.value = false;
+  }
+}
+const createGroupOrder = async (couponId) => {
+  if (!auth.accessToken) {
+    alert("Bạn cần đăng nhập để tạo nhóm");
+    return;
+  }
+  try {
+    const res = await $fetch("/conversations/group-orders", {
+      method: "POST",
+      baseURL: config.public.apiBase,
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+      body: {
+        productId: product.value.id,
+        couponId,
+        creatorId: auth.user.id,
+        frontendUrl: window.location.origin,
+      },
+    });
+    groupInviteLinks.value = {
+      ...groupInviteLinks.value,
+      [couponId]: `${window.location.origin}/invite/${res.conversation.invitelink}`,
+    };
+  } catch (e) {
+    alert("Không thể tạo nhóm: " + (e?.data?.message || e.message));
+  }
+};
+
+function copyInviteLink(link) {
+  navigator.clipboard.writeText(link);
+  alert("Đã copy link mời!");
+}
 
 const allImages = computed(() => {
   if (!product.value) return [];

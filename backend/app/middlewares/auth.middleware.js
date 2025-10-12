@@ -41,6 +41,14 @@ export const authenticate = async (req, res, next) => {
     next(); // tiếp tục đến handler tiếp theo
   } catch (err) {
     console.error("Auth Middleware Error:", err);
+    if (err.name === "TokenExpiredError") {
+      return res.status(401).json({ message: "Token đã hết hạn" });
+    }
+
+    if (err.name === "JsonWebTokenError") {
+      return res.status(401).json({ message: "Token không hợp lệ" });
+    }
+
     return res.status(401).json({ message: "Unauthorized" });
   }
 };

@@ -2,9 +2,12 @@ const {
   getOrCreateDirectConversationService,
   getMessagesService,
   sendMessageService,
+  getUserGroupConversationsService,
+  createInviteLinkService,
+  joinGroupOrderByInviteTokenService,
 } = require("../services/conversation.service");
 
-exports.getOrCreateDirectConversation = async (req, res) => {
+exports.getOrCreateDirectConversationController = async (req, res) => {
   try {
     const userId = req.user.id;
     const { partnerId } = req.body;
@@ -19,7 +22,7 @@ exports.getOrCreateDirectConversation = async (req, res) => {
   }
 };
 
-exports.getMessages = async (req, res) => {
+exports.getMessagesController = async (req, res) => {
   try {
     const { conversationId } = req.params;
     const messages = await getMessagesService(conversationId);
@@ -29,7 +32,7 @@ exports.getMessages = async (req, res) => {
   }
 };
 
-exports.sendMessage = async (req, res) => {
+exports.sendMessageController = async (req, res) => {
   try {
     const { conversationId } = req.params;
     const { content, type } = req.body;
@@ -42,5 +45,60 @@ exports.sendMessage = async (req, res) => {
     res.json(msg);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+exports.getUserGroupConversationsController = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { type } = req.query;
+
+    if (type !== "group") {
+      return res.status(400).json({ error: "Chỉ hỗ trợ type=group" });
+    }
+
+    const conversations = await getUserGroupConversationsService(userId);
+    res.json(conversations);
+  } catch (err) {
+    console.error("Lỗi get conversations:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+exports.createInviteLinkController = async (req, res) => {
+  try {
+    const { productId, couponId } = req.body;
+
+    const result = await createInviteLinkService({
+      creatorId: req.user.id,
+      productId,
+      couponId,
+      frontendId: process.env.FRONTEND_URL || "http://localhost:3000",
+    });
+
+    res.json(result);
+  } catch (error) {
+    console.error("Lỗi khi tạo link mời:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.joinGroupOrderByInviteTokenController = async (req, res) => {
+  try {
+    const { token } = req.params;
+    const userId = req.user?.id;
+
+    if (!token) {
+      return res.status(400).json({ error: "Thiếu token" });
+    }
+    if (!userId) {
+      return res.status(401).json({ error: "Chưa đăng nhập" });
+    }
+
+    const result = await joinGroupOrderByInviteTokenService({ token, userId });
+    res.status(200).json(result);
+  } catch (error) {
+    console.error("Lỗi join nhóm:", error);
+    res.status(400).json({ error: error.message });
   }
 };

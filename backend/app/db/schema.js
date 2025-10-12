@@ -1,4 +1,5 @@
 import { create } from "domain";
+import { is } from "drizzle-orm";
 import {
   pgTable,
   varchar,
@@ -155,8 +156,9 @@ export const coupons = pgTable("coupons", {
   stackable: boolean("stackable").notNull().default(false), // co the dung cung coupon khac ko
   minOrderTotal: decimal("min_order_total"), // gia tri don hang toi thieu de ap dung coupon
   // Dieu kien cho don mua chung
-  minMember: integer("min_member"), // so luong thanh vien toi thieu
   minTotalQuantity: integer("min_total_quantity"), // tong so luong san pham toi thieu
+  // so luong thanh vien toi da
+  maxMember: integer("max_member"),
 });
 
 export const couponProducts = pgTable(
@@ -266,6 +268,7 @@ export const orderItems = pgTable("order_items", {
 export const groupOrders = pgTable("group_orders", {
   id: uuid("id").defaultRandom().primaryKey(),
   productId: uuid("product_id").references(() => products.id),
+  couponId: uuid("coupon_id").references(() => coupons.id),
   creatorId: uuid("creator_id").references(() => users.id),
   targetMember: integer("target_member").notNull(), // so luong thanh vien muc tieu
   currentMember: integer("current_member").notNull().default(1), // so luong thanh vien hien tai
@@ -305,14 +308,47 @@ export const groupOrderMembers = pgTable(
 );
 
 // chat schema
+export const inviteLinks = pgTable(
+  "invite_links",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    token: varchar("token", { length: 255 }).notNull().unique(),
+    creatorId: uuid("creator_id").references(() => users.id, {
+      onDelete: "cascade",
+    }),
+    productId: uuid("product_id").references(() => products.id, {
+      onDelete: "cascade",
+    }),
+    couponId: uuid("coupon_id").references(() => coupons.id, {
+      onDelete: "cascade",
+    }),
+    isUsed: boolean("is_used").notNull().default(false),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    conversationId: uuid("conversation_id")
+      .unique()
+      .references(() => conversations.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => {
+    return {
+      uqCreatorProductCoupon: uniqueIndex(
+        "uq_invite_creator_product_coupon"
+      ).on(table.creatorId, table.productId, table.couponId),
+    };
+  }
+);
+
 // room chat (1-1, group)
 export const conversations = pgTable("conversations", {
   id: uuid("id").defaultRandom().primaryKey(),
   ownerId: uuid("owner_id").references(() => users.id), // nguoi tao nhom
-  groupOrderId: uuid("group_order_id").references(() => groupOrders.id), // neu la nhom mua chung
+  groupOrderId: uuid("group_order_id").references(() => groupOrders.id, {
+    onDelete: "set null",
+  }), // neu la nhom mua chung
   type: conversationTypesEnum("conversation_types").notNull().default("direct"), // direct, group
   name: varchar("name", { length: 100 }), // ten nhom || null neu 1-1 || rename
-  invitelink: varchar("invitelink", { length: 255 }).unique(), // link moi nguoi vao nhom
+  inviteToken: varchar("invite_token", { length: 255 }).unique(), // link moi nguoi vao nhom
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

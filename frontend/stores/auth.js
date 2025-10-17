@@ -19,12 +19,6 @@ export const useAuthStore = defineStore("auth", {
         localStorage.removeItem("accessToken");
         localStorage.removeItem("user");
       }
-
-      // Reset state chat toàn cục
-      const chatStore = useChatStore?.();
-      if (chatStore) {
-        chatStore.reset();
-      }
     },
     loadFromStorage() {
       if (process.client) {

@@ -6,12 +6,16 @@ const {
   getUserGroupConversationsController,
   createInviteLinkController,
   joinGroupOrderByInviteTokenController,
+  getUserConversationsController,
+  getConversationByIdController,
 } = require("../controllers/conversation.controller");
 const { authenticate } = require("../middlewares/auth.middleware");
 
 const router = express.Router();
 
-router.get("/", authenticate, getUserGroupConversationsController);
+router.get("/", authenticate, getUserConversationsController);
+router.get("/group", authenticate, getUserGroupConversationsController);
+router.get("/:id", authenticate, getConversationByIdController);
 router.post("/invite-links", authenticate, createInviteLinkController);
 router.post("/direct", authenticate, getOrCreateDirectConversationController);
 router.get("/:conversationId/messages", authenticate, getMessagesController);

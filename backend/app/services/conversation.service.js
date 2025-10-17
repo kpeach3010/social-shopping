@@ -14,7 +14,7 @@ import {
   getValidCouponsService,
 } from "./coupon.service.js";
 
-import { eq, and, or, isNull, gt, count } from "drizzle-orm";
+import { eq, and, or, isNull, gt, count, inArray, ne } from "drizzle-orm";
 import { exists } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import e from "express";
@@ -64,6 +64,7 @@ export const getOrCreateDirectConversationService = async (
     return {
       id: directConversation[0].id,
       partner,
+      isNew: false,
     };
   }
 
@@ -90,6 +91,7 @@ export const getOrCreateDirectConversationService = async (
   return {
     id: conversation.id,
     partner,
+    isNew: true,
   };
 };
 
@@ -154,7 +156,7 @@ export const createInviteLinkService = async ({
 }) => {
   const now = new Date();
 
-  // 1. Kiem tra coupon hop le va ap dung cho san pham
+  // 1. Kiểm tra coupon hợp lệ
   const coupons = await getAvailableCouponsForProductsService({
     productIds: [productId],
     userId: creatorId,
@@ -162,43 +164,49 @@ export const createInviteLinkService = async ({
   });
 
   const coupon = coupons.find((c) => c.id === couponId);
-  if (!coupon) {
+  if (!coupon)
     throw new Error("Coupon không hợp lệ hoặc không áp dụng cho sản phẩm này");
-  }
 
-  if (coupon.kind !== "group") {
+  if (coupon.kind !== "group")
     throw new Error("Coupon này không phải loại group, không thể tạo link mời");
-  }
 
-  // 2. Kiem tra creator da co link hop le ( chua dung & chua het han) chua
+  // 2. Kiểm tra link hiện có
   const [existing] = await db
-    .select()
+    .select({
+      token: inviteLinks.token,
+      expiresAt: inviteLinks.expiresAt,
+      conversationName: conversations.name,
+      isUsed: inviteLinks.isUsed,
+    })
     .from(inviteLinks)
+    .leftJoin(conversations, eq(inviteLinks.conversationId, conversations.id))
     .where(
       and(
         eq(inviteLinks.creatorId, creatorId),
         eq(inviteLinks.productId, productId),
         eq(inviteLinks.couponId, couponId),
-        eq(inviteLinks.isUsed, false),
         or(isNull(inviteLinks.expiresAt), gt(inviteLinks.expiresAt, now))
       )
     )
     .limit(1);
 
-  // 3. Neu co roi thi tai su dung
+  // 3.Nếu có link hợp lệ
   if (existing) {
     return {
       reused: true,
-      inviteLink: `${frontendId}/invite/$${existing.token}`,
+      inviteLink: `${frontendId}/invite/${existing.token}`,
       expiresAt: existing.expiresAt,
+      conversationName: existing.conversationName,
+      isUsed: existing.isUsed,
     };
   }
 
-  // 4. Neu chua co thi tao moi
+  // 4. Nếu chưa có -> tạo mới
   const token = randomUUID();
-  const couponExpire = new Date(coupon.endsAt); // ngay het han coupon
+  const couponExpire = new Date(coupon.endsAt);
   const linkExpire = addHours(now, LINK_EXPIRATION_HOURS);
   const expiresAt = couponExpire < linkExpire ? couponExpire : linkExpire;
+
   const [newLink] = await db
     .insert(inviteLinks)
     .values({
@@ -209,67 +217,33 @@ export const createInviteLinkService = async ({
       isUsed: false,
       expiresAt,
     })
+    .onConflictDoNothing()
     .returning();
+
+  // Nếu insert bị bỏ qua (do trùng) -> lấy lại link cũ
+  if (!newLink) {
+    const [fetched] = await db
+      .select()
+      .from(inviteLinks)
+      .where(
+        and(
+          eq(inviteLinks.creatorId, creatorId),
+          eq(inviteLinks.productId, productId),
+          eq(inviteLinks.couponId, couponId)
+        )
+      )
+      .limit(1);
+    return {
+      reused: true,
+      inviteLink: `${frontendId}/invite/${fetched.token}`,
+      expiresAt: fetched.expiresAt,
+    };
+  }
+
   return {
     reused: false,
     inviteLink: `${frontendId}/invite/${newLink.token}`,
     expiresAt: newLink.expiresAt,
-  };
-};
-
-// join group order qua link
-export const joinGroupOrderByInviteLinkService = async ({ token, userId }) => {
-  // 1. Kiem tra link co ton tai va hop le khong
-  const [link] = await db
-    .select()
-    .from(inviteLinks)
-    .where(eq(inviteLinks.token, token))
-    .limit(1);
-
-  if (!link) {
-    throw new Error("Link không hợp lệ");
-  }
-
-  if (link.isUsed) {
-    throw new Error("Link đã được sử dụng");
-  }
-
-  const now = new Date();
-  if (link.expiresAt && link.expiresAt < now) {
-    throw new Error("Link đã hết hạn");
-  }
-
-  // 2. Kiem tra userId có phải là thành viên của group không
-  const isMember = await db
-    .select()
-    .from(conversationMembers)
-    .where(
-      and(
-        eq(conversationMembers.conversationId, link.conversationId),
-        eq(conversationMembers.userId, userId)
-      )
-    )
-    .limit(1);
-
-  if (!isMember) {
-    throw new Error("Bạn không phải là thành viên của group này");
-  }
-
-  // 3. Tham gia group
-  await db.insert(conversationMembers).values({
-    conversationId: link.conversationId,
-    userId,
-  });
-
-  // 4. Đánh dấu link là đã sử dụng
-  await db
-    .update(inviteLinks)
-    .set({ isUsed: true })
-    .where(eq(inviteLinks.id, link.id));
-
-  return {
-    conversationId: link.conversationId,
-    userId,
   };
 };
 
@@ -447,4 +421,99 @@ export const joinGroupOrderByInviteTokenService = async ({ token, userId }) => {
     conversationName,
     couponCode: coupon?.code ?? null,
   };
+};
+
+// lay tat ca coversation user tham gia
+export const getUserConversationsService = async (userId) => {
+  // 1. lay tat ca conversation ma user la thanh vien
+  const userMemberships = await db
+    .select({ conversationId: conversationMembers.conversationId })
+    .from(conversationMembers)
+    .where(eq(conversationMembers.userId, userId));
+
+  if (userMemberships.length === 0) return [];
+
+  const conversationIds = userMemberships.map(
+    (membership) => membership.conversationId
+  );
+
+  // 2. lay thong tin conversation tuong ung
+  const userConversations = await db
+    .select({
+      id: conversations.id,
+      type: conversations.type,
+      name: conversations.name,
+      ownerId: conversations.ownerId,
+    })
+    .from(conversations)
+    .where(inArray(conversations.id, conversationIds));
+  // 3. neu la conversation direct thi lay ten partner
+  for (const conv of userConversations) {
+    if (conv.type === "direct") {
+      const partner = await db
+        .select({
+          id: users.id,
+          fullName: users.fullName,
+        })
+        .from(conversationMembers)
+        .innerJoin(users, eq(conversationMembers.userId, users.id))
+        .where(
+          and(
+            eq(conversationMembers.conversationId, conv.id),
+            ne(conversationMembers.userId, userId)
+          )
+        )
+        .limit(1);
+
+      conv.name = partner[0]?.fullName || "Người dùng";
+    }
+  }
+
+  return userConversations;
+};
+
+export const getConversationByIdService = async (conversationId, userId) => {
+  const [conv] = await db
+    .select()
+    .from(conversations)
+    .where(eq(conversations.id, conversationId))
+    .limit(1);
+
+  if (!conv) return null;
+
+  if (conv.type === "direct") {
+    const members = await db
+      .select({ userId: conversationMembers.userId })
+      .from(conversationMembers)
+      .where(eq(conversationMembers.conversationId, conversationId));
+
+    const partner = members.find((m) => m.userId !== userId);
+    if (partner) {
+      const [partnerInfo] = await db
+        .select({
+          id: users.id,
+          fullName: users.fullName,
+          email: users.email,
+        })
+        .from(users)
+        .where(eq(users.id, partner.userId));
+      conv.partner = partnerInfo || null;
+    }
+  } else if (conv.type === "group") {
+    // Lấy danh sách thành viên
+    const members = await db
+      .select({
+        id: users.id,
+        fullName: users.fullName,
+        email: users.email,
+      })
+      .from(conversationMembers)
+      .innerJoin(users, eq(users.id, conversationMembers.userId))
+      .where(eq(conversationMembers.conversationId, conversationId));
+
+    conv.members = members.map((m) => m.users || m);
+    if (!conv.name) conv.name = `Nhóm ${members.length} thành viên`;
+  }
+
+  return conv;
 };

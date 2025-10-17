@@ -117,6 +117,7 @@ const config = useRuntimeConfig();
 const auth = useAuthStore();
 const users = ref([]);
 const groupConversations = ref([]);
+const { $socket } = useNuxtApp();
 
 const tabs = [
   { value: "direct", label: "1-1" },
@@ -132,16 +133,31 @@ onMounted(async () => {
       baseURL: config.public.apiBase,
       headers: { Authorization: `Bearer ${auth.accessToken}` },
     });
+
     users.value = Array.isArray(res)
       ? res.filter((u) => u.id !== props.currentUserId)
       : [];
 
     // group
-    const resGroups = await $fetch("/conversations?type=group", {
+    const resGroups = await $fetch("/conversations/group?type=group", {
       baseURL: config.public.apiBase,
       headers: { Authorization: `Bearer ${auth.accessToken}` },
     });
     groupConversations.value = resGroups;
+
+    const allConversations = await $fetch("/conversations", {
+      baseURL: config.public.apiBase,
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+    });
+
+    if (typeof window !== "undefined") {
+      window.__conversations = allConversations;
+
+      // join tất cả room tương ứng
+      allConversations.forEach((conv) => {
+        $socket.emit("join-conversation", conv.id);
+      });
+    }
   } catch (e) {
     console.error("Lỗi load sidebar:", e);
     users.value = [];

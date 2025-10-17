@@ -1,4 +1,3 @@
-lỗi k hiển thị coupon nữa
 <template>
   <div>
     <main class="container mx-auto px-4 py-10" v-if="!loading && product">
@@ -142,30 +141,28 @@ lỗi k hiển thị coupon nữa
                 <!-- Nút tạo nhóm nếu là coupon group -->
                 <div
                   v-if="c.kind === 'group'"
-                  class="ml-4 flex flex-col items-end"
+                  class="flex flex-col items-end gap-1 mt-1 text-sm text-gray-900"
                 >
                   <button
-                    @click="createGroupOrder(c.id)"
-                    class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs mb-1"
+                    @click="createInviteLink(c.id)"
+                    class="px-3 py-1 bg-black text-white rounded-full hover:bg-gray-800 text-xs font-semibold shadow-sm active:scale-[0.97]"
                   >
-                    Tạo nhóm
+                    + Tạo nhóm
                   </button>
                   <div
                     v-if="groupInviteLinks[c.id]"
-                    class="text-xs text-blue-700 break-all mt-1"
+                    class="flex items-center gap-2 text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded-md px-2 py-1 w-fit mt-1"
                   >
-                    <span>Link mời: </span>
-                    <a
-                      href="#"
-                      @click.prevent="
-                        handleInviteClick(groupInviteLinks[c.id], c.id)
-                      "
-                      class="underline text-blue-700"
-                      >{{ groupInviteLinks[c.id] }}</a
-                    >
+                    <span class="font-medium text-gray-800">Link:</span>
+                    <input
+                      readonly
+                      :value="groupInviteLinks[c.id]"
+                      class="bg-transparent w-[140px] truncate focus:outline-none cursor-text text-gray-800"
+                      @click="$event.target.select()"
+                    />
                     <button
                       @click="copyInviteLink(groupInviteLinks[c.id])"
-                      class="ml-2 text-xs text-blue-600 underline"
+                      class="text-xs font-semibold text-blue-700 hover:underline"
                     >
                       Copy
                     </button>
@@ -209,47 +206,6 @@ lỗi k hiển thị coupon nữa
           </button>
         </div>
 
-        <!-- Danh sách bình luận (demo)
-        <div class="space-y-6"> -->
-        <!-- Bình luận 1
-          <div class="p-4 border rounded-lg">
-            <p class="font-semibold">Nguyễn Văn A</p>
-            <p class="text-gray-600 text-sm">1m67, 43 kí mặc size gì ạ?</p> -->
-
-        <!-- Nút trả lời -->
-        <!-- <button
-              class="text-sm text-blue-600 mt-2 hover:underline"
-              @click="showReply = !showReply"
-            >
-              Trả lời
-            </button> -->
-
-        <!-- Form trả lời -->
-        <!-- <div v-if="showReply" class="mt-2">
-              <textarea
-                placeholder="Viết câu trả lời..."
-                class="w-full border rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
-                rows="2"
-              ></textarea>
-              <button
-                class="mt-1 px-3 py-1 bg-black text-white rounded text-sm hover:bg-gray-800"
-              >
-                Gửi
-              </button>
-            </div>
-
-            Trả lời hiển thị
-            <div class="mt-3 space-y-2">
-              <div class="flex items-start text-sm text-gray-700">
-                <span class="mr-2 text-gray-400">↳</span>
-                <div>
-                  <p class="font-semibold">Shop</p>
-                  <p>Bạn mặc size S nha ❤️</p>
-                </div>
-              </div>
-            </div>
-            -->
-        <!-- </div> -->
         <!-- Đánh giá sản phẩm -->
         <div class="mt-10">
           <h3 class="text-lg font-semibold mb-4">Đánh giá sản phẩm</h3>
@@ -274,62 +230,40 @@ const selectedColor = ref(null);
 const selectedSize = ref(null);
 const quantity = ref(1);
 const coupons = ref([]);
-const showReply = ref(false);
 const groupInviteLinks = ref({});
-const joiningGroup = ref(false);
-const joinError = ref("");
 
-async function handleInviteClick(link, couponId) {
-  if (!auth.accessToken) {
-    alert("Bạn cần đăng nhập để tham gia nhóm");
-    return;
-  }
-  const token = link.split("/invite/")[1];
-  if (!token) return;
-  joiningGroup.value = true;
-  joinError.value = "";
-  try {
-    const res = await $fetch("/conversations/join-group", {
-      method: "POST",
-      baseURL: config.public.apiBase,
-      headers: { Authorization: `Bearer ${auth.accessToken}` },
-      body: { invitelink: token },
-    });
-    // Mở chatbox group, truyền dữ liệu cho chatbox
-    window.dispatchEvent(
-      new CustomEvent("open-group-chat", { detail: res.conversation })
-    );
-  } catch (e) {
-    joinError.value =
-      e?.data?.message || e.message || "Không thể tham gia nhóm";
-    // Không alert, chỉ hiển thị lỗi trên giao diện nếu cần
-  } finally {
-    joiningGroup.value = false;
-  }
-}
-const createGroupOrder = async (couponId) => {
+const createInviteLink = async (couponId) => {
   if (!auth.accessToken) {
     alert("Bạn cần đăng nhập để tạo nhóm");
     return;
   }
+
   try {
-    const res = await $fetch("/conversations/group-orders", {
+    const res = await $fetch("/conversations/invite-links", {
       method: "POST",
       baseURL: config.public.apiBase,
       headers: { Authorization: `Bearer ${auth.accessToken}` },
       body: {
         productId: product.value.id,
         couponId,
-        creatorId: auth.user.id,
         frontendUrl: window.location.origin,
       },
     });
+
+    if (res.reused) {
+      if (res.isUsed) {
+        alert(
+          `Bạn đã có nhóm đang hoạt động!\nTên nhóm: ${res.conversationName}`
+        );
+      }
+    }
+
     groupInviteLinks.value = {
       ...groupInviteLinks.value,
-      [couponId]: `${window.location.origin}/invite/${res.conversation.invitelink}`,
+      [couponId]: res.inviteLink,
     };
   } catch (e) {
-    alert("Không thể tạo nhóm: " + (e?.data?.message || e.message));
+    alert("Không thể tạo link mời: " + (e?.data?.message || e.message));
   }
 };
 

@@ -75,45 +75,119 @@ function closeChat() {
   activeConversationId.value = null;
 }
 
-// Tự động nhận diện /invite/[token] và join group
 const route = useRoute();
 const config = useRuntimeConfig();
 const joiningGroup = ref(false);
 const joinError = ref("");
-
-onMounted(async () => {
+const { $socket } = useNuxtApp();
+// ✅ Lắng nghe sự kiện tin nhắn toàn cục (phát từ plugin socket)
+onMounted(() => {
+  // Nếu người dùng vào bằng link mời nhóm
   if (route.path.startsWith("/invite/")) {
-    const token = route.params?.token || route.path.split("/invite/")[1];
-    if (!token) return;
-    if (!auth.accessToken) {
-      joinError.value = "Bạn cần đăng nhập để tham gia nhóm";
-      alert(joinError.value);
-      return;
+    handleJoinGroup();
+  }
+
+  // Khi nhận event mở chat nhóm (ví dụ khi click link mời trong chat)
+  window.addEventListener("open-group-chat", (e) => {
+    const res = e.detail;
+    if (!res) return;
+    activePartner.value = null;
+    activeConversation.value = {
+      id: res.conversationId,
+      name: res.conversationName,
+    };
+    activeConversationId.value = res.conversationId;
+  });
+
+  window.addEventListener("incoming-message", async (e) => {
+    const msg = e.detail;
+    const convId = msg.conversation_id || msg.conversationId;
+    if (!convId) return;
+
+    // Nếu chưa mở khung chat này
+    if (activeConversationId.value !== convId) {
+      try {
+        // Gọi API lấy thông tin conversation để mở đúng box
+        const res = await $fetch(`/conversations/${convId}`, {
+          baseURL: config.public.apiBase,
+          headers: { Authorization: `Bearer ${auth.accessToken}` },
+        });
+        if (res.type === "direct") {
+          let partner = res.partner ||
+            window.__users?.find(
+              (u) => u.id === msg.sender_id || u.id === msg.senderId
+            ) || {
+              id: msg.sender_id || msg.senderId,
+              fullName: msg.sender_name || "Người gửi",
+              name: msg.sender_name || "Người gửi",
+            };
+
+          activePartner.value = partner;
+          activeConversation.value = res;
+        }
+
+        activeConversationId.value = convId;
+      } catch (err) {
+        console.error("Không thể mở chatbox:", err);
+      }
     }
-    joiningGroup.value = true;
-    joinError.value = "";
+  });
+
+  // Lắng nghe tin nhắn realtime
+  $socket.on("message", (msg) => {
+    window.dispatchEvent(new CustomEvent("incoming-message", { detail: msg }));
+  });
+
+  //  Lắng nghe khi server thông báo có conversation mới
+  $socket.on("new-conversation", async (payload) => {
+    const { conversationId, partner } = payload;
+    if (!conversationId) return;
+
     try {
-      const res = await $fetch("/conversations/join", {
-        method: "POST",
+      const res = await $fetch(`/conversations/${conversationId}`, {
         baseURL: config.public.apiBase,
         headers: { Authorization: `Bearer ${auth.accessToken}` },
-        body: { invitelink: token },
       });
-      // Mở chatbox group
-      activePartner.value = null;
-      activeConversation.value = res.conversation;
-      activeConversationId.value = res.conversation.id;
-      // Chuyển về trang chủ hoặc sản phẩm sau khi join (nếu muốn)
-      // navigateTo("/");
+
+      activePartner.value = partner || null;
+      activeConversation.value = res;
+      activeConversationId.value = res.id;
+
+      // Cuộn xuống cuối khi chatbox mở ra
+      nextTick(() => {
+        const chatEl = document.querySelector(".chatbox-scroll");
+        if (chatEl) chatEl.scrollTop = chatEl.scrollHeight;
+      });
     } catch (e) {
-      joinError.value =
-        e?.data?.message || e.message || "Không thể tham gia nhóm";
-      alert(joinError.value);
-    } finally {
-      joiningGroup.value = false;
+      console.error("Không thể mở chatbox mới:", e);
     }
-  }
+  });
 });
+
+async function handleJoinGroup() {
+  const token = route.params?.token || route.path.split("/invite/")[1];
+  if (!token) return;
+  if (!auth.accessToken) {
+    alert("Bạn cần đăng nhập để tham gia nhóm");
+    return;
+  }
+
+  joiningGroup.value = true;
+  try {
+    const res = await $fetch(`/conversations/join/${token}`, {
+      method: "POST",
+      baseURL: config.public.apiBase,
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+    });
+    activePartner.value = null;
+    activeConversation.value = res;
+    activeConversationId.value = res.conversationId;
+  } catch (e) {
+    alert(e?.data?.message || e.message || "Không thể tham gia nhóm");
+  } finally {
+    joiningGroup.value = false;
+  }
+}
 </script>
 
 <style scoped>

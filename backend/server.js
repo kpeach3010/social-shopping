@@ -24,8 +24,14 @@ async function startServer() {
       },
     });
 
+    global.io = io; // lưu io vào biến toàn cục để các module khác có thể sử dụng
+
     io.on("connection", (socket) => {
-      console.log("New client connected:", socket.id);
+      const userId = socket.handshake.query.userId; // Lấy userId từ query parameters
+      if (userId) {
+        socket.join(userId); // Tham gia phòng với tên là userId
+      }
+      console.log(`New client connected: ${socket.id}, userId: ${userId}`);
 
       // join room
       socket.on("join-conversation", (conversationId) => {
@@ -56,8 +62,20 @@ async function startServer() {
           return;
         }
         const msg = inserted[0];
-        // phat cho moi nguoi trong room tru nguoi gui
+        // phat cho moi nguoi trong room(dang mo khung) tru nguoi gui
         io.to(conversationId).emit("message", msg);
+
+        // lay danh sach thanh vien cua conversation
+        const { data: members } = await supabase
+          .from("conversation_members")
+          .select("user_id")
+          .eq("conversation_id", conversationId);
+
+        for (const member of members) {
+          if (member.user_id !== senderId) {
+            io.to(member.user_id).emit("message", msg);
+          }
+        }
       });
 
       // trạng thái typing
@@ -91,7 +109,7 @@ async function startServer() {
         { event: "INSERT", schema: "public", table: "conversation_members" },
         (payload) => {
           const newMember = payload.new;
-          io.to(newMember.conversation_id).emit("new-member", newMember);
+          io.to(newMember.user_id).emit("new-conversation", newMember);
         }
       );
 

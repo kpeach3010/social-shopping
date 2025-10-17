@@ -7,7 +7,7 @@
     <div class="flex items-center p-3 border-b border-gray-200 bg-gray-100">
       <UserCircleIcon class="w-8 h-8 text-gray-500 mr-2" />
       <span class="font-semibold text-gray-700 flex-1">
-        {{ conversation?.name || partner?.fullName || partner?.name || "Chat" }}
+        {{ partner?.fullName || partner?.name || conversation?.name || "Chat" }}
       </span>
       <button @click="$emit('close')" class="text-gray-400 hover:text-gray-600">
         ✕
@@ -52,11 +52,7 @@
 
     <!-- Typing -->
     <div v-if="typing" class="px-3 py-2 text-gray-500 text-sm italic">
-      {{
-        conversation
-          ? "Ai đó đang nhập..."
-          : partner?.fullName + " đang nhập..."
-      }}
+      {{ typing }}
     </div>
 
     <!-- Input -->
@@ -80,20 +76,26 @@
 </template>
 
 <script setup>
-function formatMessage(content) {
-  if (!content) return "";
-  // Regex tìm URL
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
-  return content.replace(
-    urlRegex,
-    (url) =>
-      `<a href='${url}' target='_blank' class='underline text-blue-700 break-all'>${url}</a>`
-  );
-}
-const joinNotice = ref("");
+import { useGroupInvite } from "@/composables/useGroupInvite";
 import { UserCircleIcon } from "@heroicons/vue/24/outline";
 import supabase from "@/plugins/supabase";
 import { useAuthStore } from "@/stores/auth";
+const joinNotice = ref("");
+const { joinGroupByLink } = useGroupInvite();
+
+function formatMessage(content) {
+  if (!content) return "";
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+
+  return content.replace(urlRegex, (url) => {
+    // Nếu là link mời nhóm
+    if (url.includes("/invite/")) {
+      const token = url.split("/invite/")[1];
+      return `<a href='#' data-token='${token}' class='invite-link underline text-blue-700 break-all'>${url}</a>`;
+    }
+    return `<a href='${url}' target='_blank' class='underline text-blue-700 break-all'>${url}</a>`;
+  });
+}
 
 const props = defineProps({
   conversationId: String,
@@ -136,29 +138,62 @@ function scrollToBottom() {
   });
 }
 
-// Load messages khi đổi conversationId
+async function loadMessagesForConversation(convId) {
+  messages.value = [];
+  deliveredIds.clear();
+  pendingMap.clear();
+  if (!convId) return;
+
+  try {
+    const data = await $fetch(`/conversations/${convId}/messages`, {
+      method: "GET",
+      baseURL: config.public.apiBase,
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+    });
+    const norm = data.map(normalize);
+    norm.forEach((m) => m.id && deliveredIds.add(m.id));
+    messages.value = norm;
+    scrollToBottom();
+  } catch (e) {
+    console.error("Lỗi load messages:", e);
+  }
+  $socket.emit("join-conversation", convId);
+}
+
 watch(
   () => props.conversationId,
-  async (convId) => {
-    messages.value = [];
-    deliveredIds.clear();
-    pendingMap.clear();
-    if (!convId) return;
-
-    try {
-      const data = await $fetch(`/conversations/${convId}/messages`, {
-        method: "GET",
-        baseURL: config.public.apiBase,
-        headers: { Authorization: `Bearer ${auth.accessToken}` },
-      });
-      const norm = data.map(normalize);
-      norm.forEach((m) => m.id && deliveredIds.add(m.id));
-      messages.value = norm;
-      scrollToBottom();
-    } catch (e) {
-      console.error("Lỗi load messages:", e);
+  (newId, oldId) => {
+    if (newId && newId !== oldId) {
+      loadMessagesForConversation(newId);
     }
-    $socket.emit("join-conversation", convId);
+  },
+  { immediate: true }
+);
+
+watch(
+  () => props.partner,
+  async (partner) => {
+    if (partner && !props.conversationId) {
+      try {
+        const conv = await $fetch("/conversations/direct", {
+          method: "POST",
+          baseURL: config.public.apiBase,
+          headers: {
+            Authorization: `Bearer ${auth.accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: {
+            userId: props.currentUserId,
+            partnerId: partner.id,
+          },
+        });
+        emit("update:conversationId", conv.id);
+        await loadMessagesForConversation(conv.id);
+        $socket.emit("join-conversation", conv.id);
+      } catch (err) {
+        console.error("Không thể lấy hoặc tạo conversation:", err);
+      }
+    }
   },
   { immediate: true }
 );
@@ -195,6 +230,17 @@ onMounted(() => {
       payload.conversationId === props.conversationId
     ) {
       typing.value = true;
+      // Tìm tên từ cache
+      const partner =
+        props.partner ||
+        (window.__users
+          ? window.__users.find((u) => u.id === payload.senderId)
+          : null);
+
+      typing.value = partner?.fullName
+        ? `${partner.fullName} đang nhập...`
+        : "Ai đó đang nhập...";
+
       clearTimeout(typingTimeout);
       typingTimeout = setTimeout(() => (typing.value = false), 2000);
     }
@@ -241,6 +287,22 @@ onMounted(() => {
       )
       .subscribe();
   }
+  // Xử lý click vào link mời nhóm
+  const chatEl = scrollWrap.value;
+
+  chatEl?.addEventListener("click", async (e) => {
+    const target = e.target;
+    if (target.classList.contains("invite-link")) {
+      e.preventDefault();
+      const token = target.dataset.token;
+      const res = await joinGroupByLink(token);
+      if (res && res.conversationId) {
+        window.dispatchEvent(
+          new CustomEvent("open-group-chat", { detail: res })
+        );
+      }
+    }
+  });
 });
 
 function emitTyping() {
@@ -259,7 +321,7 @@ async function sendMessage() {
   try {
     let convId = props.conversationId;
 
-    // Nếu direct mà chưa có conversation thì tạo mới
+    // Nếu direct chưa có conversation -> tạo mới
     if (!convId && props.partner) {
       const conv = await $fetch("/conversations/direct", {
         method: "POST",
@@ -275,6 +337,7 @@ async function sendMessage() {
       });
       convId = conv.id;
       emit("update:conversationId", convId);
+      await loadMessagesForConversation(convId);
       $socket.emit("join-conversation", convId);
     }
 

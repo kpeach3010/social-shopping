@@ -14,7 +14,7 @@ import {
   getValidCouponsService,
 } from "./coupon.service.js";
 
-import { eq, and, or, isNull, gt, count, inArray, ne } from "drizzle-orm";
+import { eq, and, or, isNull, gt, count, inArray, ne, asc } from "drizzle-orm";
 import { exists } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import e from "express";
@@ -97,10 +97,18 @@ export const getOrCreateDirectConversationService = async (
 
 export const getMessagesService = async (conversationId) => {
   return await db
-    .select()
+    .select({
+      id: messages.id,
+      content: messages.content,
+      senderId: messages.senderId,
+      createdAt: messages.createdAt,
+      senderFullName: users.fullName,
+      // senderAvatar: users.avatar,
+    })
     .from(messages)
+    .innerJoin(users, eq(messages.senderId, users.id))
     .where(eq(messages.conversationId, conversationId))
-    .orderBy(messages.createdAt);
+    .orderBy(asc(messages.createdAt));
 };
 
 export const sendMessageService = async (conversationId, senderId, content) => {

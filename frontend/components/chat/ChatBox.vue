@@ -1,13 +1,13 @@
 <template>
   <div
-    v-if="partner || conversation"
+    v-show="partner || conversation"
     class="fixed bottom-6 right-6 w-96 h-[520px] bg-white border border-gray-200 rounded-2xl shadow-2xl flex flex-col z-40 overflow-hidden"
   >
     <!-- Header -->
     <div class="flex items-center p-3 border-b border-gray-200 bg-gray-100">
       <UserCircleIcon class="w-8 h-8 text-gray-500 mr-2" />
       <span class="font-semibold text-gray-700 flex-1">
-        {{ partner?.fullName || partner?.name || conversation?.name || "Chat" }}
+        {{ partner?.fullName || conversation?.name || "Chat" }}
       </span>
       <button @click="$emit('close')" class="text-gray-400 hover:text-gray-600">
         ✕
@@ -17,34 +17,59 @@
     <!-- Messages -->
     <div
       ref="scrollWrap"
-      class="flex-1 overflow-y-auto p-3 space-y-2 bg-gray-50"
+      class="flex-1 overflow-y-auto p-3 space-y-3 bg-gray-50"
     >
       <div v-if="joinNotice" class="text-xs text-green-600 mb-2">
         {{ joinNotice }}
       </div>
+
+      <!-- Tin nhắn -->
       <div
         v-for="msg in messages"
         :key="msg.id || msg.tempId"
-        class="flex"
+        class="w-full flex items-start gap-2"
         :class="isMine(msg) ? 'justify-end' : 'justify-start'"
       >
+        <!-- Avatar -->
+        <div v-if="!isMine(msg)" class="flex-shrink-0">
+          <UserCircleIcon class="w-8 h-8 text-gray-400" />
+        </div>
+
+        <!-- Nội dung -->
         <div
           :class="[
-            'px-4 py-2 rounded-2xl max-w-[72%] text-sm break-words',
-            isMine(msg)
-              ? 'bg-blue-600 text-white rounded-br-none'
-              : 'bg-gray-200 text-gray-800 rounded-bl-none',
+            'flex flex-col max-w-[80%]',
+            isMine(msg) ? 'items-end' : 'items-start',
           ]"
         >
-          <div v-html="formatMessage(msg.content)"></div>
-
+          <!-- Tên người gửi (chỉ hiện cho người khác trong group) -->
           <div
-            v-if="isMine(msg) && msg.status"
-            class="mt-1 text-[11px] opacity-80"
+            v-if="!isMine(msg) && conversation?.type === 'group'"
+            class="text-xs text-gray-500 mb-0.5"
           >
-            <span v-if="msg.status === 'sending'">Đang gửi…</span>
-            <span v-else-if="msg.status === 'sent'">Đã gửi</span>
-            <span v-else-if="msg.status === 'error'">Lỗi, thử lại</span>
+            {{ msg.senderFullName || "Người dùng" }}
+          </div>
+
+          <!-- Bong bóng -->
+          <div
+            :class="[
+              'inline-block px-4 py-2 rounded-2xl text-sm whitespace-pre-wrap break-words break-all leading-relaxed',
+              isMine(msg)
+                ? 'bg-gray-400 text-white rounded-br-none'
+                : 'bg-gray-200 text-gray-800 rounded-bl-none',
+            ]"
+          >
+            <div v-html="formatMessage(msg.content)"></div>
+
+            <!-- Trạng thái gửi -->
+            <div
+              v-if="isMine(msg) && msg.status"
+              class="mt-1 text-[11px] opacity-80 text-right"
+            >
+              <span v-if="msg.status === 'sending'">Đang gửi…</span>
+              <span v-else-if="msg.status === 'sent'">Đã gửi</span>
+              <span v-else-if="msg.status === 'error'">Lỗi, thử lại</span>
+            </div>
           </div>
         </div>
       </div>
@@ -56,20 +81,23 @@
     </div>
 
     <!-- Input -->
-    <div class="flex items-center p-3 border-t border-gray-200 bg-white">
-      <input
+    <div class="flex items-end p-3 border-t border-gray-200 bg-white">
+      <textarea
         v-model="message"
-        @keydown="emitTyping"
-        @keyup.enter="sendMessage"
+        @keydown.enter.exact.prevent="sendMessage"
+        @keydown.shift.enter="message += '\n'"
         placeholder="Aa..."
-        class="flex-1 px-3 py-2 rounded-full border border-gray-300 mr-2 focus:outline-none focus:ring focus:ring-blue-200"
-      />
+        rows="1"
+        class="flex-1 resize-none px-3 py-2 rounded-2xl border border-gray-300 mr-2 focus:outline-none focus:ring-2 focus:ring-blue-200 text-sm max-h-32 overflow-y-auto"
+        style="line-height: 1.5"
+      ></textarea>
+
       <button
         @click="sendMessage"
         :disabled="loading || !message.trim()"
-        class="px-4 py-2 rounded-full bg-blue-600 text-white disabled:bg-gray-400"
+        class="flex items-center justify-center w-10 h-10 rounded-full bg-black text-white hover:bg-gray-800 disabled:bg-gray-400 transition"
       >
-        Gửi
+        <PaperAirplaneIcon class="w-5 h-5" />
       </button>
     </div>
   </div>
@@ -77,7 +105,7 @@
 
 <script setup>
 import { useGroupInvite } from "@/composables/useGroupInvite";
-import { UserCircleIcon } from "@heroicons/vue/24/outline";
+import { UserCircleIcon, PaperAirplaneIcon } from "@heroicons/vue/24/outline";
 import supabase from "@/plugins/supabase";
 import { useAuthStore } from "@/stores/auth";
 const joinNotice = ref("");
@@ -119,12 +147,16 @@ let typingTimeout = null;
 const deliveredIds = new Set();
 const pendingMap = new Map();
 
-const isMine = (m) => (m.senderId || m.sender_id) === props.currentUserId;
+const isMine = (m) =>
+  String(m?.senderId ?? m?.sender_id ?? "") ===
+  String(props.currentUserId ?? "");
+
 const normalize = (raw) => ({
   id: raw.id ?? null,
   tempId: raw.tempId ?? null,
   conversationId: raw.conversationId ?? raw.conversation_id ?? null,
   senderId: raw.senderId ?? raw.sender_id ?? null,
+  senderFullName: raw.senderFullName ?? raw.sender_name ?? null,
   content: raw.content ?? "",
   status: raw.status ?? undefined,
   createdAt: raw.createdAt ?? raw.created_at ?? null,

@@ -43,7 +43,7 @@ async function startServer() {
 
       // gửi tin nhắn
       socket.on("send-message", async (data) => {
-        const { conversationId, senderId, content, type = "text " } = data;
+        const { conversationId, senderId, content, type = "text" } = data;
         // chen vao supabase
         const { data: inserted, error } = await supabase
           .from("messages")
@@ -61,19 +61,31 @@ async function startServer() {
           console.error("Error inserting message:", error);
           return;
         }
+        // Lấy thông tin người gửi để emit kèm fullName
+        const { data: senderInfo } = await supabase
+          .from("users")
+          .select("id, full_name")
+          .eq("id", senderId)
+          .single();
+
         const msg = inserted[0];
-        // phat cho moi nguoi trong room(dang mo khung) tru nguoi gui
-        io.to(conversationId).emit("message", msg);
+        console.log("SenderInfo:", senderInfo, "Error:", error);
+
+        const enrichedMsg = {
+          ...msg,
+          senderFullName: senderInfo?.full_name || "Người dùng",
+        };
+
+        io.to(conversationId).emit("message", enrichedMsg);
 
         // lay danh sach thanh vien cua conversation
         const { data: members } = await supabase
           .from("conversation_members")
           .select("user_id")
           .eq("conversation_id", conversationId);
-
         for (const member of members) {
           if (member.user_id !== senderId) {
-            io.to(member.user_id).emit("message", msg);
+            io.to(member.user_id).emit("message", enrichedMsg);
           }
         }
       });
@@ -94,9 +106,21 @@ async function startServer() {
       .on(
         "postgres_changes", //
         { event: "INSERT", schema: "public", table: "messages" },
-        (payload) => {
+        async (payload) => {
           const newMsg = payload.new;
-          io.to(newMsg.conversation_id).emit("message", newMsg);
+          // Truy vấn thông tin người gửi
+          const { data: senderInfo } = await supabase
+            .from("users")
+            .select("id, full_name")
+            .eq("id", newMsg.sender_id)
+            .single();
+
+          const enrichedMsg = {
+            ...newMsg,
+            senderFullName: senderInfo?.full_name || "Người dùng",
+          };
+
+          io.to(newMsg.conversation_id).emit("message", enrichedMsg);
         }
       )
       .subscribe();

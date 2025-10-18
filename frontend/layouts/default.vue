@@ -80,14 +80,14 @@ const config = useRuntimeConfig();
 const joiningGroup = ref(false);
 const joinError = ref("");
 const { $socket } = useNuxtApp();
-// ✅ Lắng nghe sự kiện tin nhắn toàn cục (phát từ plugin socket)
+//  Lắng nghe sự kiện tin nhắn toàn cục
 onMounted(() => {
   // Nếu người dùng vào bằng link mời nhóm
   if (route.path.startsWith("/invite/")) {
     handleJoinGroup();
   }
 
-  // Khi nhận event mở chat nhóm (ví dụ khi click link mời trong chat)
+  // Khi nhận event mở chat nhóm
   window.addEventListener("open-group-chat", (e) => {
     const res = e.detail;
     if (!res) return;
@@ -124,9 +124,13 @@ onMounted(() => {
 
           activePartner.value = partner;
           activeConversation.value = res;
+        } else if (res.type === "group") {
+          activePartner.value = null;
+          activeConversation.value = res;
         }
 
         activeConversationId.value = convId;
+        activeConversation.value = res;
       } catch (err) {
         console.error("Không thể mở chatbox:", err);
       }

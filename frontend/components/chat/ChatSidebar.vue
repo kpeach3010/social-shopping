@@ -167,20 +167,10 @@ onMounted(async () => {
           baseURL: config.public.apiBase,
           headers: { Authorization: `Bearer ${auth.accessToken}` },
         });
-        groupConversations.value.push(newGroup);
+        // chỉ thêm nếu là group
+        if (newGroup?.type === "group") groupConversations.value.push(newGroup);
       }
-      // chỉ thêm nếu là group
-      if (newGroup.type === "group") {
-        const exists = groupConversations.value.some(
-          (g) => g.id === conversationId
-        );
-        if (!exists) {
-          groupConversations.value.push(newGroup);
-
-          // join socket room
-          $socket.emit("join-conversation", conversationId);
-        }
-      }
+      $socket.emit("join-conversation", conversationId);
     });
   } catch (e) {
     console.error("Lỗi load sidebar:", e);

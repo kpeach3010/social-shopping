@@ -127,6 +127,7 @@ onMounted(() => {
         } else if (res.type === "group") {
           activePartner.value = null;
           activeConversation.value = res;
+          activeConversationId.value = res.id;
         }
 
         activeConversationId.value = convId;

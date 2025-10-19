@@ -158,9 +158,36 @@ onMounted(async () => {
         $socket.emit("join-conversation", conv.id);
       });
     }
+    $socket.on("group-activated", async ({ conversationId }) => {
+      const exists = groupConversations.value.some(
+        (g) => g.id === conversationId
+      );
+      if (!exists) {
+        const newGroup = await $fetch(`/conversations/${conversationId}`, {
+          baseURL: config.public.apiBase,
+          headers: { Authorization: `Bearer ${auth.accessToken}` },
+        });
+        groupConversations.value.push(newGroup);
+      }
+      // chỉ thêm nếu là group
+      if (newGroup.type === "group") {
+        const exists = groupConversations.value.some(
+          (g) => g.id === conversationId
+        );
+        if (!exists) {
+          groupConversations.value.push(newGroup);
+
+          // join socket room
+          $socket.emit("join-conversation", conversationId);
+        }
+      }
+    });
   } catch (e) {
     console.error("Lỗi load sidebar:", e);
     users.value = [];
   }
+});
+onBeforeUnmount(() => {
+  $socket.off("group-activated");
 });
 </script>

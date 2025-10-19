@@ -33,5 +33,11 @@ export default defineNuxtPlugin((nuxtApp) => {
     );
   });
 
+  socket.on("group-activated", (payload) => {
+    window.dispatchEvent(
+      new CustomEvent("group-activated", { detail: payload })
+    );
+  });
+
   nuxtApp.provide("socket", socket);
 });

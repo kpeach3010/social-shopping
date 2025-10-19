@@ -84,6 +84,7 @@
     <div class="flex items-end p-3 border-t border-gray-200 bg-white">
       <textarea
         v-model="message"
+        @input="emitTyping"
         @keydown.enter.exact.prevent="sendMessage"
         @keydown.shift.enter="message += '\n'"
         placeholder="Aa..."
@@ -261,7 +262,6 @@ onMounted(() => {
       payload.senderId !== props.currentUserId &&
       payload.conversationId === props.conversationId
     ) {
-      typing.value = true;
       // Tìm tên từ cache
       const partner =
         props.partner ||

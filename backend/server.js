@@ -131,11 +131,32 @@ async function startServer() {
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "conversation_members" },
-        (payload) => {
+        async (payload) => {
           const newMember = payload.new;
-          io.to(newMember.user_id).emit("new-conversation", newMember);
+
+          // Lấy danh sách toàn bộ thành viên trong conversation
+          const { data: members } = await supabase
+            .from("conversation_members")
+            .select("user_id")
+            .eq("conversation_id", newMember.conversation_id);
+
+          // Khi có từ 2 người trở lên, phát event group-activated
+          if (members.length >= 2) {
+            const { data: conversation } = await supabase
+              .from("conversations")
+              .select("*")
+              .eq("id", newMember.conversation_id)
+              .single(); // tra ve 1 object
+
+            for (const member of members) {
+              io.to(member.user_id).emit("group-activated", {
+                conversationId: conversation.id,
+              });
+            }
+          }
         }
-      );
+      )
+      .subscribe();
 
     server.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);

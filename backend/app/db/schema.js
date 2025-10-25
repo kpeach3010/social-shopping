@@ -393,8 +393,6 @@ export const messages = pgTable("messages", {
     .references(() => users.id),
   content: text("content").notNull(),
   type: messageTypesEnum("type").notNull().default("text"), // text, image, file, sticker
-  // delivered: boolean("delivered").notNull().default(false), // da gui den clident
-  // read: boolean("read").notNull().default(false), // đã đọc
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -402,3 +400,30 @@ export const messages = pgTable("messages", {
     .defaultNow()
     .notNull(),
 });
+
+// thời điểm người dùng đọc tin nhắn trong conversation
+export const messageReads = pgTable(
+  "message_reads",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+
+    conversationId: uuid("conversation_id")
+      .notNull()
+      .references(() => conversations.id, { onDelete: "cascade" }),
+
+    // chỉ cần lưu thời điểm đọc cuối cùng
+    lastReadAt: timestamp("last_read_at", { withTimezone: true }),
+
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.userId, table.conversationId] }),
+  })
+);

@@ -84,19 +84,30 @@ const { $socket } = useNuxtApp();
 onMounted(() => {
   // Nếu người dùng vào bằng link mời nhóm
   if (route.path.startsWith("/invite/")) {
-    handleJoinGroup();
+    return;
   }
 
   // Khi nhận event mở chat nhóm
   window.addEventListener("open-group-chat", (e) => {
-    const res = e.detail;
-    if (!res) return;
+    const conv = e.detail;
+    if (!conv) return;
+
     activePartner.value = null;
+
+    const conversationId = conv.id || conv.conversationId || conv.groupOrderId;
+    if (!conversationId) {
+      console.warn(
+        "Không xác định được conversationId khi mở chat nhóm:",
+        conv
+      );
+      return;
+    }
+
     activeConversation.value = {
-      id: res.conversationId,
-      name: res.conversationName,
+      id: conversationId,
+      name: conv.name || conv.conversationName || "Nhóm mua chung",
     };
-    activeConversationId.value = res.conversationId;
+    activeConversationId.value = conversationId;
   });
 
   window.addEventListener("incoming-message", async (e) => {
@@ -127,7 +138,6 @@ onMounted(() => {
         } else if (res.type === "group") {
           activePartner.value = null;
           activeConversation.value = res;
-          activeConversationId.value = res.id;
         }
 
         activeConversationId.value = convId;
@@ -169,30 +179,30 @@ onMounted(() => {
   });
 });
 
-async function handleJoinGroup() {
-  const token = route.params?.token || route.path.split("/invite/")[1];
-  if (!token) return;
-  if (!auth.accessToken) {
-    alert("Bạn cần đăng nhập để tham gia nhóm");
-    return;
-  }
+// async function handleJoinGroup() {
+//   const token = route.params?.token || route.path.split("/invite/")[1];
+//   if (!token) return;
+//   if (!auth.accessToken) {
+//     alert("Bạn cần đăng nhập để tham gia nhóm");
+//     return;
+//   }
 
-  joiningGroup.value = true;
-  try {
-    const res = await $fetch(`/conversations/join/${token}`, {
-      method: "POST",
-      baseURL: config.public.apiBase,
-      headers: { Authorization: `Bearer ${auth.accessToken}` },
-    });
-    activePartner.value = null;
-    activeConversation.value = res;
-    activeConversationId.value = res.conversationId;
-  } catch (e) {
-    alert(e?.data?.message || e.message || "Không thể tham gia nhóm");
-  } finally {
-    joiningGroup.value = false;
-  }
-}
+//   joiningGroup.value = true;
+//   try {
+//     const res = await $fetch(`/conversations/join/${token}`, {
+//       method: "POST",
+//       baseURL: config.public.apiBase,
+//       headers: { Authorization: `Bearer ${auth.accessToken}` },
+//     });
+//     activePartner.value = null;
+//     activeConversation.value = res;
+//     activeConversationId.value = res.conversationId;
+//   } catch (e) {
+//     alert(e?.data?.message || e.message || "Không thể tham gia nhóm");
+//   } finally {
+//     joiningGroup.value = false;
+//   }
+// }
 </script>
 
 <style scoped>

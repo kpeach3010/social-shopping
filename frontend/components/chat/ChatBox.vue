@@ -80,10 +80,48 @@
       {{ typing }}
     </div>
 
+    <!-- Hiển thị trạng thái đã xem -->
+    <!-- Hiển thị trạng thái đã xem -->
+    <div
+      v-if="Object.keys(visibleReaders).length"
+      class="flex items-center justify-end gap-2 px-3 py-1 text-xs text-gray-500"
+    >
+      <template v-if="conversation?.type === 'direct'">
+        <div
+          class="flex items-center gap-2 bg-gray-100 rounded-full px-2 py-0.5 border border-gray-200"
+        >
+          <UserCircleIcon class="w-4 h-4 text-gray-400" />
+          <span class="font-medium text-gray-600">
+            {{ Object.values(visibleReaders)[0]?.fullName || "Người kia" }}
+          </span>
+          <span class="text-[11px] text-gray-400">đã xem</span>
+        </div>
+      </template>
+
+      <template v-else>
+        <div
+          class="flex items-center gap-1 flex-wrap justify-end text-gray-500 text-[12px]"
+        >
+          <span
+            v-for="(info, uid) in visibleReaders"
+            :key="uid"
+            class="flex items-center gap-1 bg-gray-100 rounded-full px-2 py-0.5 border border-gray-200"
+          >
+            <UserCircleIcon class="w-3.5 h-3.5 text-gray-400" />
+            <span class="font-medium text-gray-600">
+              {{ info.fullName.split(" ")[0] }}
+            </span>
+            <span class="text-[11px] text-gray-400">đã xem</span>
+          </span>
+        </div>
+      </template>
+    </div>
+
     <!-- Input -->
     <div class="flex items-end p-3 border-t border-gray-200 bg-white">
       <textarea
         v-model="message"
+        @focus="markAsRead"
         @input="emitTyping"
         @keydown.enter.exact.prevent="sendMessage"
         @keydown.shift.enter="message += '\n'"
@@ -105,12 +143,12 @@
 </template>
 
 <script setup>
-import { useGroupInvite } from "@/composables/useGroupInvite";
 import { UserCircleIcon, PaperAirplaneIcon } from "@heroicons/vue/24/outline";
 import supabase from "@/plugins/supabase";
 import { useAuthStore } from "@/stores/auth";
 const joinNotice = ref("");
-const { joinGroupByLink } = useGroupInvite();
+const router = useRouter();
+const readStatus = ref({}); // { userId: { lastReadAt, fullName } }
 
 function formatMessage(content) {
   if (!content) return "";
@@ -171,6 +209,36 @@ function scrollToBottom() {
   });
 }
 
+const lastMsgAt = computed(() => {
+  const last = messages.value[messages.value.length - 1];
+  return last?.createdAt ? new Date(last.createdAt).getTime() : 0;
+});
+
+const visibleReaders = computed(() => {
+  const entries = Object.entries(readStatus.value);
+  return Object.fromEntries(
+    entries.filter(([_, info]) => {
+      const t = info?.lastReadAt ? new Date(info.lastReadAt).getTime() : 0;
+      return t >= lastMsgAt.value; // chỉ hiện khi đã đọc sau tin cuối
+    })
+  );
+});
+
+function handleScroll() {
+  const el = scrollWrap.value;
+  if (!el || !props.conversationId) return;
+
+  // // Nếu user gần cuối khung chat (đọc hết)
+  // const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
+  // if (nearBottom) {
+  //   // Emit socket thông báo "đã đọc"
+  //   $socket.emit("mark-as-read", {
+  //     conversationId: props.conversationId,
+  //     userId: props.currentUserId,
+  //   });
+  // }
+}
+
 async function loadMessagesForConversation(convId) {
   messages.value = [];
   deliveredIds.clear();
@@ -178,7 +246,7 @@ async function loadMessagesForConversation(convId) {
   if (!convId) return;
 
   try {
-    const data = await $fetch(`/conversations/${convId}/messages`, {
+    const data = await $fetch(`/messages/${convId}`, {
       method: "GET",
       baseURL: config.public.apiBase,
       headers: { Authorization: `Bearer ${auth.accessToken}` },
@@ -187,6 +255,12 @@ async function loadMessagesForConversation(convId) {
     norm.forEach((m) => m.id && deliveredIds.add(m.id));
     messages.value = norm;
     scrollToBottom();
+
+    // console.log(" auto emit mark-as-read on load", convId);
+    // $socket.emit("mark-as-read", {
+    //   conversationId: convId,
+    //   userId: props.currentUserId,
+    // });
   } catch (e) {
     console.error("Lỗi load messages:", e);
   }
@@ -198,6 +272,7 @@ watch(
   (newId, oldId) => {
     if (newId && newId !== oldId) {
       loadMessagesForConversation(newId);
+      $socket.emit("join-conversation", newId);
     }
   },
   { immediate: true }
@@ -255,6 +330,9 @@ onMounted(() => {
     messages.value.push({ ...msg, status: isMine(msg) ? "sent" : undefined });
     msg.id && deliveredIds.add(msg.id);
     scrollToBottom();
+
+    // reset trạng thái đã đọc
+    readStatus.value = {};
   });
 
   $socket.on("typing", (payload) => {
@@ -319,21 +397,33 @@ onMounted(() => {
       )
       .subscribe();
   }
-  // Xử lý click vào link mời nhóm
-  const chatEl = scrollWrap.value;
 
-  chatEl?.addEventListener("click", async (e) => {
+  const chatEl = scrollWrap.value;
+  chatEl?.addEventListener("click", (e) => {
     const target = e.target;
     if (target.classList.contains("invite-link")) {
       e.preventDefault();
       const token = target.dataset.token;
-      const res = await joinGroupByLink(token);
-      if (res && res.conversationId) {
-        window.dispatchEvent(
-          new CustomEvent("open-group-chat", { detail: res })
-        );
+      if (token) {
+        router.push(`/invite/${token}`);
       }
     }
+  });
+
+  $socket.on(
+    "read-updated",
+    ({ conversationId, userId, fullName, lastReadAt }) => {
+      if (conversationId !== props.conversationId) return;
+      if (userId === props.currentUserId) return;
+      readStatus.value[userId] = {
+        lastReadAt,
+        fullName: fullName || "Người dùng",
+      };
+    }
+  );
+
+  nextTick(() => {
+    scrollWrap.value?.addEventListener("scroll", handleScroll);
   });
 });
 
@@ -342,6 +432,16 @@ function emitTyping() {
   $socket.emit("typing", {
     conversationId: props.conversationId,
     senderId: props.currentUserId,
+  });
+}
+
+function markAsRead() {
+  if (!props.conversationId || !props.currentUserId) return;
+
+  console.log("📩 mark-as-read triggered (focus input)");
+  $socket.emit("mark-as-read", {
+    conversationId: props.conversationId,
+    userId: props.currentUserId,
   });
 }
 
@@ -397,7 +497,7 @@ async function sendMessage() {
     scrollToBottom();
 
     // Gọi API lưu message
-    const saved = await $fetch(`/conversations/${convId}/messages`, {
+    const saved = await $fetch(`/messages/${convId}`, {
       method: "POST",
       baseURL: config.public.apiBase,
       headers: {
@@ -425,8 +525,10 @@ async function sendMessage() {
     loading.value = false;
   }
 }
-
-const partnerId = computed(
-  () => props.partner?.id || props.partner?._id || null
-);
+onBeforeUnmount(() => {
+  $socket.off("message");
+  $socket.off("typing");
+  $socket.off("user-joined");
+  $socket.off("read-updated");
+});
 </script>

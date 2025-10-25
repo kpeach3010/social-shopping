@@ -6,6 +6,7 @@ const {
   createInviteLinkService,
   joinGroupOrderByInviteTokenService,
   getUserConversationsService,
+  getInviteLinkDetailService,
   getConversationByIdService,
 } = require("../services/conversation.service");
 const { db } = require("../db/client.js");
@@ -44,32 +45,6 @@ exports.getOrCreateDirectConversationController = async (req, res) => {
     }
 
     res.json(conversation);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-exports.getMessagesController = async (req, res) => {
-  try {
-    const { conversationId } = req.params;
-    const messages = await getMessagesService(conversationId);
-    res.json(messages);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-exports.sendMessageController = async (req, res) => {
-  try {
-    const { conversationId } = req.params;
-    const { content, type } = req.body;
-    const msg = await sendMessageService(
-      conversationId,
-      req.user.id,
-      content,
-      type
-    );
-    res.json(msg);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -159,5 +134,25 @@ exports.getConversationByIdController = async (req, res) => {
   } catch (error) {
     console.error("getConversationByIdController error:", error);
     res.status(500).json({ message: "Lỗi server", error: error.message });
+  }
+};
+
+exports.getInviteLinkDetailController = async (req, res) => {
+  try {
+    const { token } = req.params;
+    if (!token) {
+      return res.status(400).json({ message: "Thiếu token trong yêu cầu" });
+    }
+
+    const data = await getInviteLinkDetailService(token);
+    return res.status(200).json(data);
+  } catch (err) {
+    const message = err.message || "Không thể lấy thông tin link mời";
+    if (message.includes("không tồn tại"))
+      return res.status(404).json({ message });
+    if (message.includes("hết hạn")) return res.status(410).json({ message });
+    if (message.includes("được sử dụng"))
+      return res.status(409).json({ message });
+    return res.status(500).json({ message });
   }
 };

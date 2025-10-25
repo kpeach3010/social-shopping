@@ -90,6 +90,60 @@ async function startServer() {
         }
       });
 
+      // khi user doc tin nhan
+      socket.on("mark-as-read", async ({ conversationId, userId }) => {
+        try {
+          const now = new Date().toISOString();
+
+          // Cập nhật hoặc tạo record mới trong message_reads
+          const { error } = await supabase.from("message_reads").upsert(
+            {
+              user_id: userId,
+              conversation_id: conversationId,
+              last_read_at: now,
+              updated_at: now,
+            },
+            { onConflict: "user_id,conversation_id" }
+          );
+
+          if (error) {
+            console.error("Error updating message_reads:", error);
+            return;
+          }
+
+          //  Lấy thông tin người đọc
+          const { data: userRow } = await supabase
+            .from("users")
+            .select("id, full_name")
+            .eq("id", userId)
+            .single();
+
+          //  Lấy toàn bộ thành viên khác trong conversation
+          const { data: members } = await supabase
+            .from("conversation_members")
+            .select("user_id")
+            .eq("conversation_id", conversationId);
+
+          //  Gửi event cho từng thành viên khác (không gửi cho chính mình)
+          for (const m of members) {
+            if (m.user_id !== userId) {
+              io.to(m.user_id).emit("read-updated", {
+                conversationId,
+                userId,
+                fullName: userRow?.full_name || "Người dùng",
+                lastReadAt: now,
+              });
+            }
+          }
+
+          console.log(
+            `[SOCKET] User ${userId} marked as read in conversation ${conversationId}`
+          );
+        } catch (err) {
+          console.error("mark-as-read error:", err);
+        }
+      });
+
       // trạng thái typing
       socket.on("typing", (payload) => {
         io.to(payload.conversationId).emit("typing", payload);

@@ -10,7 +10,6 @@ import {
   colors,
   sizes,
   coupons,
-  couponProducts,
 } from "../db/schema.js";
 import { sql, eq, and, ne, inArray, desc } from "drizzle-orm";
 import { getAvailableCouponsForProductsService } from "./coupon.service.js";

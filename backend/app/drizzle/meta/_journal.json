@@ -190,6 +190,20 @@
       "when": 1760277732695,
       "tag": "0026_stiff_bucky",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1761208684299,
+      "tag": "0027_fast_rogue",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1761209096255,
+      "tag": "0028_noisy_trauma",
+      "breakpoints": true
     }
   ]
 }

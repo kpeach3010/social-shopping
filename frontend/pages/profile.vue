@@ -394,7 +394,7 @@ const perPage = 3;
 
 onMounted(async () => {
   try {
-    const res = await $fetch("/order/my-orders", {
+    const res = await $fetch("/orders/my-orders", {
       baseURL: config.public.apiBase,
       headers: { Authorization: `Bearer ${auth.accessToken}` },
     });
@@ -435,7 +435,7 @@ const selectStatus = (status) => {
 // Xem chi tiết
 const viewOrderDetail = async (orderId) => {
   try {
-    const res = await $fetch(`/order/my-orders/${orderId}`, {
+    const res = await $fetch(`/orders/my-orders/${orderId}`, {
       baseURL: config.public.apiBase,
       headers: { Authorization: `Bearer ${auth.accessToken}` },
     });
@@ -454,7 +454,7 @@ const closeDetail = () => {
 const cancelOrder = async (orderId) => {
   if (!confirm("Bạn có chắc muốn hủy đơn hàng này?")) return;
   try {
-    await $fetch(`/order/cancel/${orderId}`, {
+    await $fetch(`/orders/cancel/${orderId}`, {
       method: "PATCH",
       baseURL: config.public.apiBase,
       headers: { Authorization: `Bearer ${auth.accessToken}` },

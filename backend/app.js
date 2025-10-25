@@ -9,6 +9,7 @@ const couponRoutes = require("./app/routes/coupon.route");
 const cartRoutes = require("./app/routes/cart.route");
 const orderRoutes = require("./app/routes/order.route");
 const conversationRoutes = require("./app/routes/conversation.route");
+const messageRoutes = require("./app/routes/message.route");
 const {
   notFoundHandler,
   internalHandler,
@@ -30,6 +31,7 @@ app.use("/api/conversations", conversationRoutes);
 app.get("/", (req, res) => {
   res.json({ message: "Welcome to the Social Shopping App API!" });
 });
+app.use("/api/messages", messageRoutes);
 
 app.use(notFoundHandler);
 app.use(internalHandler);

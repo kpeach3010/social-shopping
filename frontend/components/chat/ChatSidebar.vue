@@ -8,7 +8,11 @@
   >
     <!-- Header -->
     <div class="flex items-center justify-between p-3 border-b bg-gray-50">
-      <h2 v-if="isOpen" class="text-base font-bold text-gray-700">Chat</h2>
+      <h2 v-if="isOpen" class="text-base font-bold text-gray-700">
+        <!-- tôi muốn icon nằm ngang chat -->
+        Chat
+        <ChatBubbleOvalLeftEllipsisIcon class="w-6 h-6 inline-block mr-1" />
+      </h2>
       <button
         v-if="showToggle"
         @click="$emit('toggle')"
@@ -80,20 +84,7 @@
           class="flex items-center gap-2 w-full px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 transition"
           :title="!isOpen ? conv.name : ''"
         >
-          <svg
-            class="w-6 h-6 text-blue-500"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M17 20h5V4H2v16h5m10 0v-6H9v6m8 0H9"
-            />
-          </svg>
+          <UserGroupIcon class="w-6 h-6" />
           <span v-if="isOpen" class="truncate">{{ conv.name }}</span>
         </button>
       </template>
@@ -103,6 +94,10 @@
 
 <script setup>
 import { UserCircle } from "lucide-vue-next";
+import {
+  UserGroupIcon,
+  ChatBubbleOvalLeftEllipsisIcon,
+} from "@heroicons/vue/24/outline";
 import { useAuthStore } from "@/stores/auth";
 
 const props = defineProps({
@@ -120,7 +115,7 @@ const groupConversations = ref([]);
 const { $socket } = useNuxtApp();
 
 const tabs = [
-  { value: "direct", label: "1-1" },
+  { value: "direct", label: "Cá nhân" },
   { value: "group", label: "Nhóm" },
 ];
 const activeTab = ref("direct");
@@ -150,14 +145,21 @@ onMounted(async () => {
       headers: { Authorization: `Bearer ${auth.accessToken}` },
     });
 
-    if (typeof window !== "undefined") {
-      window.__conversations = allConversations;
+    // if (typeof window !== "undefined") {
+    //   window.__conversations = allConversations;
 
-      // join tất cả room tương ứng
-      allConversations.forEach((conv) => {
+    //   // join tất cả room tương ứng
+    //   allConversations.forEach((conv) => {
+    //     $socket.emit("join-conversation", conv.id);
+    //   });
+    // }
+
+    if (Array.isArray(allConversations)) {
+      for (const conv of allConversations) {
         $socket.emit("join-conversation", conv.id);
-      });
+      }
     }
+
     $socket.on("group-activated", async ({ conversationId }) => {
       const exists = groupConversations.value.some(
         (g) => g.id === conversationId

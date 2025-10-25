@@ -58,6 +58,7 @@ export const createCouponService = async (data) => {
       minMember: data.minMember,
       minTotalQuantity: data.minTotalQuantity,
       requireSameVariant: data.requireSameVariant ?? false,
+      maxMember: data.maxMember ?? 2,
     };
 
     // Insert coupon

@@ -8,6 +8,7 @@ import {
   groupOrderMembers,
   inviteLinks,
   coupons,
+  products,
 } from "../db/schema.js";
 import {
   getAvailableCouponsForProductsService,
@@ -17,7 +18,6 @@ import {
 import { eq, and, or, isNull, gt, count, inArray, ne, asc } from "drizzle-orm";
 import { exists } from "drizzle-orm";
 import { randomUUID } from "crypto";
-import e from "express";
 
 export const getOrCreateDirectConversationService = async (
   userId,
@@ -93,36 +93,6 @@ export const getOrCreateDirectConversationService = async (
     partner,
     isNew: true,
   };
-};
-
-export const getMessagesService = async (conversationId) => {
-  return await db
-    .select({
-      id: messages.id,
-      content: messages.content,
-      senderId: messages.senderId,
-      createdAt: messages.createdAt,
-      senderFullName: users.fullName,
-      // senderAvatar: users.avatar,
-    })
-    .from(messages)
-    .innerJoin(users, eq(messages.senderId, users.id))
-    .where(eq(messages.conversationId, conversationId))
-    .orderBy(asc(messages.createdAt));
-};
-
-export const sendMessageService = async (conversationId, senderId, content) => {
-  const [msg] = await db
-    .insert(messages)
-    .values({
-      conversationId,
-      senderId,
-      content,
-      type: "text",
-    })
-    .returning();
-
-  return msg;
 };
 
 // lay group order cua user
@@ -524,4 +494,141 @@ export const getConversationByIdService = async (conversationId, userId) => {
   }
 
   return conv;
+};
+
+export const getInviteLinkDetailService = async (token) => {
+  const now = new Date();
+
+  const [link] = await db
+    .select({
+      id: inviteLinks.id,
+      token: inviteLinks.token,
+      isUsed: inviteLinks.isUsed,
+      expiresAt: inviteLinks.expiresAt,
+      productId: inviteLinks.productId,
+      couponId: inviteLinks.couponId,
+      creatorId: inviteLinks.creatorId,
+      conversationId: inviteLinks.conversationId,
+    })
+    .from(inviteLinks)
+    .where(eq(inviteLinks.token, token))
+    .limit(1);
+
+  if (!link) throw new Error("Link mời không tồn tại");
+  if (link.expiresAt && new Date(link.expiresAt) < now)
+    throw new Error("Link mời đã hết hạn");
+
+  // Lấy thông tin sản phẩm, coupon, creator
+  const [product] = await db
+    .select({
+      id: products.id,
+      name: products.name,
+      thumbnailUrl: products.thumbnailUrl,
+      price_default: products.price_default,
+      stock: products.stock,
+    })
+    .from(products)
+    .where(eq(products.id, link.productId))
+    .limit(1);
+
+  const [coupon] = await db
+    .select({
+      id: coupons.id,
+      code: coupons.code,
+      kind: coupons.kind,
+      type: coupons.type,
+      value: coupons.value,
+      maxMember: coupons.maxMember,
+      minTotalQuantity: coupons.minTotalQuantity,
+      endsAt: coupons.endsAt,
+      description: coupons.description,
+    })
+    .from(coupons)
+    .where(eq(coupons.id, link.couponId))
+    .limit(1);
+
+  const [creator] = await db
+    .select({
+      id: users.id,
+      fullName: users.fullName,
+      email: users.email,
+    })
+    .from(users)
+    .where(eq(users.id, link.creatorId))
+    .limit(1);
+
+  // Lấy groupOrder tương ứng
+  let groupOrder = null;
+  if (link.conversationId) {
+    const [conv] = await db
+      .select({
+        id: conversations.id,
+        name: conversations.name,
+        groupOrderId: conversations.groupOrderId,
+      })
+      .from(conversations)
+      .where(eq(conversations.id, link.conversationId))
+      .limit(1);
+
+    if (conv?.groupOrderId) {
+      const [go] = await db
+        .select({
+          id: groupOrders.id,
+          status: groupOrders.status,
+          targetMember: groupOrders.targetMember,
+          currentMember: groupOrders.currentMember,
+          createdAt: groupOrders.createdAt,
+        })
+        .from(groupOrders)
+        .where(eq(groupOrders.id, conv.groupOrderId))
+        .limit(1);
+
+      groupOrder = go || null;
+    }
+  }
+
+  // Lấy danh sách thành viên
+  let members = [];
+  if (groupOrder) {
+    members = await db
+      .select({
+        id: users.id,
+        fullName: users.fullName,
+        email: users.email,
+      })
+      .from(groupOrderMembers)
+      .innerJoin(users, eq(users.id, groupOrderMembers.userId))
+      .where(eq(groupOrderMembers.groupOrderId, groupOrder.id));
+  }
+
+  // Lấy conversation name
+  let conversation = null;
+  if (link.conversationId) {
+    const [conv] = await db
+      .select({ id: conversations.id, name: conversations.name })
+      .from(conversations)
+      .where(eq(conversations.id, link.conversationId))
+      .limit(1);
+    conversation = conv || null;
+  }
+
+  //  Kiểm tra trạng thái để xác định có thể tham gia hay không
+  const status = groupOrder?.status || "pending";
+  const canJoin = status === "pending";
+
+  return {
+    valid: true,
+    expired: false,
+    groupOrder,
+    product,
+    coupon,
+    creator,
+    conversation,
+    members,
+    canJoin,
+    stats: {
+      currentMember: groupOrder?.currentMember || members.length || 0,
+      targetMember: groupOrder?.targetMember || coupon?.maxMember || 0,
+    },
+  };
 };

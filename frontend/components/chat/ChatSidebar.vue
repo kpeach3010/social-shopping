@@ -9,7 +9,6 @@
     <!-- Header -->
     <div class="flex items-center justify-between p-3 border-b bg-gray-50">
       <h2 v-if="isOpen" class="text-base font-bold text-gray-700">
-        <!-- tôi muốn icon nằm ngang chat -->
         Chat
         <ChatBubbleOvalLeftEllipsisIcon class="w-6 h-6 inline-block mr-1" />
       </h2>

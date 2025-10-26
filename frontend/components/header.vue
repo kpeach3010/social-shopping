@@ -103,19 +103,9 @@
               </span>
             </div>
           </NuxtLink>
-          <!-- Chat -->
-          <div
-            v-if="auth.isLoggedIn"
-            class="relative flex items-center text-gray-700 hover:text-black cursor-pointer"
-          >
-            <ChatBubbleOvalLeftIcon class="w-6 h-6" />
-            <span
-              v-if="chatStore.unreadCount > 0"
-              class="absolute -top-2 -right-2 bg-red-600 text-white text-xs rounded-full px-1.5 py-0.5"
-            >
-              {{ chatStore.unreadCount }}
-            </span>
-          </div>
+
+          <!-- chat -->
+          <ChatDropdown v-if="auth.isLoggedIn" />
 
           <!-- User -->
           <!-- User Dropdown -->
@@ -200,17 +190,17 @@
 <
 <script setup>
 import ProductSearchBox from "~/components/ProductSearchBox.vue";
-import { useAuthStore } from "~/stores/auth";
-import { useChatStore } from "~/stores/chat";
-import { ChatBubbleOvalLeftIcon } from "@heroicons/vue/24/outline";
+import ChatDropdown from "~/components/chat/ChatDropdown.vue";
 
-const chatStore = useChatStore();
+import { useAuthStore } from "~/stores/auth";
+import { ref, onMounted } from "vue";
+
+const config = useRuntimeConfig();
 const auth = useAuthStore();
 auth.loadFromStorage(); // load token khi header render
 
 const cartCount = ref(0);
 const categories = ref([]);
-const config = useRuntimeConfig();
 
 // hàm load giỏ hàng
 const loadCartCount = async () => {

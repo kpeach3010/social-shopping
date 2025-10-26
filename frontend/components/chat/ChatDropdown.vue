@@ -1,0 +1,144 @@
+<template>
+  <div class="relative">
+    <!-- Nút icon chat -->
+    <button @click="toggleDropdown" class="relative">
+      <ChatBubbleOvalLeftIcon class="w-6 h-6 text-gray-700 hover:text-black" />
+      <span
+        v-if="chatStore.unreadCount > 0"
+        class="absolute -top-2 -right-2 bg-red-600 text-white text-xs rounded-full px-1.5 py-0.5"
+      >
+        {{ chatStore.unreadCount }}
+      </span>
+    </button>
+
+    <!-- Dropdown hội thoại -->
+    <transition name="fade-slide">
+      <div
+        v-show="dropdownOpen"
+        class="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden"
+      >
+        <div class="max-h-96 overflow-y-auto">
+          <div
+            v-for="conv in conversations"
+            :key="conv.conversationId"
+            @click="openChat(conv)"
+            class="flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50"
+            :class="
+              conv.senderId !== auth.user?.id
+                ? 'font-semibold text-gray-900'
+                : 'text-gray-700'
+            "
+          >
+            <div class="relative flex-shrink-0">
+              <component
+                :is="conv.type === 'group' ? UserGroupIcon : UserCircleIcon"
+                class="w-8 h-8 text-gray-400"
+              />
+              <span
+                v-if="conv.senderId !== auth.user?.id"
+                class="absolute -top-0.5 -left-0.5 h-3 w-3 bg-blue-500 rounded-full border border-white"
+              ></span>
+            </div>
+
+            <div class="flex-1 min-w-0">
+              <div class="flex justify-between">
+                <span class="truncate text-sm">
+                  {{
+                    conv.type === "group"
+                      ? conv.convName || "Nhóm"
+                      : conv.senderName
+                  }}
+                </span>
+                <span class="text-xs text-gray-400">
+                  {{ formatTime(conv.createdAt) }}
+                </span>
+              </div>
+              <div class="truncate text-sm text-gray-600">
+                {{ conv.content }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div
+          v-if="conversations.length === 0"
+          class="p-4 text-center text-gray-400 text-sm"
+        >
+          Không có cuộc trò chuyện nào
+        </div>
+      </div>
+    </transition>
+  </div>
+</template>
+
+<script setup>
+import { ref } from "vue";
+import { useAuthStore } from "~/stores/auth";
+import { useChatStore } from "~/stores/chat";
+import {
+  ChatBubbleOvalLeftIcon,
+  UserCircleIcon,
+  UserGroupIcon,
+} from "@heroicons/vue/24/outline";
+
+const auth = useAuthStore();
+const chatStore = useChatStore();
+const config = useRuntimeConfig();
+
+const dropdownOpen = ref(false);
+const conversations = ref([]);
+
+function toggleDropdown() {
+  dropdownOpen.value = !dropdownOpen.value;
+  if (dropdownOpen.value) {
+    fetchConversations();
+  }
+}
+
+function formatTime(t) {
+  const date = new Date(t);
+  return date.toLocaleTimeString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+async function fetchConversations() {
+  try {
+    const data = await $fetch("/conversations/last-messages", {
+      baseURL: config.public.apiBase,
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+    });
+    conversations.value = data;
+  } catch (err) {
+    console.error("Lỗi tải danh sách hội thoại:", err);
+  }
+}
+
+function openChat(conv) {
+  dropdownOpen.value = false;
+  window.dispatchEvent(
+    new CustomEvent("open-group-chat", {
+      detail: {
+        conversationId: conv.conversationId,
+        name: conv.type === "group" ? conv.convName : conv.senderName,
+      },
+    })
+  );
+}
+</script>
+
+<style scoped>
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: all 0.25s ease;
+}
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+</style>

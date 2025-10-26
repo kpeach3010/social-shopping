@@ -15,7 +15,19 @@ import {
   getValidCouponsService,
 } from "./coupon.service.js";
 
-import { eq, and, or, isNull, gt, count, inArray, ne, asc } from "drizzle-orm";
+import {
+  eq,
+  and,
+  or,
+  isNull,
+  gt,
+  count,
+  inArray,
+  ne,
+  asc,
+  desc,
+  sql,
+} from "drizzle-orm";
 import { exists } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
@@ -631,4 +643,42 @@ export const getInviteLinkDetailService = async (token) => {
       targetMember: groupOrder?.targetMember || coupon?.maxMember || 0,
     },
   };
+};
+
+export const getLastMessagesService = async (userId) => {
+  const convs = await db
+    .select({ conversationId: conversationMembers.conversationId })
+    .from(conversationMembers)
+    .where(eq(conversationMembers.userId, userId));
+
+  const convIds = convs.map((c) => c.conversationId);
+  if (convIds.length === 0) return [];
+
+  const lastMsgSub = db
+    .select({
+      conversationId: messages.conversationId,
+      lastCreatedAt: sql`MAX(${messages.createdAt})`.as("lastCreatedAt"),
+    })
+    .from(messages)
+    .where(inArray(messages.conversationId, convIds))
+    .groupBy(messages.conversationId)
+    .as("lastMsgSub");
+
+  const result = await db
+    .select({
+      conversationId: messages.conversationId,
+      content: messages.content,
+      createdAt: messages.createdAt,
+      senderId: messages.senderId,
+      senderName: users.fullName,
+      type: conversations.type,
+      convName: conversations.name,
+    })
+    .from(messages)
+    .innerJoin(lastMsgSub, eq(messages.createdAt, lastMsgSub.lastCreatedAt))
+    .innerJoin(users, eq(users.id, messages.senderId))
+    .innerJoin(conversations, eq(conversations.id, messages.conversationId))
+    .orderBy(desc(messages.createdAt));
+
+  return result;
 };

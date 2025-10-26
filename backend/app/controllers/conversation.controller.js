@@ -8,6 +8,7 @@ const {
   getUserConversationsService,
   getInviteLinkDetailService,
   getConversationByIdService,
+  getLastMessagesService,
 } = require("../services/conversation.service");
 const { db } = require("../db/client.js");
 const { users } = require("../db/schema.js");
@@ -154,5 +155,16 @@ exports.getInviteLinkDetailController = async (req, res) => {
     if (message.includes("được sử dụng"))
       return res.status(409).json({ message });
     return res.status(500).json({ message });
+  }
+};
+
+exports.getLastMessagesController = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const messages = await getLastMessagesService(userId);
+    res.json(messages);
+  } catch (err) {
+    console.error("getLastMessagesController error:", err);
+    res.status(500).json({ error: err.message });
   }
 };

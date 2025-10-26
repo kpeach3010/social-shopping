@@ -177,6 +177,8 @@ onMounted(() => {
       console.error("Không thể mở chatbox mới:", e);
     }
   });
+
+  auth.loadFromStorage();
 });
 
 // async function handleJoinGroup() {

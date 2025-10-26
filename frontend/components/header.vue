@@ -103,6 +103,19 @@
               </span>
             </div>
           </NuxtLink>
+          <!-- Chat -->
+          <div
+            v-if="auth.isLoggedIn"
+            class="relative flex items-center text-gray-700 hover:text-black cursor-pointer"
+          >
+            <ChatBubbleOvalLeftIcon class="w-6 h-6" />
+            <span
+              v-if="chatStore.unreadCount > 0"
+              class="absolute -top-2 -right-2 bg-red-600 text-white text-xs rounded-full px-1.5 py-0.5"
+            >
+              {{ chatStore.unreadCount }}
+            </span>
+          </div>
 
           <!-- User -->
           <!-- User Dropdown -->
@@ -188,7 +201,10 @@
 <script setup>
 import ProductSearchBox from "~/components/ProductSearchBox.vue";
 import { useAuthStore } from "~/stores/auth";
+import { useChatStore } from "~/stores/chat";
+import { ChatBubbleOvalLeftIcon } from "@heroicons/vue/24/outline";
 
+const chatStore = useChatStore();
 const auth = useAuthStore();
 auth.loadFromStorage(); // load token khi header render
 

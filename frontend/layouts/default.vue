@@ -30,7 +30,7 @@
 
     <!-- ChatBox -->
     <ChatBox
-      v-if="activePartner || activeConversation"
+      v-show="activePartner || activeConversation"
       v-model:conversationId="activeConversationId"
       :partner="activePartner"
       :conversation="activeConversation"
@@ -47,18 +47,31 @@ import Footer from "@/components/footer.vue";
 import ChatSidebar from "@/components/chat/ChatSidebar.vue";
 import ChatBox from "@/components/chat/ChatBox.vue";
 import { useAuthStore } from "@/stores/auth";
+import { useChatStore } from "@/stores/chat";
 
 const auth = useAuthStore();
+const chatStore = useChatStore();
 const sidebarOpen = ref(false);
 
 const activePartner = ref(null);
 const activeConversation = ref(null);
 const activeConversationId = ref(null);
+const chatBoxVisible = ref(false);
 
 const currentUserId = computed(() => auth.user?.id || "");
 const isLoggedIn = computed(() => !!auth.user);
 
+watch(activeConversationId, (val) => {
+  if (val) {
+    window.__activeConversationId = val; // dùng cho reconnect auto join
+  } else {
+    delete window.__activeConversationId;
+  }
+});
+
 function openChat(payload) {
+  chatBoxVisible.value = true;
+
   if (payload.type === "direct") {
     activePartner.value = payload.partner;
     activeConversation.value = null;
@@ -69,16 +82,15 @@ function openChat(payload) {
     activeConversationId.value = payload.conversation.id;
   }
 }
+
 function closeChat() {
+  chatBoxVisible.value = false;
   activePartner.value = null;
   activeConversation.value = null;
-  activeConversationId.value = null;
 }
 
 const route = useRoute();
 const config = useRuntimeConfig();
-const joiningGroup = ref(false);
-const joinError = ref("");
 const { $socket } = useNuxtApp();
 //  Lắng nghe sự kiện tin nhắn toàn cục
 onMounted(() => {
@@ -92,16 +104,11 @@ onMounted(() => {
     const conv = e.detail;
     if (!conv) return;
 
+    chatBoxVisible.value = true;
     activePartner.value = null;
 
     const conversationId = conv.id || conv.conversationId || conv.groupOrderId;
-    if (!conversationId) {
-      console.warn(
-        "Không xác định được conversationId khi mở chat nhóm:",
-        conv
-      );
-      return;
-    }
+    if (!conversationId) return;
 
     activeConversation.value = {
       id: conversationId,
@@ -115,16 +122,18 @@ onMounted(() => {
     const convId = msg.conversation_id || msg.conversationId;
     if (!convId) return;
 
-    // Nếu chưa mở khung chat này
-    if (activeConversationId.value !== convId) {
+    // Nếu box ẩn hoặc khác cuộc hội thoại hiện tại
+    const hidden =
+      !chatBoxVisible.value || activeConversationId.value !== convId;
+    if (hidden) {
       try {
-        // Gọi API lấy thông tin conversation để mở đúng box
         const res = await $fetch(`/conversations/${convId}`, {
           baseURL: config.public.apiBase,
           headers: { Authorization: `Bearer ${auth.accessToken}` },
         });
+
         if (res.type === "direct") {
-          let partner = res.partner ||
+          const partner = res.partner ||
             window.__users?.find(
               (u) => u.id === msg.sender_id || u.id === msg.senderId
             ) || {
@@ -135,76 +144,78 @@ onMounted(() => {
 
           activePartner.value = partner;
           activeConversation.value = res;
-        } else if (res.type === "group") {
+        } else {
           activePartner.value = null;
           activeConversation.value = res;
         }
 
         activeConversationId.value = convId;
-        activeConversation.value = res;
+        chatBoxVisible.value = true; // mở box
       } catch (err) {
         console.error("Không thể mở chatbox:", err);
       }
     }
   });
 
-  // Lắng nghe tin nhắn realtime
+  // Socket message
   $socket.on("message", (msg) => {
+    const myId = auth.user?.id;
+    if (msg.sender_id !== myId) chatStore.incrementUnread();
     window.dispatchEvent(new CustomEvent("incoming-message", { detail: msg }));
   });
 
-  //  Lắng nghe khi server thông báo có conversation mới
+  // Khi reconnect, auto join lại conversation
+  $socket.on("connect", () => {
+    const convId = window.__activeConversationId;
+    if (convId) {
+      $socket.emit("join-conversation", convId);
+    }
+  });
+
   $socket.on("new-conversation", async (payload) => {
     const { conversationId, partner } = payload;
     if (!conversationId) return;
-
     try {
       const res = await $fetch(`/conversations/${conversationId}`, {
         baseURL: config.public.apiBase,
         headers: { Authorization: `Bearer ${auth.accessToken}` },
       });
-
       activePartner.value = partner || null;
       activeConversation.value = res;
       activeConversationId.value = res.id;
-
-      // Cuộn xuống cuối khi chatbox mở ra
-      nextTick(() => {
-        const chatEl = document.querySelector(".chatbox-scroll");
-        if (chatEl) chatEl.scrollTop = chatEl.scrollHeight;
-      });
+      chatBoxVisible.value = true; // mở box khi tạo mới
     } catch (e) {
       console.error("Không thể mở chatbox mới:", e);
     }
   });
 
-  auth.loadFromStorage();
+  chatStore.loadFromStorage();
+
+  // Gọi API để lấy số tin nhắn chưa đọc ban đầu
+  if (auth.user?.id) {
+    $fetch("/messages/unread-count", {
+      baseURL: config.public.apiBase,
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+    })
+      .then((res) => chatStore.setUnreadCount(res.unreadCount || 0))
+      .catch((err) => console.error("Lỗi load unreadCount:", err));
+  }
+
+  // Khi user đọc tin (được BE emit lại)
+  $socket.on("unread-count-updated", ({ userId, totalUnread }) => {
+    const myId = auth.user?.id;
+    if (userId === myId) {
+      chatStore.setUnreadCount(totalUnread);
+    }
+  });
 });
 
-// async function handleJoinGroup() {
-//   const token = route.params?.token || route.path.split("/invite/")[1];
-//   if (!token) return;
-//   if (!auth.accessToken) {
-//     alert("Bạn cần đăng nhập để tham gia nhóm");
-//     return;
-//   }
-
-//   joiningGroup.value = true;
-//   try {
-//     const res = await $fetch(`/conversations/join/${token}`, {
-//       method: "POST",
-//       baseURL: config.public.apiBase,
-//       headers: { Authorization: `Bearer ${auth.accessToken}` },
-//     });
-//     activePartner.value = null;
-//     activeConversation.value = res;
-//     activeConversationId.value = res.conversationId;
-//   } catch (e) {
-//     alert(e?.data?.message || e.message || "Không thể tham gia nhóm");
-//   } finally {
-//     joiningGroup.value = false;
-//   }
-// }
+onBeforeUnmount(() => {
+  $socket.off("message");
+  $socket.off("unread-count-updated");
+  $socket.off("new-conversation");
+  $socket.off("connect");
+});
 </script>
 
 <style scoped>

@@ -2,6 +2,7 @@ const {
   getMessagesService,
   sendMessageService,
   markConversationAsReadService,
+  getUnreadMessageCountService,
 } = require("../services/message.service");
 
 exports.getMessagesController = async (req, res) => {
@@ -17,16 +18,37 @@ exports.getMessagesController = async (req, res) => {
 exports.sendMessageController = async (req, res) => {
   try {
     const { conversationId } = req.params;
-    const { content, type } = req.body;
+    const { content, type, senderId } = req.body;
+    console.log("📩 sendMessage called:", {
+      conversationId,
+      senderId,
+      content,
+    });
+
     const msg = await sendMessageService(
       conversationId,
-      req.user.id,
+      senderId,
       content,
       type
     );
-    res.json(msg);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.log("✅ Message saved:", msg);
+
+    try {
+      if (global.io) {
+        global.io.to(conversationId).emit("conversation-updated", {
+          conversationId,
+          lastMessage: content,
+          lastMessageAt: new Date(),
+        });
+      }
+    } catch (socketErr) {
+      console.warn("⚠️ Socket emit error:", socketErr.message);
+    }
+
+    return res.json(msg);
+  } catch (err) {
+    console.error("❌ sendMessageController error:", err);
+    return res.status(500).json({ error: err.message });
   }
 };
 
@@ -48,5 +70,16 @@ exports.markConversationAsReadController = async (req, res) => {
   } catch (error) {
     console.error("Error marking conversation as read:", error);
     res.status(500).json({ error: error.message });
+  }
+};
+
+exports.getUnreadMessageCountController = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const count = await getUnreadMessageCountService(userId);
+    return res.json({ unreadCount: count });
+  } catch (err) {
+    console.error("getUnreadMessageCount error:", err);
+    res.status(500).json({ error: err.message });
   }
 };

@@ -11,7 +11,7 @@ export default defineNuxtPlugin((nuxtApp) => {
       if (err?.status === 401) {
         alert("Phiên đăng nhập đã hết hạn!");
         useAuthStore().logout();
-        navigateTo("/index");
+        navigateTo("/");
       }
       throw err;
     }

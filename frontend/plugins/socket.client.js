@@ -13,13 +13,21 @@ export default defineNuxtPlugin((nuxtApp) => {
   watchEffect(() => {
     if (auth.user?.id) {
       socket.io.opts.query = { userId: auth.user.id };
+
       if (!socket.connected) {
+        console.log("🔌 Connecting socket for user:", auth.user.id);
         socket.connect();
       }
-    } else {
-      if (socket.connected) {
-        socket.disconnect();
-      }
+    } else if (!auth.user) {
+      if (socket.connected) socket.disconnect();
+    }
+  });
+
+  // Khi socket reconnect tự join lại conversation đang mở
+  socket.on("connect", () => {
+    const activeConv = window.__activeConversationId;
+    if (activeConv) {
+      socket.emit("join-conversation", activeConv);
     }
   });
   // lắng nghe tin nhắn toàn cục

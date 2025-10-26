@@ -349,6 +349,8 @@ export const conversations = pgTable("conversations", {
   type: conversationTypesEnum("conversation_types").notNull().default("direct"), // direct, group
   name: varchar("name", { length: 100 }), // ten nhom || null neu 1-1 || rename
   inviteToken: varchar("invite_token", { length: 255 }).unique(), // link moi nguoi vao nhom
+  lastMessage: text("last_message"), // tin nhan moi nhat
+  lastMessageAt: timestamp("last_message_at", { withTimezone: true }), // thoi diem tin nhan moi nhat
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

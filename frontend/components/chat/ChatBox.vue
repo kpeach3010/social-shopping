@@ -146,6 +146,9 @@
 import { UserCircleIcon, PaperAirplaneIcon } from "@heroicons/vue/24/outline";
 import supabase from "@/plugins/supabase";
 import { useAuthStore } from "@/stores/auth";
+import { useChatStore } from "@/stores/chat";
+
+const chatStore = useChatStore();
 const joinNotice = ref("");
 const router = useRouter();
 const readStatus = ref({}); // { userId: { lastReadAt, fullName } }
@@ -243,9 +246,18 @@ async function loadMessagesForConversation(convId) {
   messages.value = [];
   deliveredIds.clear();
   pendingMap.clear();
+  console.log(
+    "📤 gửi message",
+    convId,
+    props.conversationId,
+    props.conversation
+  );
   if (!convId) return;
 
   try {
+    emit("update:conversationId", convId);
+    await nextTick(); // đảm bảo prop kịp cập nhật lại từ parent
+
     const data = await $fetch(`/messages/${convId}`, {
       method: "GET",
       baseURL: config.public.apiBase,
@@ -364,7 +376,8 @@ onMounted(() => {
   });
 
   if (supabase) {
-    supabase
+    let supabaseChannel;
+    supabaseChannel = supabase
       .channel("messages-changes-frontend")
       .on(
         "postgres_changes",
@@ -443,6 +456,9 @@ function markAsRead() {
     conversationId: props.conversationId,
     userId: props.currentUserId,
   });
+
+  // Reset badge nếu đây là conversation hiện tại
+  chatStore.clearUnread();
 }
 
 async function sendMessage() {
@@ -530,5 +546,11 @@ onBeforeUnmount(() => {
   $socket.off("typing");
   $socket.off("user-joined");
   $socket.off("read-updated");
+
+  if (supabaseChannel) supabaseChannel.unsubscribe();
+
+  messages.value = [];
+  typing.value = false;
+  readStatus.value = {};
 });
 </script>

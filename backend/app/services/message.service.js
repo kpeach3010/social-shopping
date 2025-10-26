@@ -1,7 +1,13 @@
 import { db } from "../db/client.js";
-import { users, messages, messageReads } from "../db/schema.js";
+import {
+  users,
+  messages,
+  messageReads,
+  conversations,
+  conversationMembers,
+} from "../db/schema.js";
 
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, and, or, inArray, ne, isNull, gt } from "drizzle-orm";
 
 export const getMessagesService = async (conversationId) => {
   return await db
@@ -29,6 +35,14 @@ export const sendMessageService = async (conversationId, senderId, content) => {
       type: "text",
     })
     .returning();
+
+  await db
+    .update(conversations)
+    .set({
+      lastMessage: content,
+      lastMessageAt: new Date(),
+    })
+    .where(eq(conversations.id, conversationId));
 
   return msg;
 };
@@ -70,4 +84,45 @@ export const markConversationAsReadService = async (conversationId, userId) => {
   }
 
   return { success: true, lastReadAt: now };
+};
+
+export const getUnreadMessageCountService = async (userId) => {
+  // 1. lay danh sach conversation ma user tham gia
+  const memberRows = await db
+    .select({ conversationId: conversationMembers.conversationId })
+    .from(conversationMembers)
+    .where(eq(conversationMembers.userId, userId));
+
+  const conversationIds = memberRows.map((r) => r.conversationId);
+  if (conversationIds.length === 0) return 0;
+
+  // 2. join messageReads de lay last_read_at
+  const rows = await db
+    .select({
+      id: messages.id,
+      createdAt: messages.createdAt,
+      senderId: messages.senderId,
+      conversationId: messages.conversationId,
+      lastReadAt: messageReads.lastReadAt,
+    })
+    .from(messages)
+    .leftJoin(
+      messageReads,
+      and(
+        eq(messages.conversationId, messageReads.conversationId),
+        eq(messageReads.userId, userId)
+      )
+    )
+    .where(
+      and(
+        inArray(messages.conversationId, conversationIds),
+        ne(messages.senderId, userId), // không tính tin nhắn của chính user
+        or(
+          isNull(messageReads.lastReadAt),
+          gt(messages.createdAt, messageReads.lastReadAt)
+        )
+      )
+    );
+
+  return rows.length;
 };

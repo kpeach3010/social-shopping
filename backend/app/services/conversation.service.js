@@ -9,6 +9,7 @@ import {
   inviteLinks,
   coupons,
   products,
+  messageReads,
 } from "../db/schema.js";
 import {
   getAvailableCouponsForProductsService,
@@ -646,6 +647,7 @@ export const getInviteLinkDetailService = async (token) => {
 };
 
 export const getLastMessagesService = async (userId) => {
+  // 1. Lấy danh sách hội thoại của user
   const convs = await db
     .select({ conversationId: conversationMembers.conversationId })
     .from(conversationMembers)
@@ -654,6 +656,7 @@ export const getLastMessagesService = async (userId) => {
   const convIds = convs.map((c) => c.conversationId);
   if (convIds.length === 0) return [];
 
+  // 2. Subquery lấy tin nhắn mới nhất của mỗi conversation
   const lastMsgSub = db
     .select({
       conversationId: messages.conversationId,
@@ -664,6 +667,7 @@ export const getLastMessagesService = async (userId) => {
     .groupBy(messages.conversationId)
     .as("lastMsgSub");
 
+  // 3. Lấy thông tin chi tiết của tin nhắn mới nhất
   const result = await db
     .select({
       conversationId: messages.conversationId,
@@ -673,6 +677,7 @@ export const getLastMessagesService = async (userId) => {
       senderName: users.fullName,
       type: conversations.type,
       convName: conversations.name,
+      lastMessageAt: conversations.lastMessageAt,
     })
     .from(messages)
     .innerJoin(lastMsgSub, eq(messages.createdAt, lastMsgSub.lastCreatedAt))
@@ -680,5 +685,25 @@ export const getLastMessagesService = async (userId) => {
     .innerJoin(conversations, eq(conversations.id, messages.conversationId))
     .orderBy(desc(messages.createdAt));
 
-  return result;
+  const reads = await db
+    .select({
+      conversationId: messageReads.conversationId,
+      lastReadAt: messageReads.lastReadAt,
+    })
+    .from(messageReads)
+    .where(eq(messageReads.userId, userId));
+
+  const readMap = new Map();
+  for (const r of reads) {
+    readMap.set(r.conversationId, r.lastReadAt);
+  }
+
+  return result.map((msg) => {
+    const lastReadAt = readMap.get(msg.conversationId);
+    const isUnread =
+      msg.senderId !== userId &&
+      (!lastReadAt ||
+        new Date(msg.lastMessageAt || msg.createdAt) > new Date(lastReadAt));
+    return { ...msg, isUnread };
+  });
 };

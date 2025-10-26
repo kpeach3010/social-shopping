@@ -24,9 +24,7 @@
             @click="openChat(conv)"
             class="flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50"
             :class="
-              conv.senderId !== auth.user?.id
-                ? 'font-semibold text-gray-900'
-                : 'text-gray-700'
+              conv.isUnread ? 'font-semibold text-gray-900' : 'text-gray-700'
             "
           >
             <div class="relative flex-shrink-0">
@@ -35,7 +33,7 @@
                 class="w-8 h-8 text-gray-400"
               />
               <span
-                v-if="conv.senderId !== auth.user?.id"
+                v-if="conv.isUnread"
                 class="absolute -top-0.5 -left-0.5 h-3 w-3 bg-blue-500 rounded-full border border-white"
               ></span>
             </div>
@@ -126,6 +124,24 @@ function openChat(conv) {
     })
   );
 }
+
+onMounted(() => {
+  window.addEventListener("mark-as-read", (e) => {
+    const convId = e.detail.conversationId;
+    const idx = conversations.value.findIndex(
+      (c) => c.conversationId === convId
+    );
+    if (idx !== -1) {
+      // Xóa chấm xanh
+      conversations.value[idx].senderId = auth.user.id;
+    }
+  });
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("mark-as-read");
+  $socket.off("message");
+});
 </script>
 
 <style scoped>

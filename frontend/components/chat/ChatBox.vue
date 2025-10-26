@@ -230,16 +230,6 @@ const visibleReaders = computed(() => {
 function handleScroll() {
   const el = scrollWrap.value;
   if (!el || !props.conversationId) return;
-
-  // // Nếu user gần cuối khung chat (đọc hết)
-  // const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
-  // if (nearBottom) {
-  //   // Emit socket thông báo "đã đọc"
-  //   $socket.emit("mark-as-read", {
-  //     conversationId: props.conversationId,
-  //     userId: props.currentUserId,
-  //   });
-  // }
 }
 
 async function loadMessagesForConversation(convId) {
@@ -267,12 +257,6 @@ async function loadMessagesForConversation(convId) {
     norm.forEach((m) => m.id && deliveredIds.add(m.id));
     messages.value = norm;
     scrollToBottom();
-
-    // console.log(" auto emit mark-as-read on load", convId);
-    // $socket.emit("mark-as-read", {
-    //   conversationId: convId,
-    //   userId: props.currentUserId,
-    // });
   } catch (e) {
     console.error("Lỗi load messages:", e);
   }
@@ -456,6 +440,12 @@ function markAsRead() {
     conversationId: props.conversationId,
     userId: props.currentUserId,
   });
+
+  window.dispatchEvent(
+    new CustomEvent("mark-as-read", {
+      detail: { conversationId: props.conversationId },
+    })
+  );
 
   // Reset badge nếu đây là conversation hiện tại
   chatStore.clearUnread();

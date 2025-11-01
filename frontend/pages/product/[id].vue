@@ -313,15 +313,17 @@ onMounted(async () => {
     selectedImage.value = res.thumbnailUrl;
     // gọi API lấy coupon khả dụng
     const variantIds = res.variants.map((v) => v.id).join(",");
-    if (variantIds) {
-      const couponRes = await $fetch(
-        `/coupons/available?variantIds=${variantIds}`,
-        {
-          baseURL: config.public.apiBase,
-          headers: { Authorization: `Bearer ${auth.accessToken}` }, // nếu cần login
-        }
-      );
-      coupons.value = couponRes;
+    if (auth.isLoggedIn) {
+      if (variantIds) {
+        const couponRes = await $fetch(
+          `/coupons/available?variantIds=${variantIds}`,
+          {
+            baseURL: config.public.apiBase,
+            headers: { Authorization: `Bearer ${auth.accessToken}` }, // nếu cần login
+          }
+        );
+        coupons.value = couponRes;
+      }
     }
   } catch (e) {
     console.error("Lỗi load sản phẩm:", e);

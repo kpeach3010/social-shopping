@@ -1,15 +1,14 @@
-const {
+import {
   checkoutService,
   updateOrderStatusService,
   getOrderByIdForUserService,
   getOrdersByUserService,
-  getAllOrdersService,
   getOrdersOverviewForStaffService,
   cancelOrderService,
   getOrderWithUserInfoByIdService,
-} = require("../services/order.service");
+} from "../services/order.service.js";
 
-exports.checkoutController = async (req, res) => {
+export const checkoutController = async (req, res) => {
   try {
     const userId = req.user.id;
     const { items, couponCode, shipping, paymentMethod, fromCart } = req.body;
@@ -34,7 +33,7 @@ exports.checkoutController = async (req, res) => {
   }
 };
 
-exports.cancelOrderController = async (req, res) => {
+export const cancelOrderController = async (req, res) => {
   try {
     const orderId = req.params.id;
     const userId = req.user.id;
@@ -46,7 +45,7 @@ exports.cancelOrderController = async (req, res) => {
 };
 
 // Danh sách đơn hàng của customer
-exports.getMyOrdersController = async (req, res) => {
+export const getMyOrdersController = async (req, res) => {
   try {
     const userId = req.user.id;
     const orders = await getOrdersByUserService(userId);
@@ -57,7 +56,7 @@ exports.getMyOrdersController = async (req, res) => {
 };
 
 // Chi tiết đơn hàng của customer
-exports.getMyOrderByIdController = async (req, res) => {
+export const getMyOrderByIdController = async (req, res) => {
   try {
     const userId = req.user.id;
     const { id } = req.params;
@@ -68,7 +67,7 @@ exports.getMyOrderByIdController = async (req, res) => {
   }
 };
 
-exports.getOrdersOverviewForStaffController = async (req, res) => {
+export const getOrdersOverviewForStaffController = async (req, res) => {
   try {
     const orders = await getOrdersOverviewForStaffService();
     res.json(orders);
@@ -77,7 +76,7 @@ exports.getOrdersOverviewForStaffController = async (req, res) => {
   }
 };
 
-exports.getOrderWithUserInfoByIdController = async (req, res) => {
+export const getOrderWithUserInfoByIdController = async (req, res) => {
   try {
     const { id } = req.params;
     const order = await getOrderWithUserInfoByIdService(id);
@@ -87,7 +86,7 @@ exports.getOrderWithUserInfoByIdController = async (req, res) => {
   }
 };
 
-exports.approveOrderController = async (req, res) => {
+export const approveOrderController = async (req, res) => {
   try {
     const id = req.params.id;
     const order = await updateOrderStatusService(id, "approve");
@@ -97,7 +96,7 @@ exports.approveOrderController = async (req, res) => {
   }
 };
 
-exports.rejectOrderController = async (req, res) => {
+export const rejectOrderController = async (req, res) => {
   try {
     const id = req.params.id;
     const order = await updateOrderStatusService(id, "reject");

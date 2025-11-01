@@ -44,9 +44,14 @@ export const sendMessageService = async (conversationId, senderId, content) => {
     })
     .where(eq(conversations.id, conversationId));
 
-  return msg;
+  const [user] = await db
+    .select({ fullName: users.fullName })
+    .from(users)
+    .where(eq(users.id, senderId));
+  return { ...msg, senderFullName: user.fullName };
 };
 
+// Danh dau cuoc tro chuyen la da doc
 export const markConversationAsReadService = async (conversationId, userId) => {
   const now = new Date();
 

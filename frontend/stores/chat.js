@@ -27,5 +27,9 @@ export const useChatStore = defineStore("chat", {
         if (saved) this.unreadCount = parseInt(saved);
       }
     },
+    reset() {
+      this.unreadCount = 0;
+      if (process.client) localStorage.removeItem("unreadCount");
+    },
   },
 });

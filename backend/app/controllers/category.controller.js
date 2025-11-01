@@ -1,14 +1,14 @@
-const {
+import {
   createCategoryService,
   getAllCategoriesService,
   updateCategoryService,
   deleteCategoryService,
   getCategoryById,
   getProductsByCategoryService,
-} = require("../services/category.service.js");
+} from "../services/category.service.js";
 
 // tạo category
-exports.createCategoryController = async (req, res) => {
+export const createCategoryController = async (req, res) => {
   try {
     const categoryData = req.body;
     const newCategory = await createCategoryService(categoryData);
@@ -19,7 +19,7 @@ exports.createCategoryController = async (req, res) => {
 };
 
 // lấy tất cả category
-exports.getAllCategoriesController = async (req, res) => {
+export const getAllCategoriesController = async (req, res) => {
   try {
     const categories = await getAllCategoriesService();
     res.status(200).json(categories);
@@ -29,7 +29,7 @@ exports.getAllCategoriesController = async (req, res) => {
 };
 
 // lấy 1 category theo id
-exports.getCategoryByIdController = async (req, res) => {
+export const getCategoryByIdController = async (req, res) => {
   try {
     const categoryId = req.params.id;
     const category = await getCategoryById(categoryId);
@@ -43,7 +43,7 @@ exports.getCategoryByIdController = async (req, res) => {
 };
 
 // cập nhật category
-exports.updateCategoryController = async (req, res) => {
+export const updateCategoryController = async (req, res) => {
   try {
     const categoryId = req.params.id;
     const updateData = req.body;
@@ -55,7 +55,7 @@ exports.updateCategoryController = async (req, res) => {
 };
 
 // xóa category
-exports.deleteCategoryController = async (req, res) => {
+export const deleteCategoryController = async (req, res) => {
   try {
     const categoryId = req.params.id;
     const result = await deleteCategoryService(categoryId);
@@ -65,7 +65,7 @@ exports.deleteCategoryController = async (req, res) => {
   }
 };
 
-exports.getProductsByCategoryController = async (req, res) => {
+export const getProductsByCategoryController = async (req, res) => {
   try {
     const { categoryId } = req.params;
     const products = await getProductsByCategoryService(categoryId);

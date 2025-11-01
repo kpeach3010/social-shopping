@@ -97,30 +97,10 @@
           <p>Email: {{ inviteDetail?.creator?.email }}</p>
         </div>
 
-        <!-- Nếu là người tạo link -->
-        <div v-if="isCreator" class="text-center space-y-4">
-          <div
-            class="text-gray-800 font-medium border border-gray-200 bg-gray-50 p-3 rounded-lg"
-          >
-            {{ info }}
-          </div>
-
-          <div v-if="inviteDetail?.conversation" class="mt-3">
-            <button
-              @click="openChatBox"
-              class="px-5 py-2 bg-black text-white rounded-lg hover:bg-neutral-800 font-medium"
-            >
-              Mở chat nhóm
-            </button>
-          </div>
-        </div>
-        <!-- Nếu user chưa tham gia, không phải creator, và nhóm chưa khóa -->
+        <!-- Nếu user chưa tham gia và nhóm đang mở -->
         <div
-          v-else-if="
-            !alreadyJoined &&
-            !isCreator &&
-            (inviteDetail?.groupOrder?.status === 'pending' ||
-              !inviteDetail?.groupOrder)
+          v-if="
+            !alreadyJoined && inviteDetail?.groupOrder?.status === 'pending'
           "
         >
           <button
@@ -134,7 +114,7 @@
 
         <!-- Nếu user đã tham gia -->
         <div
-          v-else-if="alreadyJoined && !success"
+          v-else-if="alreadyJoined"
           class="text-center text-green-600 font-medium border border-green-200 bg-green-50 p-3 rounded-lg"
         >
           Bạn đã là thành viên của nhóm này 🎉
@@ -146,19 +126,6 @@
               Mở chat nhóm
             </button>
           </div>
-        </div>
-
-        <!-- Khi join thành công -->
-        <div v-else-if="success" class="mt-5 text-center">
-          <p class="text-green-600 font-semibold text-lg mb-3">
-            🎉 Tham gia nhóm thành công!
-          </p>
-          <button
-            @click="openChatBox"
-            class="px-6 py-2 bg-black text-white rounded-lg hover:bg-neutral-800 font-medium"
-          >
-            Mở chat nhóm
-          </button>
         </div>
 
         <!-- Nếu nhóm bị khóa -->
@@ -175,6 +142,19 @@
               Về trang chủ
             </button>
           </div>
+        </div>
+
+        <!-- Khi join thành công -->
+        <div v-if="success" class="mt-5 text-center">
+          <p class="text-green-600 font-semibold text-lg mb-3">
+            🎉 Tham gia nhóm thành công!
+          </p>
+          <button
+            @click="openChatBox"
+            class="px-6 py-2 bg-black text-white rounded-lg hover:bg-neutral-800 font-medium"
+          >
+            Mở chat nhóm
+          </button>
         </div>
       </div>
     </div>
@@ -197,8 +177,6 @@ const error = ref("");
 const inviteDetail = ref(null);
 const conversation = ref(null);
 const alreadyJoined = ref(false);
-const isCreator = ref(false);
-const info = ref("");
 
 onMounted(async () => {
   const token = route.params.token;
@@ -211,26 +189,9 @@ onMounted(async () => {
   try {
     const res = await $fetch(`/conversations/invite-links/${token}`, {
       baseURL: config.public.apiBase,
-      headers: auth.accessToken
-        ? { Authorization: `Bearer ${auth.accessToken}` }
-        : {},
     });
-
     inviteDetail.value = res;
 
-    // Nếu là người tạo link
-    if (auth.user && res?.creator?.id === auth.user.id) {
-      isCreator.value = true;
-      if (res.conversation) {
-        info.value = "Bạn là người tạo nhóm. Có thể vào chat nhóm.";
-      } else {
-        info.value =
-          "Bạn là người tạo link. Chờ người khác tham gia để nhóm được kích hoạt.";
-      }
-      return; // Dừng lại, không auto join
-    }
-
-    // Nếu người dùng đã trong danh sách thành viên
     if (auth.user && res?.members?.some((m) => m.id === auth.user.id)) {
       alreadyJoined.value = true;
     }
@@ -266,13 +227,10 @@ async function joinGroup() {
     success.value = true;
     alreadyJoined.value = true;
   } catch (e) {
-    console.error("Join error:", e);
     alert(
       e?.data?.message ||
         e?.message ||
-        `Không thể tham gia nhóm: [${e?.response?.status || "?"}] ${
-          e?.response?.url || ""
-        }`
+        "Không thể tham gia nhóm. Vui lòng thử lại."
     );
   } finally {
     joining.value = false;
@@ -283,26 +241,12 @@ async function openChatBox() {
   const conv = conversation.value || inviteDetail.value?.conversation;
   if (!conv) return;
 
-  if (conversation.value?.conversationId && !conv.id) {
-    conv.id = conversation.value.conversationId;
-  }
-
-  const conversationId = conv.id || conv.conversationId || conv.groupOrderId;
-  if (!conversationId) {
-    console.warn("Không xác định được conversationId khi mở chat nhóm:", conv);
-    return;
-  }
-
+  // Điều hướng về trang chủ trước
   await router.push("/");
+
+  // Gửi event mở chat nhóm sau một chút
   setTimeout(() => {
-    window.dispatchEvent(
-      new CustomEvent("open-group-chat", {
-        detail: {
-          id: conversationId,
-          name: conv.name || conv.conversationName || "Nhóm mua chung",
-        },
-      })
-    );
+    window.dispatchEvent(new CustomEvent("open-group-chat", { detail: conv }));
   }, 300);
 }
 

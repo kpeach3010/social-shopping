@@ -1,11 +1,11 @@
-const {
+import {
   createStaffService,
   disableUserService,
   enableUserService,
   getAllUsersService,
-} = require("../services/user.service");
+} from "../services/user.service.js";
 
-exports.createStaffController = async (req, res) => {
+export const createStaffController = async (req, res) => {
   try {
     const data = req.body;
     const newUser = await createStaffService(data);
@@ -15,7 +15,7 @@ exports.createStaffController = async (req, res) => {
   }
 };
 
-exports.disableUserController = async (req, res) => {
+export const disableUserController = async (req, res) => {
   try {
     const id = req.params.id;
     const result = await disableUserService(id);
@@ -25,7 +25,7 @@ exports.disableUserController = async (req, res) => {
   }
 };
 
-exports.enableUserController = async (req, res) => {
+export const enableUserController = async (req, res) => {
   try {
     const id = req.params.id;
     const result = await enableUserService(id);
@@ -35,7 +35,7 @@ exports.enableUserController = async (req, res) => {
   }
 };
 
-exports.getAllUsersController = async (req, res) => {
+export const getAllUsersController = async (req, res) => {
   try {
     const allUsers = await getAllUsersService();
     res.json(allUsers);

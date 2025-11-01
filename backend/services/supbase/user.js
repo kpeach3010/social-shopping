@@ -1,5 +1,5 @@
 import supabase from "./client.js";
-import Role from "../../app/enums/role.enum.js";
+import { Role } from "../../app/enums/role.enum.js";
 
 // taot user tren supabase
 export const createUser = async (userData) => {

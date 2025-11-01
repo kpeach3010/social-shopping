@@ -1,21 +1,28 @@
-const express = require("express");
-const {
-  getMessagesController,
-  sendMessageController,
-  markConversationAsReadController,
-  getUnreadMessageCountController,
-} = require("../controllers/message.controller");
-const { authenticate } = require("../middlewares/auth.middleware");
+import express from "express";
+import * as MessageController from "../controllers/message.controller.js";
+import { authenticate } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
-router.get("/unread-count", authenticate, getUnreadMessageCountController);
-router.get("/:conversationId", authenticate, getMessagesController);
-router.post("/:conversationId", authenticate, sendMessageController);
+router.get(
+  "/unread-count",
+  authenticate,
+  MessageController.getUnreadMessageCountController
+);
+router.get(
+  "/:conversationId",
+  authenticate,
+  MessageController.getMessagesController
+);
+router.post(
+  "/:conversationId",
+  authenticate,
+  MessageController.sendMessageController
+);
 router.post(
   "/mark-as-read/:conversationId",
   authenticate,
-  markConversationAsReadController
+  MessageController.markConversationAsReadController
 );
 
-module.exports = router;
+export default router;

@@ -1,28 +1,31 @@
-const express = require("express");
-const {
-  addToCartController,
-  removeFromCartController,
-  getCartItemsController,
-  updateCartItemQuantityController,
-} = require("../controllers/cart.controller");
-const { authenticate, hasRoles } = require("../middlewares/auth.middleware");
-const Role = require("../enums/role.enum");
+import express from "express";
+import * as CartController from "../controllers/cart.controller.js";
+import { authenticate, hasRoles } from "../middlewares/auth.middleware.js";
+import { Role } from "../enums/role.enum.js";
 
 const router = express.Router();
 
 router.use(authenticate);
 
-router.post("/add", hasRoles(Role.CUSTOMER), addToCartController);
+router.post(
+  "/add",
+  hasRoles(Role.CUSTOMER),
+  CartController.addToCartController
+);
 router.delete(
   "/remove/:variantId",
   hasRoles(Role.CUSTOMER),
-  removeFromCartController
+  CartController.removeFromCartController
 );
 router.patch(
   "/update-quantity/:variantId",
   hasRoles(Role.CUSTOMER),
-  updateCartItemQuantityController
+  CartController.updateCartItemQuantityController
 );
-router.get("/get-cart-items", hasRoles(Role.CUSTOMER), getCartItemsController);
+router.get(
+  "/get-cart-items",
+  hasRoles(Role.CUSTOMER),
+  CartController.getCartItemsController
+);
 
-module.exports = router;
+export default router;

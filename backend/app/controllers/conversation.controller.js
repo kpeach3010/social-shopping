@@ -1,7 +1,5 @@
-const {
+import {
   getOrCreateDirectConversationService,
-  getMessagesService,
-  sendMessageService,
   getUserGroupConversationsService,
   createInviteLinkService,
   joinGroupOrderByInviteTokenService,
@@ -9,12 +7,12 @@ const {
   getInviteLinkDetailService,
   getConversationByIdService,
   getLastMessagesService,
-} = require("../services/conversation.service");
-const { db } = require("../db/client.js");
-const { users } = require("../db/schema.js");
-const { eq } = require("drizzle-orm");
+} from "../services/conversation.service.js";
+import { db } from "../db/client.js";
+import { users } from "../db/schema.js";
+import { eq } from "drizzle-orm";
 
-exports.getOrCreateDirectConversationController = async (req, res) => {
+export const getOrCreateDirectConversationController = async (req, res) => {
   try {
     const userId = req.user.id;
     const { partnerId } = req.body;
@@ -51,7 +49,7 @@ exports.getOrCreateDirectConversationController = async (req, res) => {
   }
 };
 
-exports.getUserGroupConversationsController = async (req, res) => {
+export const getUserGroupConversationsController = async (req, res) => {
   try {
     const userId = req.user.id;
     const { type } = req.query;
@@ -68,7 +66,7 @@ exports.getUserGroupConversationsController = async (req, res) => {
   }
 };
 
-exports.createInviteLinkController = async (req, res) => {
+export const createInviteLinkController = async (req, res) => {
   try {
     const { productId, couponId } = req.body;
 
@@ -89,7 +87,7 @@ exports.createInviteLinkController = async (req, res) => {
   }
 };
 
-exports.joinGroupOrderByInviteTokenController = async (req, res) => {
+export const joinGroupOrderByInviteTokenController = async (req, res) => {
   try {
     const { token } = req.params;
     const userId = req.user?.id;
@@ -109,7 +107,7 @@ exports.joinGroupOrderByInviteTokenController = async (req, res) => {
   }
 };
 
-exports.getUserConversationsController = async (req, res) => {
+export const getUserConversationsController = async (req, res) => {
   try {
     const userId = req.user.id;
     const data = await getUserConversationsService(userId);
@@ -120,7 +118,7 @@ exports.getUserConversationsController = async (req, res) => {
   }
 };
 
-exports.getConversationByIdController = async (req, res) => {
+export const getConversationByIdController = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
@@ -138,7 +136,7 @@ exports.getConversationByIdController = async (req, res) => {
   }
 };
 
-exports.getInviteLinkDetailController = async (req, res) => {
+export const getInviteLinkDetailController = async (req, res) => {
   try {
     const { token } = req.params;
     if (!token) {
@@ -158,7 +156,7 @@ exports.getInviteLinkDetailController = async (req, res) => {
   }
 };
 
-exports.getLastMessagesController = async (req, res) => {
+export const getLastMessagesController = async (req, res) => {
   try {
     const userId = req.user.id;
     const messages = await getLastMessagesService(userId);

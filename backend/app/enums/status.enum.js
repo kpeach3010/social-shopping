@@ -1,6 +1,4 @@
-const Status = Object.freeze({
+export const Status = Object.freeze({
   ACTIVE: "active",
   DISABLED: "disabled",
 });
-
-module.exports = Status;

@@ -1,14 +1,7 @@
-const express = require("express");
-const {
-  createCategoryController,
-  getAllCategoriesController,
-  updateCategoryController,
-  deleteCategoryController,
-  getCategoryByIdController,
-  getProductsByCategoryController,
-} = require("../controllers/category.controller");
-const { authenticate, hasRoles } = require("../middlewares/auth.middleware");
-const Role = require("../enums/role.enum");
+import express from "express";
+import * as CategoryController from "../controllers/category.controller.js";
+import { authenticate, hasRoles } from "../middlewares/auth.middleware.js";
+import { Role } from "../enums/role.enum.js";
 
 const router = express.Router();
 
@@ -16,31 +9,30 @@ router.post(
   "/create-category",
   authenticate,
   hasRoles(Role.STAFF),
-  createCategoryController
+  CategoryController.createCategoryController
 );
 
 router.put(
   "/update-category/:id",
   authenticate,
   hasRoles(Role.STAFF),
-  updateCategoryController
+  CategoryController.updateCategoryController
 );
 
 router.delete(
   "/delete-category/:id",
   authenticate,
   hasRoles(Role.STAFF),
-  deleteCategoryController
+  CategoryController.deleteCategoryController
 );
+
+router.get("/category/:id", CategoryController.getCategoryByIdController);
+
+router.get("/all-categories", CategoryController.getAllCategoriesController);
 
 router.get(
-  "/category/:id",
-
-  getCategoryByIdController
+  "/:categoryId/products",
+  CategoryController.getProductsByCategoryController
 );
 
-router.get("/all-categories", getAllCategoriesController);
-
-router.get("/:categoryId/products", getProductsByCategoryController);
-
-module.exports = router;
+export default router;

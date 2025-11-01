@@ -1,8 +1,9 @@
 <template>
   <div class="relative">
     <!-- Nút icon chat -->
-    <button @click="toggleDropdown" class="relative">
+    <button v-if="auth.isLoggedIn" @click="toggleDropdown" class="relative">
       <ChatBubbleOvalLeftIcon class="w-6 h-6 text-gray-700 hover:text-black" />
+
       <span
         v-if="chatStore.unreadCount > 0"
         class="absolute -top-2 -right-2 bg-red-600 text-white text-xs rounded-full px-1.5 py-0.5"
@@ -10,7 +11,6 @@
         {{ chatStore.unreadCount }}
       </span>
     </button>
-
     <!-- Dropdown hội thoại -->
     <transition name="fade-slide">
       <div
@@ -82,7 +82,7 @@ import {
 const auth = useAuthStore();
 const chatStore = useChatStore();
 const config = useRuntimeConfig();
-
+const { $socket } = useNuxtApp();
 const dropdownOpen = ref(false);
 const conversations = ref([]);
 
@@ -126,8 +126,9 @@ function openChat(conv) {
 }
 
 onMounted(() => {
-  window.addEventListener("mark-as-read", (e) => {
-    const convId = e.detail.conversationId;
+  const __markAsReadHandler = (e) => {
+    if (!auth.user) return;
+    const convId = e?.detail?.conversationId;
     const idx = conversations.value.findIndex(
       (c) => c.conversationId === convId
     );
@@ -135,12 +136,14 @@ onMounted(() => {
       // Xóa chấm xanh
       conversations.value[idx].senderId = auth.user.id;
     }
-  });
-});
+  };
 
-onBeforeUnmount(() => {
-  window.removeEventListener("mark-as-read");
-  $socket.off("message");
+  window.addEventListener("mark-as-read", __markAsReadHandler);
+
+  onBeforeUnmount(() => {
+    window.removeEventListener("mark-as-read", __markAsReadHandler);
+    $socket.off("message");
+  });
 });
 </script>
 

@@ -1,15 +1,38 @@
 <template>
   <div
-    v-show="partner || conversation"
+    v-if="partner || conversation"
     class="fixed bottom-6 right-6 w-96 h-[520px] bg-white border border-gray-200 rounded-2xl shadow-2xl flex flex-col z-40 overflow-hidden"
   >
     <!-- Header -->
     <div class="flex items-center p-3 border-b border-gray-200 bg-gray-100">
       <UserCircleIcon class="w-8 h-8 text-gray-500 mr-2" />
-      <span class="font-semibold text-gray-700 flex-1">
-        {{ partner?.fullName || conversation?.name || "Chat" }}
-      </span>
-      <button @click="$emit('close')" class="text-gray-400 hover:text-gray-600">
+
+      <!-- Tên nhóm + trạng thái -->
+      <div class="flex flex-col flex-1">
+        <div class="flex items-center">
+          <span class="font-semibold text-gray-800 mr-2">
+            {{ partner?.fullName || conversation?.name || "Chat" }}
+          </span>
+
+          <!-- Icon xem chi tiết -->
+          <InformationCircleIcon
+            v-if="isGroupChat"
+            class="w-5 h-5 text-gray-500 hover:text-gray-700 cursor-pointer"
+            @click="openGroupDetail"
+          />
+        </div>
+
+        <!-- Hiển thị trạng thái -->
+        <p v-if="groupStatusText" class="text-xs text-gray-600 mt-0.5">
+          {{ groupStatusText }}
+        </p>
+      </div>
+
+      <!-- Nút đóng -->
+      <button
+        @click="$emit('close')"
+        class="text-gray-400 hover:text-gray-600 ml-2"
+      >
         ✕
       </button>
     </div>
@@ -44,7 +67,7 @@
         >
           <!-- Tên người gửi (chỉ hiện cho người khác trong group) -->
           <div
-            v-if="!isMine(msg) && conversation?.type === 'group'"
+            v-if="!isMine(msg) && isGroupChat"
             class="text-xs text-gray-500 mb-0.5"
           >
             {{ msg.senderFullName || "Người dùng" }}
@@ -80,7 +103,6 @@
       {{ typing }}
     </div>
 
-    <!-- Hiển thị trạng thái đã xem -->
     <!-- Hiển thị trạng thái đã xem -->
     <div
       v-if="Object.keys(visibleReaders).length"
@@ -139,19 +161,46 @@
         <PaperAirplaneIcon class="w-5 h-5" />
       </button>
     </div>
+    <GroupOrderDetailModal
+      v-if="showGroupDetail"
+      :open="showGroupDetail"
+      :groupOrder="groupDetail?.groupOrder"
+      :product="groupDetail?.product"
+      :coupon="groupDetail?.coupon"
+      :members="groupDetail?.members"
+      :inviteToken="groupDetail?.inviteToken"
+      @close="showGroupDetail = false"
+    />
   </div>
 </template>
 
 <script setup>
-import { UserCircleIcon, PaperAirplaneIcon } from "@heroicons/vue/24/outline";
+import {
+  UserCircleIcon,
+  PaperAirplaneIcon,
+  InformationCircleIcon,
+} from "@heroicons/vue/24/outline";
 import supabase from "@/plugins/supabase";
 import { useAuthStore } from "@/stores/auth";
 import { useChatStore } from "@/stores/chat";
+import GroupOrderDetailModal from "../modals/groupOrder/GroupOrderDetailModal.vue";
 
 const chatStore = useChatStore();
 const joinNotice = ref("");
 const router = useRouter();
 const readStatus = ref({}); // { userId: { lastReadAt, fullName } }
+const showGroupDetail = ref(false);
+const groupDetail = ref(null);
+let supabaseChannel;
+
+const isGroupChat = computed(
+  () => props.conversation?.type === "group" || !!groupDetail.value?.groupOrder
+);
+
+const groupStatusText = computed(() => {
+  const s = groupDetail.value?.groupOrder?.status;
+  return s ? statusText(s) : "";
+});
 
 function formatMessage(content) {
   if (!content) return "";
@@ -198,7 +247,9 @@ const normalize = (raw) => ({
   tempId: raw.tempId ?? null,
   conversationId: raw.conversationId ?? raw.conversation_id ?? null,
   senderId: raw.senderId ?? raw.sender_id ?? null,
-  senderFullName: raw.senderFullName ?? raw.sender_name ?? null,
+  senderFullName:
+    raw.senderFullName ?? raw.sender_full_name ?? raw.sender_name ?? null,
+
   content: raw.content ?? "",
   status: raw.status ?? undefined,
   createdAt: raw.createdAt ?? raw.created_at ?? null,
@@ -236,17 +287,12 @@ async function loadMessagesForConversation(convId) {
   messages.value = [];
   deliveredIds.clear();
   pendingMap.clear();
-  console.log(
-    "📤 gửi message",
-    convId,
-    props.conversationId,
-    props.conversation
-  );
+  // console.log("gửi message", convId, props.conversationId, props.conversation);
   if (!convId) return;
 
   try {
     emit("update:conversationId", convId);
-    await nextTick(); // đảm bảo prop kịp cập nhật lại từ parent
+    await nextTick();
 
     const data = await $fetch(`/messages/${convId}`, {
       method: "GET",
@@ -265,10 +311,22 @@ async function loadMessagesForConversation(convId) {
 
 watch(
   () => props.conversationId,
-  (newId, oldId) => {
-    if (newId && newId !== oldId) {
-      loadMessagesForConversation(newId);
-      $socket.emit("join-conversation", newId);
+  async (newId) => {
+    if (!newId) return;
+    readStatus.value = {};
+    await loadMessagesForConversation(newId);
+    $socket.emit("join-conversation", newId);
+
+    try {
+      const res = await $fetch(`/group-orders/${newId}`, {
+        method: "GET",
+        baseURL: config.public.apiBase,
+        headers: { Authorization: `Bearer ${auth.accessToken}` },
+      });
+      if (res?.groupOrder) groupDetail.value = res;
+      else groupDetail.value = null;
+    } catch {
+      groupDetail.value = null;
     }
   },
   { immediate: true }
@@ -304,8 +362,19 @@ watch(
 
 // Socket listeners
 onMounted(() => {
+  if (props.conversationId) {
+    $socket.emit("join-conversation", props.conversationId);
+  }
+
   $socket.on("message", (raw) => {
-    const msg = normalize(raw);
+    const msg = normalize({
+      ...raw,
+      senderFullName:
+        raw.senderFullName || raw.sender_full_name || raw.sender_name,
+    });
+
+    console.log("Raw message:", raw);
+    console.log("senderFullName:", msg.senderFullName);
     if (msg.conversationId !== props.conversationId) return;
     if (msg.id && deliveredIds.has(msg.id)) return;
 
@@ -336,16 +405,13 @@ onMounted(() => {
       payload.senderId !== props.currentUserId &&
       payload.conversationId === props.conversationId
     ) {
-      // Tìm tên từ cache
-      const partner =
-        props.partner ||
-        (window.__users
-          ? window.__users.find((u) => u.id === payload.senderId)
-          : null);
+      const name =
+        payload.senderFullName ||
+        props.partner?.fullName ||
+        window.__users?.find((u) => u.id === payload.senderId)?.fullName ||
+        "Người dùng";
 
-      typing.value = partner?.fullName
-        ? `${partner.fullName} đang nhập...`
-        : "Ai đó đang nhập...";
+      typing.value = `${name} đang nhập...`;
 
       clearTimeout(typingTimeout);
       typingTimeout = setTimeout(() => (typing.value = false), 2000);
@@ -358,42 +424,6 @@ onMounted(() => {
       setTimeout(() => (joinNotice.value = ""), 4000);
     }
   });
-
-  if (supabase) {
-    let supabaseChannel;
-    supabaseChannel = supabase
-      .channel("messages-changes-frontend")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages" },
-        (payload) => {
-          const msg = normalize(payload.new);
-          if (msg.conversationId !== props.conversationId) return;
-          if (msg.id && deliveredIds.has(msg.id)) return;
-
-          if (isMine(msg)) {
-            const idx = [...pendingMap.values()].find(
-              (i) =>
-                messages.value[i]?.status === "sending" &&
-                messages.value[i]?.content === msg.content
-            );
-            if (idx !== undefined) {
-              messages.value[idx] = { ...msg, status: "sent" };
-              deliveredIds.add(msg.id);
-              scrollToBottom();
-              return;
-            }
-          }
-          messages.value.push({
-            ...msg,
-            status: isMine(msg) ? "sent" : undefined,
-          });
-          msg.id && deliveredIds.add(msg.id);
-          scrollToBottom();
-        }
-      )
-      .subscribe();
-  }
 
   const chatEl = scrollWrap.value;
   chatEl?.addEventListener("click", (e) => {
@@ -435,7 +465,7 @@ function emitTyping() {
 function markAsRead() {
   if (!props.conversationId || !props.currentUserId) return;
 
-  console.log("📩 mark-as-read triggered (focus input)");
+  // console.log("mark-as-read triggered (focus input)");
   $socket.emit("mark-as-read", {
     conversationId: props.conversationId,
     userId: props.currentUserId,
@@ -449,6 +479,17 @@ function markAsRead() {
 
   // Reset badge nếu đây là conversation hiện tại
   chatStore.clearUnread();
+}
+
+function statusText(status) {
+  const map = {
+    pending: "Đang mở",
+    locked: "Đã đủ thành viên",
+    ordering: "Đang đặt hàng",
+    completed: "Đã hoàn tất",
+    cancelled: "Đã huỷ",
+  };
+  return map[status] || "";
 }
 
 async function sendMessage() {
@@ -494,6 +535,7 @@ async function sendMessage() {
       tempId,
       conversationId: convId,
       senderId: props.currentUserId,
+      senderFullName: auth.user?.fullName || "Bạn",
       content: text,
       status: "sending",
       createdAt: new Date().toISOString(),
@@ -531,6 +573,33 @@ async function sendMessage() {
     loading.value = false;
   }
 }
+
+async function openGroupDetail() {
+  // console.log("CLICK DETAIL", props.conversation);
+  if (props.conversation?.type !== "group" || !props.conversation?.id) {
+    // console.warn("Không phải nhóm, bỏ qua");
+    return;
+  }
+
+  try {
+    console.log("FETCHING...");
+    const res = await $fetch(`/group-orders/${props.conversation.id}`, {
+      method: "GET",
+      baseURL: config.public.apiBase,
+      headers: {
+        Authorization: `Bearer ${auth.accessToken}`,
+      },
+    });
+
+    // console.log("Group detail fetched:", res);
+    groupDetail.value = res;
+    showGroupDetail.value = true;
+    // console.log("showGroupDetail:", showGroupDetail.value);
+  } catch (err) {
+    // console.error("Không thể lấy thông tin nhóm:", err);
+  }
+}
+
 onBeforeUnmount(() => {
   $socket.off("message");
   $socket.off("typing");

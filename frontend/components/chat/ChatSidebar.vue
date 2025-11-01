@@ -98,13 +98,13 @@ import {
   ChatBubbleOvalLeftEllipsisIcon,
 } from "@heroicons/vue/24/outline";
 import { useAuthStore } from "@/stores/auth";
+import { useWaitForAuthReady } from "@/composables/useWaitForAuthReady";
 
 const props = defineProps({
   currentUserId: { type: String, required: true },
   isOpen: { type: Boolean, default: true },
   showToggle: { type: Boolean, default: true },
 });
-
 const emit = defineEmits(["openChat", "toggle"]);
 
 const config = useRuntimeConfig();
@@ -119,11 +119,10 @@ const tabs = [
 ];
 const activeTab = ref("direct");
 
-onMounted(async () => {
+async function loadSidebarData() {
   try {
-    // direct
+    // Danh sách user
     const res = await $fetch("/users", {
-      method: "GET",
       baseURL: config.public.apiBase,
       headers: { Authorization: `Bearer ${auth.accessToken}` },
     });
@@ -132,26 +131,18 @@ onMounted(async () => {
       ? res.filter((u) => u.id !== props.currentUserId)
       : [];
 
-    // group
+    // Nhóm chat
     const resGroups = await $fetch("/conversations/group?type=group", {
       baseURL: config.public.apiBase,
       headers: { Authorization: `Bearer ${auth.accessToken}` },
     });
-    groupConversations.value = resGroups;
+    groupConversations.value = Array.isArray(resGroups) ? resGroups : [];
 
+    // Join tất cả cuộc hội thoại
     const allConversations = await $fetch("/conversations", {
       baseURL: config.public.apiBase,
       headers: { Authorization: `Bearer ${auth.accessToken}` },
     });
-
-    // if (typeof window !== "undefined") {
-    //   window.__conversations = allConversations;
-
-    //   // join tất cả room tương ứng
-    //   allConversations.forEach((conv) => {
-    //     $socket.emit("join-conversation", conv.id);
-    //   });
-    // }
 
     if (Array.isArray(allConversations)) {
       for (const conv of allConversations) {
@@ -159,6 +150,7 @@ onMounted(async () => {
       }
     }
 
+    // 4️Khi nhóm được kích hoạt mới
     $socket.on("group-activated", async ({ conversationId }) => {
       const exists = groupConversations.value.some(
         (g) => g.id === conversationId
@@ -168,7 +160,6 @@ onMounted(async () => {
           baseURL: config.public.apiBase,
           headers: { Authorization: `Bearer ${auth.accessToken}` },
         });
-        // chỉ thêm nếu là group
         if (newGroup?.type === "group") groupConversations.value.push(newGroup);
       }
       $socket.emit("join-conversation", conversationId);
@@ -177,7 +168,14 @@ onMounted(async () => {
     console.error("Lỗi load sidebar:", e);
     users.value = [];
   }
+}
+
+onMounted(async () => {
+  const isReady = await useWaitForAuthReady();
+  if (!isReady) return;
+  await loadSidebarData();
 });
+
 onBeforeUnmount(() => {
   $socket.off("group-activated");
 });

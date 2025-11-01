@@ -1,4 +1,4 @@
-const {
+import {
   createProductService,
   getAllProductService,
   getProductByIdService,
@@ -7,9 +7,9 @@ const {
   updateProductService,
   deleteColorService,
   searchProductByNameService,
-} = require("../services/product.service");
+} from "../services/product.service.js";
 
-exports.createProductController = async (req, res) => {
+export const createProductController = async (req, res) => {
   console.log("body:", req.body);
   try {
     const body = req.body || {};
@@ -61,7 +61,7 @@ exports.createProductController = async (req, res) => {
 };
 
 // lấy tất cả product
-exports.getAllProductController = async (req, res) => {
+export const getAllProductController = async (req, res) => {
   try {
     const product = await getAllProductService();
     res.status(200).json(product);
@@ -71,7 +71,7 @@ exports.getAllProductController = async (req, res) => {
 };
 
 // lay 1 product theo id
-exports.getProductByIdController = async (req, res) => {
+export const getProductByIdController = async (req, res) => {
   try {
     const productId = req.params.id;
     const product = await getProductByIdService(productId);
@@ -85,7 +85,7 @@ exports.getProductByIdController = async (req, res) => {
 };
 
 // xoa 1 hoặc nhiều product
-exports.deleteProductController = async (req, res) => {
+export const deleteProductController = async (req, res) => {
   try {
     let ids = [];
     if (req.method === "DELETE" && req.body && Array.isArray(req.body.ids)) {
@@ -109,7 +109,7 @@ exports.deleteProductController = async (req, res) => {
 };
 
 // xoa 1 variant
-exports.deleteVariantController = async (req, res) => {
+export const deleteVariantController = async (req, res) => {
   try {
     const productId = req.params.id;
     const result = await deleteVariantService(productId);
@@ -121,7 +121,7 @@ exports.deleteVariantController = async (req, res) => {
 };
 
 //update product
-exports.updateProductController = async (req, res) => {
+export const updateProductController = async (req, res) => {
   try {
     const productId = req.params.id;
     const data = req.body || {};
@@ -164,7 +164,7 @@ exports.updateProductController = async (req, res) => {
 };
 
 // Xóa 1 màu (color) và toàn bộ variants liên quan
-exports.deleteColorController = async (req, res) => {
+export const deleteColorController = async (req, res) => {
   try {
     const colorId = req.params.id;
     console.log("colorId nhận từ FE:", colorId);
@@ -176,7 +176,7 @@ exports.deleteColorController = async (req, res) => {
 };
 
 // Tìm kiếm sản phẩm theo tên
-exports.searchProductByNameController = async (req, res) => {
+export const searchProductByNameController = async (req, res) => {
   try {
     const { name } = req.query;
     const products = await searchProductByNameService(name);

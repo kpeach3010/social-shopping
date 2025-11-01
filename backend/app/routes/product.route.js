@@ -1,18 +1,9 @@
-const express = require("express");
-const multer = require("multer");
+import express from "express";
+import multer from "multer";
 const upload = multer();
-const {
-  createProductController,
-  getAllProductController,
-  getProductByIdController,
-  deleteProductController,
-  deleteVariantController,
-  updateProductController,
-  deleteColorController,
-  searchProductByNameController,
-} = require("../controllers/product.controller");
-const { authenticate, hasRoles } = require("../middlewares/auth.middleware");
-const Role = require("../enums/role.enum");
+import * as ProductController from "../controllers/product.controller.js";
+import { authenticate, hasRoles } from "../middlewares/auth.middleware.js";
+import { Role } from "../enums/role.enum.js";
 
 const router = express.Router();
 
@@ -22,21 +13,21 @@ router.post(
   authenticate,
   hasRoles(Role.STAFF),
   upload.any(),
-  createProductController
+  ProductController.createProductController
 );
 
 // Lấy tất cả sản phẩm
-router.get("/all-products", getAllProductController);
+router.get("/all-products", ProductController.getAllProductController);
 
 // Lấy sản phẩm theo ID
-router.get("/get-product/:id", getProductByIdController);
+router.get("/get-product/:id", ProductController.getProductByIdController);
 
 // Xóa 1 sản phẩm
 router.delete(
   "/delete-many/:ids",
   authenticate,
   hasRoles(Role.STAFF),
-  deleteProductController
+  ProductController.deleteProductController
 );
 
 // Xóa 1 variant
@@ -44,7 +35,7 @@ router.delete(
   "/delete-variant/:id",
   authenticate,
   hasRoles(Role.STAFF),
-  deleteVariantController
+  ProductController.deleteVariantController
 );
 
 router.put(
@@ -52,17 +43,17 @@ router.put(
   authenticate,
   hasRoles(Role.STAFF),
   upload.any(),
-  updateProductController
+  ProductController.updateProductController
 );
 
 router.delete(
   "/delete-color/:id",
   authenticate,
   hasRoles(Role.STAFF),
-  deleteColorController
+  ProductController.deleteColorController
 );
 
 // tim kiem san pham theo ten
-router.get("/search", searchProductByNameController);
+router.get("/search", ProductController.searchProductByNameController);
 
-module.exports = router;
+export default router;

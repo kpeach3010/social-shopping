@@ -1,11 +1,11 @@
-const {
+import {
   getMessagesService,
   sendMessageService,
   markConversationAsReadService,
   getUnreadMessageCountService,
-} = require("../services/message.service");
+} from "../services/message.service.js";
 
-exports.getMessagesController = async (req, res) => {
+export const getMessagesController = async (req, res) => {
   try {
     const { conversationId } = req.params;
     const messages = await getMessagesService(conversationId);
@@ -15,11 +15,11 @@ exports.getMessagesController = async (req, res) => {
   }
 };
 
-exports.sendMessageController = async (req, res) => {
+export const sendMessageController = async (req, res) => {
   try {
     const { conversationId } = req.params;
     const { content, type, senderId } = req.body;
-    console.log("📩 sendMessage called:", {
+    console.log("sendMessage called:", {
       conversationId,
       senderId,
       content,
@@ -31,7 +31,7 @@ exports.sendMessageController = async (req, res) => {
       content,
       type
     );
-    console.log("✅ Message saved:", msg);
+    console.log("Message saved:", msg);
 
     try {
       if (global.io) {
@@ -42,17 +42,17 @@ exports.sendMessageController = async (req, res) => {
         });
       }
     } catch (socketErr) {
-      console.warn("⚠️ Socket emit error:", socketErr.message);
+      console.warn("Socket emit error:", socketErr.message);
     }
 
     return res.json(msg);
   } catch (err) {
-    console.error("❌ sendMessageController error:", err);
+    console.error("sendMessageController error:", err);
     return res.status(500).json({ error: err.message });
   }
 };
 
-exports.markConversationAsReadController = async (req, res) => {
+export const markConversationAsReadController = async (req, res) => {
   try {
     const { conversationId } = req.params;
     const userId = req.user.id;
@@ -73,7 +73,7 @@ exports.markConversationAsReadController = async (req, res) => {
   }
 };
 
-exports.getUnreadMessageCountController = async (req, res) => {
+export const getUnreadMessageCountController = async (req, res) => {
   try {
     const userId = req.user.id;
     const count = await getUnreadMessageCountService(userId);

@@ -1,12 +1,12 @@
-const {
+import {
   addToCartService,
   removeFromCartService,
   getCartItemsService,
   updateCartItemQuantityService,
-} = require("../services/cart.service");
+} from "../services/cart.service.js";
 
 // Thêm variant vào cart
-exports.addToCartController = async (req, res) => {
+export const addToCartController = async (req, res) => {
   try {
     const userId = req.user.id;
     const { variantId, quantity } = req.body;
@@ -26,7 +26,7 @@ exports.addToCartController = async (req, res) => {
 };
 
 // Xóa 1 variant ra khỏi cart
-exports.removeFromCartController = async (req, res) => {
+export const removeFromCartController = async (req, res) => {
   try {
     const userId = req.user.id;
     const { variantId } = req.params;
@@ -42,7 +42,7 @@ exports.removeFromCartController = async (req, res) => {
   }
 };
 
-exports.getCartItemsController = async (req, res) => {
+export const getCartItemsController = async (req, res) => {
   try {
     const userId = req.user.id;
     const result = await getCartItemsService(userId);
@@ -53,7 +53,7 @@ exports.getCartItemsController = async (req, res) => {
 };
 
 // Tăng hoặc giảm số lượng variant trong cart
-exports.updateCartItemQuantityController = async (req, res) => {
+export const updateCartItemQuantityController = async (req, res) => {
   try {
     const userId = req.user.id;
     const { variantId } = req.params;

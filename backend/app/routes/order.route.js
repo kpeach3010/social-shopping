@@ -1,35 +1,54 @@
-const express = require("express");
-const multer = require("multer");
+import express from "express";
+import multer from "multer";
 const upload = multer();
-const {
-  checkoutController,
-  approveOrderController,
-  rejectOrderController,
-  getMyOrdersController,
-  getMyOrderByIdController,
-  getOrdersOverviewForStaffController,
-  cancelOrderController,
-  getOrderWithUserInfoByIdController,
-} = require("../controllers/order.controller");
-const { authenticate, hasRoles } = require("../middlewares/auth.middleware");
-const Role = require("../enums/role.enum");
+import * as OrderController from "../controllers/order.controller.js";
+import { authenticate, hasRoles } from "../middlewares/auth.middleware.js";
+import { Role } from "../enums/role.enum.js";
 
 const router = express.Router();
 
 router.use(authenticate);
 
-router.post("/checkout", hasRoles(Role.CUSTOMER), checkoutController);
-router.patch("/cancel/:id", hasRoles(Role.CUSTOMER), cancelOrderController);
-router.get("/my-orders", hasRoles(Role.CUSTOMER), getMyOrdersController);
-router.get("/my-orders/:id", hasRoles(Role.CUSTOMER), getMyOrderByIdController);
+router.post(
+  "/checkout",
+  hasRoles(Role.CUSTOMER),
+  OrderController.checkoutController
+);
+router.patch(
+  "/cancel/:id",
+  hasRoles(Role.CUSTOMER),
+  OrderController.cancelOrderController
+);
+router.get(
+  "/my-orders",
+  hasRoles(Role.CUSTOMER),
+  OrderController.getMyOrdersController
+);
+router.get(
+  "/my-orders/:id",
+  hasRoles(Role.CUSTOMER),
+  OrderController.getMyOrderByIdController
+);
 
 router.get(
   "/overview",
   hasRoles(Role.STAFF),
-  getOrdersOverviewForStaffController
+  OrderController.getOrdersOverviewForStaffController
 );
-router.get("/:id", hasRoles(Role.STAFF), getOrderWithUserInfoByIdController);
-router.patch("/approve/:id", hasRoles(Role.STAFF), approveOrderController);
-router.patch("/reject/:id", hasRoles(Role.STAFF), rejectOrderController);
+router.get(
+  "/:id",
+  hasRoles(Role.STAFF),
+  OrderController.getOrderWithUserInfoByIdController
+);
+router.patch(
+  "/approve/:id",
+  hasRoles(Role.STAFF),
+  OrderController.approveOrderController
+);
+router.patch(
+  "/reject/:id",
+  hasRoles(Role.STAFF),
+  OrderController.rejectOrderController
+);
 
-module.exports = router;
+export default router;

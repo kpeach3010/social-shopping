@@ -1,15 +1,13 @@
-const app = require("./app");
-const {
-  startInviteLinkCleanupCron,
-} = require("./app/cron/cleanupInviteLinks.js");
-const config = require("./app/config");
-const http = require("http");
-const { Server } = require("socket.io");
-const {
+import http from "http";
+import { Server } from "socket.io";
+import app from "./app.js";
+import { startInviteLinkCleanupCron } from "./app/cron/cleanupInviteLinks.js";
+import config from "./app/config/index.js";
+import {
   createUserService,
   checkUserAdminExists,
-} = require("./app/services/user.service.js");
-const { default: supabase } = require("./services/supbase/client.js");
+} from "./app/services/user.service.js";
+import supabase from "./services/supbase/client.js";
 
 async function startServer() {
   try {
@@ -73,7 +71,12 @@ async function startServer() {
 
         const enrichedMsg = {
           ...msg,
+          // provide multiple name key variants so FE consumers using different keys work
           senderFullName: senderInfo?.full_name || "Người dùng",
+          sender_full_name:
+            senderInfo?.full_name || senderInfo?.fullName || "Người dùng",
+          sender_name:
+            senderInfo?.full_name || senderInfo?.fullName || "Người dùng",
         };
 
         io.to(conversationId).emit("message", enrichedMsg);
@@ -156,25 +159,34 @@ async function startServer() {
 
     // supabase realtime subscription
     supabase
-      .channel("messages-changes") // tên kênh
+      .channel("messages-changes")
       .on(
-        "postgres_changes", //
+        "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages" },
         async (payload) => {
-          const newMsg = payload.new;
-          // Truy vấn thông tin người gửi
+          const m = payload.new;
+
           const { data: senderInfo } = await supabase
             .from("users")
             .select("id, full_name")
-            .eq("id", newMsg.sender_id)
+            .eq("id", m.sender_id)
             .single();
 
+          // Chuẩn hóa lại key cho FE
           const enrichedMsg = {
-            ...newMsg,
+            id: m.id,
+            conversationId: m.conversation_id,
+            senderId: m.sender_id,
+            content: m.content,
+            type: m.type,
+            createdAt: m.created_at,
+            // provide name in multiple key formats for backward compatibility
             senderFullName: senderInfo?.full_name || "Người dùng",
+            sender_full_name: senderInfo?.full_name || "Người dùng",
+            sender_name: senderInfo?.full_name || "Người dùng",
           };
 
-          io.to(newMsg.conversation_id).emit("message", enrichedMsg);
+          io.to(m.conversation_id).emit("message", enrichedMsg);
         }
       )
       .subscribe();

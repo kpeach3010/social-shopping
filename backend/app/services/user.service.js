@@ -3,7 +3,7 @@ import { db } from "../db/client.js";
 import { users } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import { createUser } from "../../services/supbase/user.js";
-import Role from "../enums/role.enum.js";
+import { Role } from "../enums/role.enum.js";
 
 // util: kiểm tra 'YYYY-MM-DD'
 function isYYYYMMDD(str) {

@@ -6,8 +6,8 @@ import {
   orders,
 } from "../db/schema.js";
 import { eq, lte, gte, isNull, lt, and, or, inArray, sql } from "drizzle-orm";
-import GroupKind from "../enums/kind.enum.js";
-import CouponType from "../enums/type.enum.js";
+import { GroupKind } from "../enums/kind.enum.js";
+import { CouponType } from "../enums/type.enum.js";
 
 // Chuẩn hóa kind (chỉ cho phép 'general' hoặc 'group')
 function normalizeKind(value) {

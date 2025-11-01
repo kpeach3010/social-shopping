@@ -1,13 +1,13 @@
-const {
+import {
   createCouponService,
   getAllCouponsService,
   getValidCouponsService,
   getAvailableCouponsForProductsService,
   deleteCouponService,
   updateCouponService,
-} = require("../services/coupon.service");
+} from "../services/coupon.service.js";
 
-exports.createCouponController = async (req, res) => {
+export const createCouponController = async (req, res) => {
   try {
     const data = req.body;
     const newCoupon = await createCouponService(data);
@@ -17,7 +17,7 @@ exports.createCouponController = async (req, res) => {
   }
 };
 
-exports.getAllCouponsController = async (req, res) => {
+export const getAllCouponsController = async (req, res) => {
   try {
     const coupons = await getAllCouponsService();
     res.status(200).json(coupons);
@@ -26,7 +26,7 @@ exports.getAllCouponsController = async (req, res) => {
   }
 };
 
-exports.getValidCouponsController = async (req, res) => {
+export const getValidCouponsController = async (req, res) => {
   try {
     const userId = req.user?.id; // lấy từ token hoặc session
     const coupons = await getValidCouponsService(userId);
@@ -36,7 +36,7 @@ exports.getValidCouponsController = async (req, res) => {
   }
 };
 
-exports.getAvailableCouponsController = async (req, res) => {
+export const getAvailableCouponsController = async (req, res) => {
   try {
     let productIds = [];
     let variantIds = [];
@@ -65,7 +65,7 @@ exports.getAvailableCouponsController = async (req, res) => {
 };
 
 // xóa 1 hoặc nhiều coupon
-exports.deleteCouponController = async (req, res) => {
+export const deleteCouponController = async (req, res) => {
   try {
     let ids = [];
     if (req.method === "DELETE" && req.body && Array.isArray(req.body.ids)) {
@@ -88,7 +88,7 @@ exports.deleteCouponController = async (req, res) => {
   }
 };
 
-exports.updateCouponController = async (req, res) => {
+export const updateCouponController = async (req, res) => {
   try {
     const { id } = req.params;
     const updatedCoupon = await updateCouponService(id, req.body);

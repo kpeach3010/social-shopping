@@ -3,7 +3,8 @@ import { db } from "../db/client.js";
 import { users } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import { register, login } from "../../services/supbase/auth.js";
-import Role from "../enums/role.enum.js";
+import { Role } from "../enums/role.enum.js";
+import { supabaseAuth } from "../../services/supbase/client.js";
 
 // util: kiểm tra 'YYYY-MM-DD'
 function isYYYYMMDD(str) {
@@ -99,4 +100,34 @@ export const loginService = async (loginData) => {
   } catch (e) {
     throw e;
   }
+};
+export const refreshTokenService = async (refreshToken) => {
+  console.log("⚙️ [Service] RefreshToken nhận vào:", refreshToken);
+
+  // Gọi Supabase để làm mới session
+  const { data, error } = await supabaseAuth.auth.refreshSession({
+    refresh_token: refreshToken,
+  });
+
+  // Ghi log chi tiết để dễ debug
+  console.log(
+    "📦 [Service] Supabase trả về:",
+    JSON.stringify({ data, error }, null, 2)
+  );
+
+  if (error) {
+    console.error("❌ [Service] Lỗi Supabase refresh:", error);
+    throw new Error("Invalid refresh token");
+  }
+
+  if (!data || !data.session) {
+    console.error(
+      "⚠️ [Service] Không có session trong response Supabase:",
+      data
+    );
+    throw new Error("No session data from Supabase");
+  }
+
+  // Trả về cả user và session cho controller
+  return data; // { user, session }
 };

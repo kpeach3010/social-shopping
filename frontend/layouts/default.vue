@@ -48,6 +48,7 @@ import ChatSidebar from "@/components/chat/ChatSidebar.vue";
 import ChatBox from "@/components/chat/ChatBox.vue";
 import { useAuthStore } from "@/stores/auth";
 import { useChatStore } from "@/stores/chat";
+import { useWaitForAuthReady } from "@/composables/useWaitForAuthReady";
 
 const auth = useAuthStore();
 const chatStore = useChatStore();
@@ -59,19 +60,15 @@ const activeConversationId = ref(null);
 const chatBoxVisible = ref(false);
 
 const currentUserId = computed(() => auth.user?.id || "");
-const isLoggedIn = computed(() => !!auth.user);
+const isLoggedIn = computed(() => !!auth.accessToken);
 
 watch(activeConversationId, (val) => {
-  if (val) {
-    window.__activeConversationId = val; // dùng cho reconnect auto join
-  } else {
-    delete window.__activeConversationId;
-  }
+  if (val) window.__activeConversationId = val;
+  else delete window.__activeConversationId;
 });
 
 function openChat(payload) {
   chatBoxVisible.value = true;
-
   if (payload.type === "direct") {
     activePartner.value = payload.partner;
     activeConversation.value = null;
@@ -92,18 +89,20 @@ function closeChat() {
 const route = useRoute();
 const config = useRuntimeConfig();
 const { $socket } = useNuxtApp();
-//  Lắng nghe sự kiện tin nhắn toàn cục
-onMounted(() => {
-  // Nếu người dùng vào bằng link mời nhóm
-  if (route.path.startsWith("/invite/")) {
-    return;
-  }
 
-  // Khi nhận event mở chat nhóm
+onMounted(async () => {
+  if (!process.client) return;
+
+  // chờ auth sẵn sàng, tránh reload vô hạn
+  const ready = await useWaitForAuthReady();
+  if (!ready || !auth.isLoggedIn) return;
+
+  // bỏ qua nếu đang truy cập link mời nhóm
+  if (route.path.startsWith("/invite/")) return;
+
   window.addEventListener("open-group-chat", (e) => {
     const conv = e.detail;
     if (!conv) return;
-
     chatBoxVisible.value = true;
     activePartner.value = null;
 
@@ -117,14 +116,15 @@ onMounted(() => {
     activeConversationId.value = conversationId;
   });
 
+  // khi có tin nhắn mới đến
   window.addEventListener("incoming-message", async (e) => {
     const msg = e.detail;
     const convId = msg.conversation_id || msg.conversationId;
     if (!convId) return;
 
-    // Nếu box ẩn hoặc khác cuộc hội thoại hiện tại
     const hidden =
       !chatBoxVisible.value || activeConversationId.value !== convId;
+
     if (hidden) {
       try {
         const res = await $fetch(`/conversations/${convId}`, {
@@ -133,43 +133,41 @@ onMounted(() => {
         });
 
         if (res.type === "direct") {
+          // Normalize sender name fields from different emitters (supabase realtime / socket)
+          const senderFullName =
+            msg.senderFullName || msg.sender_full_name || msg.sender_name;
           const partner = res.partner ||
             window.__users?.find(
-              (u) => u.id === msg.sender_id || u.id === msg.senderId
+              (u) => u.id === (msg.sender_id || msg.senderId)
             ) || {
               id: msg.sender_id || msg.senderId,
-              fullName: msg.sender_name || "Người gửi",
-              name: msg.sender_name || "Người gửi",
+              fullName: senderFullName || "Người gửi",
             };
 
           activePartner.value = partner;
-          activeConversation.value = res;
         } else {
           activePartner.value = null;
-          activeConversation.value = res;
         }
 
+        activeConversation.value = res;
         activeConversationId.value = convId;
-        chatBoxVisible.value = true; // mở box
+        chatBoxVisible.value = true;
       } catch (err) {
         console.error("Không thể mở chatbox:", err);
       }
     }
   });
 
-  // Socket message
   $socket.on("message", (msg) => {
     const myId = auth.user?.id;
-    if (msg.sender_id !== myId) chatStore.incrementUnread();
+    const senderId = msg.sender_id ?? msg.senderId;
+    if (senderId !== myId) chatStore.incrementUnread();
     window.dispatchEvent(new CustomEvent("incoming-message", { detail: msg }));
   });
 
-  // Khi reconnect, auto join lại conversation
   $socket.on("connect", () => {
     const convId = window.__activeConversationId;
-    if (convId) {
-      $socket.emit("join-conversation", convId);
-    }
+    if (convId) $socket.emit("join-conversation", convId);
   });
 
   $socket.on("new-conversation", async (payload) => {
@@ -183,7 +181,7 @@ onMounted(() => {
       activePartner.value = partner || null;
       activeConversation.value = res;
       activeConversationId.value = res.id;
-      chatBoxVisible.value = true; // mở box khi tạo mới
+      chatBoxVisible.value = true;
     } catch (e) {
       console.error("Không thể mở chatbox mới:", e);
     }
@@ -191,20 +189,20 @@ onMounted(() => {
 
   chatStore.loadFromStorage();
 
-  // Gọi API để lấy số tin nhắn chưa đọc ban đầu
-  if (auth.user?.id) {
-    $fetch("/messages/unread-count", {
+  // Lấy số tin chưa đọc ban đầu
+  try {
+    const res = await $fetch("/messages/unread-count", {
       baseURL: config.public.apiBase,
       headers: { Authorization: `Bearer ${auth.accessToken}` },
-    })
-      .then((res) => chatStore.setUnreadCount(res.unreadCount || 0))
-      .catch((err) => console.error("Lỗi load unreadCount:", err));
+    });
+    chatStore.setUnreadCount(res.unreadCount || 0);
+  } catch (err) {
+    console.error("Lỗi load unreadCount:", err);
   }
 
-  // Khi user đọc tin (được BE emit lại)
+  // Khi user đọc tin (emit từ BE)
   $socket.on("unread-count-updated", ({ userId, totalUnread }) => {
-    const myId = auth.user?.id;
-    if (userId === myId) {
+    if (userId === auth.user?.id) {
       chatStore.setUnreadCount(totalUnread);
     }
   });

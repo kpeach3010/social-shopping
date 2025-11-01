@@ -9,6 +9,8 @@ const JWT_SECRET = process.env.SUPABASE_JWT_SECRET;
 export const authenticate = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
+    console.log("🔑 JWT_SECRET length:", JWT_SECRET?.length);
+    console.log("🔑 JWT_SECRET preview:", JWT_SECRET?.slice(0, 10));
 
     // Kiểm tra header
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -16,6 +18,8 @@ export const authenticate = async (req, res, next) => {
     }
 
     const token = authHeader.split(" ")[1];
+    if (token) console.log("🪪 Token preview:", token.slice(0, 20));
+    else console.log("🪪 Token missing in header");
 
     // Giải mã token
     const decoded = jwt.verify(token, JWT_SECRET);

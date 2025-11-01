@@ -9,9 +9,9 @@ import {
   PencilLine,
 } from "lucide-vue-next";
 
-import AddProductModal from "@/components/staff/AddProductModal.vue";
-import EditProductModal from "@/components/staff/EditProductModal.vue";
-import Sidebar from "@/components/staff/Sidebar.vue";
+import AddProductModal from "@/components/modals/staff/AddProductModal.vue";
+import EditProductModal from "@/components/modals/staff/EditProductModal.vue";
+import Sidebar from "@/components/modals/staff/Sidebar.vue";
 
 const showModal = ref(false);
 const showEditModal = ref(false);

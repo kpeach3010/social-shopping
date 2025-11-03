@@ -75,7 +75,10 @@ function openChat(payload) {
     activeConversationId.value = null;
   } else if (payload.type === "group") {
     activePartner.value = null;
-    activeConversation.value = payload.conversation;
+    activeConversation.value = {
+      ...payload.conversation,
+      type: payload.conversation?.type || "group",
+    };
     activeConversationId.value = payload.conversation.id;
   }
 }
@@ -206,13 +209,12 @@ onMounted(async () => {
       chatStore.setUnreadCount(totalUnread);
     }
   });
-});
-
-onBeforeUnmount(() => {
-  $socket.off("message");
-  $socket.off("unread-count-updated");
-  $socket.off("new-conversation");
-  $socket.off("connect");
+  onBeforeUnmount(() => {
+    $socket.off("message");
+    $socket.off("unread-count-updated");
+    $socket.off("new-conversation");
+    $socket.off("connect");
+  });
 });
 </script>
 

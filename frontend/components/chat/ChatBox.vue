@@ -575,28 +575,31 @@ async function sendMessage() {
 }
 
 async function openGroupDetail() {
-  // console.log("CLICK DETAIL", props.conversation);
-  if (props.conversation?.type !== "group" || !props.conversation?.id) {
-    // console.warn("Không phải nhóm, bỏ qua");
+  console.log("CLICK DETAIL", props.conversation);
+
+  if (!isGroupChat.value || !props.conversation?.id) {
+    console.warn("Không phải nhóm, bỏ qua");
     return;
   }
 
   try {
     console.log("FETCHING...");
-    const res = await $fetch(`/group-orders/${props.conversation.id}`, {
-      method: "GET",
-      baseURL: config.public.apiBase,
-      headers: {
-        Authorization: `Bearer ${auth.accessToken}`,
-      },
-    });
+    const res = await $fetch(
+      `/group-orders/${props.conversation.id}?type=group`,
+      {
+        method: "GET",
+        baseURL: config.public.apiBase,
+        headers: {
+          Authorization: `Bearer ${auth.accessToken}`,
+        },
+      }
+    );
 
-    // console.log("Group detail fetched:", res);
+    console.log("Group detail fetched:", res);
     groupDetail.value = res;
     showGroupDetail.value = true;
-    // console.log("showGroupDetail:", showGroupDetail.value);
   } catch (err) {
-    // console.error("Không thể lấy thông tin nhóm:", err);
+    console.error("Không thể lấy thông tin nhóm:", err);
   }
 }
 

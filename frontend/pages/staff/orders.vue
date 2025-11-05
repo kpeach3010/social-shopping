@@ -1,10 +1,10 @@
 <script setup>
 import { ref, computed, onMounted } from "vue";
-import Sidebar from "@/components/staff/Sidebar.vue";
+import Sidebar from "@/components/modals/staff/Sidebar.vue";
 
 import { Check, X } from "lucide-vue-next";
 import Pagination from "@/components/Pagination.vue";
-import OrderDetailModal from "@/components/staff/OrderDetailModal.vue";
+import OrderDetailModal from "@/components/modals/staff/OrderDetailModal.vue";
 
 const currentPage = ref(1);
 const perPage = 8;
@@ -123,8 +123,6 @@ const openDetail = (order) => {
   <div class="flex min-h-screen bg-gray-50">
     <Sidebar :isOpen="isOpen" @toggle="toggleSidebar" />
     <div class="flex-1 flex flex-col">
-      <Header />
-
       <main class="flex-1 p-6">
         <h1 class="text-2xl font-bold mb-4">Quản lý đơn hàng</h1>
 

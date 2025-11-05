@@ -37,6 +37,22 @@
       </button>
     </div>
 
+    <!-- Gợi ý hành động cho user hiện tại -->
+    <div
+      v-if="
+        currentUserMember && !currentUserMember.hasChosen && isGroupOrderLocked
+      "
+      class="flex items-center justify-between bg-yellow-100 border border-gray-300 text-[12px] text-yellow-800 px-3 py-2 rounded-md mx-2 mt-2 shadow-sm"
+    >
+      <span class="font-medium">Hãy chọn màu sắc yêu thích của bạn</span>
+      <button
+        class="px-3 py-1 rounded-full bg-yellow-500 text-white text-[11px] hover:bg-yellow-600 transition"
+        @click="openChooseModal"
+      >
+        Tôi sẽ chọn
+      </button>
+    </div>
+
     <!-- Messages -->
     <div
       ref="scrollWrap"
@@ -138,6 +154,100 @@
         </div>
       </template>
     </div>
+    <!-- Khung mua chung -->
+    <div
+      v-if="showGroupOrderBox"
+      class="border-t border-gray-200 bg-gray-50 px-3 py-1.5 text-[11px] text-gray-700"
+    >
+      <!-- Header -->
+      <div class="flex items-center justify-between mt-1">
+        <span class="text-[10px] text-gray-500">
+          {{ chosenCount }}/{{ totalMemberCount }} đã chọn
+        </span>
+        <div class="flex items-center gap-2">
+          <button
+            @click="toggleGroupBox"
+            class="text-[10px] border border-gray-300 rounded-md px-2 py-0.5 hover:bg-gray-100 transition"
+          >
+            {{ groupBoxExpanded ? "Ẩn ▲" : "Chi tiết ▼" }}
+          </button>
+          <button
+            @click="checkoutGroupOrder"
+            class="bg-black hover:bg-gray-800 text-white text-[10px] font-medium px-2.5 py-1 rounded-md transition"
+          >
+            Đặt đơn nhóm
+          </button>
+        </div>
+      </div>
+
+      <!-- Chi tiết -->
+      <transition name="fade">
+        <div v-if="groupBoxExpanded" class="mt-1">
+          <div
+            class="bg-white border border-gray-200 rounded-lg p-1.5 max-h-28 overflow-y-auto"
+          >
+            <table class="w-full text-[10px]">
+              <thead>
+                <tr class="text-gray-500 border-b">
+                  <th class="py-0.5 text-left">Thành viên</th>
+                  <th class="py-0.5 text-left">Biến thể</th>
+                  <th class="py-0.5 text-right w-8">SL</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="m in groupMembersDisplay"
+                  :key="m.userId"
+                  :class="[
+                    m.isCurrentUser ? 'bg-blue-50' : '',
+                    'border-b last:border-0',
+                  ]"
+                >
+                  <td class="py-0.5 pr-1">
+                    <span class="font-medium text-gray-800">
+                      {{ m.shortName }}
+                      <span v-if="m.isCreator" class="text-[9px] text-gray-400"
+                        >(trưởng)</span
+                      >
+                      <span
+                        v-if="m.isCurrentUser"
+                        class="ml-1 text-[9px] text-blue-500"
+                        >(bạn)</span
+                      >
+                    </span>
+                  </td>
+                  <td class="py-0.5 pr-1 text-gray-600 truncate max-w-[80px]">
+                    <span v-if="m.hasChosen">{{
+                      m.variantText || "Đã chọn"
+                    }}</span>
+                    <span v-else class="text-gray-400 italic">Chưa</span>
+                  </td>
+                  <td class="py-0.5 text-right">
+                    <span
+                      v-if="m.hasChosen"
+                      class="text-green-600 font-medium"
+                      >{{ m.quantity }}</span
+                    >
+                    <span v-else class="text-gray-400">-</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </transition>
+
+      <!-- Nút Đặt đơn nhóm - chỉ hiện với trưởng nhóm -->
+      <div
+        v-if="
+          isGroupChat &&
+          groupDetail?.groupOrder?.creatorId === currentUserId &&
+          groupDetail?.groupOrder?.status === 'locked' &&
+          chosenCount === totalMemberCount
+        "
+        class="flex justify-center mt-2 mb-2"
+      ></div>
+    </div>
 
     <!-- Input -->
     <div class="flex items-end p-3 border-t border-gray-200 bg-white">
@@ -171,6 +281,14 @@
       :inviteToken="groupDetail?.inviteToken"
       @close="showGroupDetail = false"
     />
+    <GroupOrderChooseModal
+      v-if="showChooseModal && groupDetail && groupDetail.product"
+      :open="showChooseModal"
+      :groupOrderId="groupDetail.groupOrder.id"
+      :product="groupDetail.product"
+      @close="showChooseModal = false"
+      @chosen="handleChosen"
+    />
   </div>
 </template>
 
@@ -184,6 +302,7 @@ import supabase from "@/plugins/supabase";
 import { useAuthStore } from "@/stores/auth";
 import { useChatStore } from "@/stores/chat";
 import GroupOrderDetailModal from "../modals/groupOrder/GroupOrderDetailModal.vue";
+import GroupOrderChooseModal from "../modals/groupOrder/GroupOrderChooseModal.vue";
 
 const chatStore = useChatStore();
 const joinNotice = ref("");
@@ -191,15 +310,109 @@ const router = useRouter();
 const readStatus = ref({}); // { userId: { lastReadAt, fullName } }
 const showGroupDetail = ref(false);
 const groupDetail = ref(null);
+const showChooseModal = ref(false);
 let supabaseChannel;
 
 const isGroupChat = computed(
   () => props.conversation?.type === "group" || !!groupDetail.value?.groupOrder
 );
 
+const groupBoxExpanded = ref(false);
+function openChooseModal() {
+  if (!groupDetail.value?.product) {
+    console.warn("❌ groupDetail chưa có product, chặn mở modal");
+    return;
+  }
+  showChooseModal.value = true;
+}
+
+const showGroupBox = ref(false);
+function toggleGroupBox() {
+  showGroupBox.value = !showGroupBox.value;
+  groupBoxExpanded.value = !groupBoxExpanded.value;
+}
+
 const groupStatusText = computed(() => {
   const s = groupDetail.value?.groupOrder?.status;
   return s ? statusText(s) : "";
+});
+
+const showGroupOrderBox = computed(() => {
+  return !!groupDetail.value?.groupOrder;
+});
+
+const groupProductName = computed(
+  () => groupDetail.value?.product?.name || "Sản phẩm mua chung"
+);
+
+const groupStatusLabel = computed(() => {
+  const s = groupDetail.value?.groupOrder?.status;
+  return s ? statusText(s) : "Không rõ trạng thái";
+});
+
+const groupStatusClass = computed(() => {
+  const s = groupDetail.value?.groupOrder?.status;
+  if (s === "pending") return "text-yellow-600";
+  if (s === "locked") return "text-green-600";
+  if (s === "ordering") return "text-blue-600";
+  if (s === "completed") return "text-gray-600";
+  if (s === "cancelled") return "text-red-500";
+  return "text-gray-500";
+});
+function handleChosen(data) {
+  console.log("User đã chọn:", data);
+}
+const isGroupOrderLocked = computed(
+  () => groupDetail.value?.groupOrder?.status === "locked"
+);
+
+const groupMembers = computed(() => groupDetail.value?.members || []);
+
+// tìm member tương ứng với user hiện tại
+const currentUserMember = computed(() =>
+  groupMembers.value.find(
+    (m) => String(m.userId) === String(props.currentUserId)
+  )
+);
+
+const totalMemberCount = computed(() => groupMembers.value.length);
+
+const chosenCount = computed(
+  () => groupMembers.value.filter((m) => m.hasChosen).length
+);
+
+// Chuẩn hóa dữ liệu hiển thị
+const groupMembersDisplay = computed(() => {
+  return groupMembers.value.map((m) => {
+    const fullName = m.fullName || m.name || "Người dùng";
+    const shortName = fullName.split(" ").slice(-1)[0]; // lấy tên cuối
+
+    // backend nên trả sẵn colorName / sizeName; nếu không có thì fallback
+    const color = m.colorName || m.color || "";
+    const size = m.sizeName || m.size || "";
+    let variantText = "";
+
+    if (m.hasChosen) {
+      if (color || size) {
+        variantText = [color, size].filter(Boolean).join(" / ");
+      } else {
+        variantText = "Đã chọn";
+      }
+    }
+
+    return {
+      userId: m.userId,
+      fullName,
+      shortName,
+      hasChosen: !!m.hasChosen,
+      quantity: m.quantity ?? null,
+      variantText,
+      isCreator:
+        String(m.userId) ===
+        String(groupDetail.value?.groupOrder?.creatorId || ""),
+      isCurrentUser: String(m.userId) === String(props.currentUserId),
+    };
+  });
 });
 
 function formatMessage(content) {
@@ -214,6 +427,32 @@ function formatMessage(content) {
     }
     return `<a href='${url}' target='_blank' class='underline text-blue-700 break-all'>${url}</a>`;
   });
+}
+async function checkoutGroupOrder() {
+  if (!groupDetail.value?.groupOrder?.id) return;
+
+  const ok = confirm("Xác nhận đặt đơn nhóm cho tất cả thành viên?");
+  if (!ok) return;
+
+  try {
+    const res = await $fetch(
+      `/group-orders/${groupDetail.value.groupOrder.id}/checkout`,
+      {
+        method: "PATCH",
+        baseURL: config.public.apiBase,
+        headers: { Authorization: `Bearer ${auth.accessToken}` },
+      }
+    );
+
+    alert("Đặt đơn nhóm thành công!");
+    console.log("Kết quả checkout:", res);
+
+    // Cập nhật trạng thái local
+    groupDetail.value.groupOrder.status = "ordering";
+  } catch (err) {
+    console.error("Lỗi khi đặt đơn nhóm:", err);
+    alert(err?.data?.error || "Đặt đơn thất bại, vui lòng thử lại.");
+  }
 }
 
 const props = defineProps({
@@ -323,6 +562,7 @@ watch(
         baseURL: config.public.apiBase,
         headers: { Authorization: `Bearer ${auth.accessToken}` },
       });
+      console.log(">>> group order API result:", res);
       if (res?.groupOrder) groupDetail.value = res;
       else groupDetail.value = null;
     } catch {
@@ -616,3 +856,16 @@ onBeforeUnmount(() => {
   readStatus.value = {};
 });
 </script>
+
+<style scoped>
+.fade-enter-active,
+.fade-leave-active {
+  transition: all 0.25s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  max-height: 0;
+  transform: scaleY(0.9);
+}
+</style>

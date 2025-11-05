@@ -380,7 +380,7 @@ const checkout = async () => {
       fromCart: fromCart.value,
     };
 
-    const res = await $fetch("/order/checkout", {
+    const res = await $fetch("/orders/checkout", {
       method: "POST",
       baseURL: config.public.apiBase,
       headers: { Authorization: `Bearer ${auth.accessToken}` },

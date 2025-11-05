@@ -201,8 +201,6 @@ const deleteProducts = async (ids) => {
 
     <!-- Main -->
     <div class="flex-1 flex flex-col">
-      <Header />
-
       <main class="flex-1 p-6">
         <div class="flex justify-between items-center mb-6">
           <h1 class="text-2xl font-bold">Quản lý sản phẩm</h1>

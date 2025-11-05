@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from "vue";
 import { PencilLine, Trash2 } from "lucide-vue-next";
-import Sidebar from "@/components/staff/Sidebar.vue";
+import Sidebar from "@/components/modals/staff/Sidebar.vue";
 
 const coupons = ref([]);
 const loading = ref(false);
@@ -68,7 +68,6 @@ const deleteCoupon = async (id) => {
     <Sidebar :isOpen="isOpen" @toggle="toggleSidebar" />
     <!-- Main -->
     <div class="flex-1 flex flex-col">
-      <Header />
       <main class="flex-1 p-6">
         <div class="flex justify-between items-center mb-6">
           <h1 class="text-2xl font-bold">Quản lý mã giảm giá</h1>

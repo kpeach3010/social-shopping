@@ -100,7 +100,7 @@ const onSubmit = async () => {
     if (res.user.role === "staff") {
       navigateTo("/staff/products");
     } else if (res.user.role === "admin") {
-      navigateTo("/admin");
+      navigateTo("/admin/users");
     } else {
       navigateTo("/");
     }

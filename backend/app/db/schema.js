@@ -17,7 +17,12 @@ import {
 
 // Enum giới tính
 export const genderEnum = pgEnum("gender", ["male", "female"]);
-export const roleEnum = pgEnum("role_enum", ["admin", "customer", "staff"]);
+export const roleEnum = pgEnum("role_enum", [
+  "admin",
+  "customer",
+  "staff",
+  "system",
+]);
 export const typeEnum = pgEnum("type_enum", ["percent", "fixed"]);
 export const kindEnum = pgEnum("kind_enum", ["general", "group"]);
 export const statusEnum = pgEnum("status_enum", ["active", "disabled"]);

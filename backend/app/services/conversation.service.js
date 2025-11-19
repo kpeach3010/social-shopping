@@ -332,6 +332,12 @@ export const joinGroupOrderByInviteTokenService = async ({ token, userId }) => {
     });
   }
 
+  const [user] = await db
+    .select({ fullName: users.fullName })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
   // Kiểm tra user đã là thành viên chưa
   const [existingMember] = await db
     .select()
@@ -411,6 +417,7 @@ export const joinGroupOrderByInviteTokenService = async ({ token, userId }) => {
     groupOrderId,
     conversationName,
     couponCode: coupon?.code ?? null,
+    user,
   };
 };
 
@@ -685,6 +692,36 @@ export const getLastMessagesService = async (userId) => {
     .innerJoin(conversations, eq(conversations.id, messages.conversationId))
     .orderBy(desc(messages.createdAt));
 
+  const directConvs = result.filter((r) => r.type === "direct");
+  const directIds = directConvs.map((r) => r.conversationId);
+
+  let partnerMap = new Map();
+  if (directIds.length > 0) {
+    const members = await db
+      .select({
+        conversationId: conversationMembers.conversationId,
+        userId: conversationMembers.userId,
+        fullName: users.fullName,
+      })
+      .from(conversationMembers)
+      .innerJoin(users, eq(users.id, conversationMembers.userId))
+      .where(inArray(conversationMembers.conversationId, directIds));
+
+    // Tạo map { conversationId -> partner info (khác userId hiện tại) }
+
+    for (const m of members) {
+      if (m.userId !== userId) {
+        if (!partnerMap.has(m.conversationId)) {
+          partnerMap.set(m.conversationId, {
+            id: m.userId,
+            name: m.fullName,
+          });
+        }
+      }
+    }
+  }
+
+  // Đọc trạng thái tin chưa đọc
   const reads = await db
     .select({
       conversationId: messageReads.conversationId,
@@ -694,16 +731,31 @@ export const getLastMessagesService = async (userId) => {
     .where(eq(messageReads.userId, userId));
 
   const readMap = new Map();
-  for (const r of reads) {
-    readMap.set(r.conversationId, r.lastReadAt);
+  for (const r of reads) readMap.set(r.conversationId, r.lastReadAt);
+
+  console.log("==== PARTNER MAP ====");
+  for (const [cid, p] of partnerMap.entries()) {
+    console.log(cid, p);
   }
 
+  // Gộp tất cả dữ liệu
   return result.map((msg) => {
     const lastReadAt = readMap.get(msg.conversationId);
     const isUnread =
       msg.senderId !== userId &&
       (!lastReadAt ||
         new Date(msg.lastMessageAt || msg.createdAt) > new Date(lastReadAt));
-    return { ...msg, isUnread };
+
+    const partner = partnerMap.get(msg.conversationId);
+
+    return {
+      ...msg,
+      isUnread,
+      partnerId: partner?.id || null,
+      partnerName:
+        msg.type === "direct"
+          ? partner?.name || msg.senderName
+          : msg.convName || null,
+    };
   });
 };

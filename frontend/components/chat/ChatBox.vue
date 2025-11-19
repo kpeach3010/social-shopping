@@ -38,18 +38,35 @@
     </div>
 
     <!-- Gợi ý hành động cho user hiện tại -->
+    <!-- Chưa chọn -->
     <div
       v-if="
         currentUserMember && !currentUserMember.hasChosen && isGroupOrderLocked
       "
-      class="flex items-center justify-between bg-yellow-100 border border-gray-300 text-[12px] text-yellow-800 px-3 py-2 rounded-md mx-2 mt-2 shadow-sm"
+      class="mx-3 mt-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-[12px] flex items-center justify-between"
     >
-      <span class="font-medium">Hãy chọn màu sắc yêu thích của bạn</span>
+      <span class="font-medium">Bạn chưa chọn sản phẩm.</span>
       <button
-        class="px-3 py-1 rounded-full bg-yellow-500 text-white text-[11px] hover:bg-yellow-600 transition"
         @click="openChooseModal"
+        class="px-2.5 py-1 bg-amber-500 text-white rounded-md text-[11px] hover:bg-amber-600 transition"
       >
-        Tôi sẽ chọn
+        Chọn
+      </button>
+    </div>
+
+    <!-- Đã chọn nhưng vẫn được phép sửa -->
+    <div
+      v-if="
+        currentUserMember && currentUserMember.hasChosen && isGroupOrderLocked
+      "
+      class="mx-3 mt-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-[12px] flex items-center justify-between"
+    >
+      <span class="font-medium">Bạn đã chọn. Muốn chỉnh sửa?</span>
+      <button
+        @click="openChooseModal"
+        class="px-2.5 py-1 bg-blue-600 text-white rounded-md text-[11px] hover:bg-blue-700 transition"
+      >
+        Sửa
       </button>
     </div>
 
@@ -58,56 +75,59 @@
       ref="scrollWrap"
       class="flex-1 overflow-y-auto p-3 space-y-3 bg-gray-50"
     >
-      <div v-if="joinNotice" class="text-xs text-green-600 mb-2">
-        {{ joinNotice }}
-      </div>
-
       <!-- Tin nhắn -->
-      <div
-        v-for="msg in messages"
-        :key="msg.id || msg.tempId"
-        class="w-full flex items-start gap-2"
-        :class="isMine(msg) ? 'justify-end' : 'justify-start'"
-      >
-        <!-- Avatar -->
-        <div v-if="!isMine(msg)" class="flex-shrink-0">
-          <UserCircleIcon class="w-8 h-8 text-gray-400" />
-        </div>
-
-        <!-- Nội dung -->
+      <div v-for="msg in messages" :key="msg.id || msg.tempId" class="w-full">
         <div
-          :class="[
-            'flex flex-col max-w-[80%]',
-            isMine(msg) ? 'items-end' : 'items-start',
-          ]"
+          v-if="msg.type === 'system'"
+          class="w-full text-center text-[11px] text-gray-400 italic my-1"
         >
-          <!-- Tên người gửi (chỉ hiện cho người khác trong group) -->
-          <div
-            v-if="!isMine(msg) && isGroupChat"
-            class="text-xs text-gray-500 mb-0.5"
-          >
-            {{ msg.senderFullName || "Người dùng" }}
+          {{ msg.content }}
+        </div>
+        <div
+          v-else
+          class="flex items-start gap-2"
+          :class="isMine(msg) ? 'justify-end' : 'justify-start'"
+        >
+          <!-- Avatar -->
+          <div v-if="!isMine(msg)" class="flex-shrink-0">
+            <UserCircleIcon class="w-8 h-8 text-gray-400" />
           </div>
 
-          <!-- Bong bóng -->
+          <!-- Nội dung -->
           <div
             :class="[
-              'inline-block px-4 py-2 rounded-2xl text-sm whitespace-pre-wrap break-words break-all leading-relaxed',
-              isMine(msg)
-                ? 'bg-gray-400 text-white rounded-br-none'
-                : 'bg-gray-200 text-gray-800 rounded-bl-none',
+              'flex flex-col max-w-[80%]',
+              isMine(msg) ? 'items-end' : 'items-start',
             ]"
           >
-            <div v-html="formatMessage(msg.content)"></div>
-
-            <!-- Trạng thái gửi -->
+            <!-- Tên người gửi (chỉ hiện cho người khác trong group) -->
             <div
-              v-if="isMine(msg) && msg.status"
-              class="mt-1 text-[11px] opacity-80 text-right"
+              v-if="!isMine(msg) && isGroupChat"
+              class="text-xs text-gray-500 mb-0.5"
             >
-              <span v-if="msg.status === 'sending'">Đang gửi…</span>
-              <span v-else-if="msg.status === 'sent'">Đã gửi</span>
-              <span v-else-if="msg.status === 'error'">Lỗi, thử lại</span>
+              {{ msg.senderFullName || "Người dùng" }}
+            </div>
+
+            <!-- Bong bóng -->
+            <div
+              :class="[
+                'inline-block px-4 py-2 rounded-2xl text-sm whitespace-pre-wrap break-words break-all leading-relaxed',
+                isMine(msg)
+                  ? 'bg-gray-400 text-white rounded-br-none'
+                  : 'bg-gray-200 text-gray-800 rounded-bl-none',
+              ]"
+            >
+              <div v-html="formatMessage(msg.content)"></div>
+
+              <!-- Trạng thái gửi -->
+              <div
+                v-if="isMine(msg) && msg.status"
+                class="mt-1 text-[11px] opacity-80 text-right"
+              >
+                <span v-if="msg.status === 'sending'">Đang gửi…</span>
+                <span v-else-if="msg.status === 'sent'">Đã gửi</span>
+                <span v-else-if="msg.status === 'error'">Lỗi, thử lại</span>
+              </div>
             </div>
           </div>
         </div>
@@ -172,6 +192,12 @@
             {{ groupBoxExpanded ? "Ẩn ▲" : "Chi tiết ▼" }}
           </button>
           <button
+            v-if="
+              isGroupChat &&
+              groupDetail?.groupOrder?.status === 'locked' &&
+              groupDetail?.groupOrder?.creatorId === currentUserId &&
+              chosenCount === totalMemberCount
+            "
             @click="checkoutGroupOrder"
             class="bg-black hover:bg-gray-800 text-white text-[10px] font-medium px-2.5 py-1 rounded-md transition"
           >
@@ -190,7 +216,7 @@
               <thead>
                 <tr class="text-gray-500 border-b">
                   <th class="py-0.5 text-left">Thành viên</th>
-                  <th class="py-0.5 text-left">Biến thể</th>
+                  <th class="py-0.5 text-left">Sản phẩm</th>
                   <th class="py-0.5 text-right w-8">SL</th>
                 </tr>
               </thead>
@@ -305,7 +331,6 @@ import GroupOrderDetailModal from "../modals/groupOrder/GroupOrderDetailModal.vu
 import GroupOrderChooseModal from "../modals/groupOrder/GroupOrderChooseModal.vue";
 
 const chatStore = useChatStore();
-const joinNotice = ref("");
 const router = useRouter();
 const readStatus = ref({}); // { userId: { lastReadAt, fullName } }
 const showGroupDetail = ref(false);
@@ -320,7 +345,7 @@ const isGroupChat = computed(
 const groupBoxExpanded = ref(false);
 function openChooseModal() {
   if (!groupDetail.value?.product) {
-    console.warn("❌ groupDetail chưa có product, chặn mở modal");
+    console.warn("groupDetail chưa có product, chặn mở modal");
     return;
   }
   showChooseModal.value = true;
@@ -341,24 +366,15 @@ const showGroupOrderBox = computed(() => {
   return !!groupDetail.value?.groupOrder;
 });
 
-const groupProductName = computed(
-  () => groupDetail.value?.product?.name || "Sản phẩm mua chung"
-);
-
-const groupStatusLabel = computed(() => {
-  const s = groupDetail.value?.groupOrder?.status;
-  return s ? statusText(s) : "Không rõ trạng thái";
-});
-
-const groupStatusClass = computed(() => {
-  const s = groupDetail.value?.groupOrder?.status;
-  if (s === "pending") return "text-yellow-600";
-  if (s === "locked") return "text-green-600";
-  if (s === "ordering") return "text-blue-600";
-  if (s === "completed") return "text-gray-600";
-  if (s === "cancelled") return "text-red-500";
-  return "text-gray-500";
-});
+// const groupStatusClass = computed(() => {
+//   const s = groupDetail.value?.groupOrder?.status;
+//   if (s === "pending") return "text-yellow-600";
+//   if (s === "locked") return "text-green-600";
+//   if (s === "ordering") return "text-blue-600";
+//   if (s === "completed") return "text-gray-600";
+//   if (s === "cancelled") return "text-red-500";
+//   return "text-gray-500";
+// });
 function handleChosen(data) {
   console.log("User đã chọn:", data);
 }
@@ -420,35 +436,53 @@ function formatMessage(content) {
   const urlRegex = /(https?:\/\/[^\s]+)/g;
 
   return content.replace(urlRegex, (url) => {
-    // Nếu là link mời nhóm
     if (url.includes("/invite/")) {
       const token = url.split("/invite/")[1];
-      return `<a href='#' data-token='${token}' class='invite-link underline text-blue-700 break-all'>${url}</a>`;
+      return `<a
+        href="/invite/${token}"
+        data-token="${token}"
+        class="invite-link underline text-blue-700 break-all"
+      >${url}</a>`;
     }
-    return `<a href='${url}' target='_blank' class='underline text-blue-700 break-all'>${url}</a>`;
+    return `<a href="${url}" target="_blank" class="underline text-blue-700 break-all">${url}</a>`;
   });
 }
-async function checkoutGroupOrder() {
-  if (!groupDetail.value?.groupOrder?.id) return;
 
+async function checkoutGroupOrder() {
+  const groupOrder = groupDetail.value?.groupOrder;
+  if (!groupOrder?.id) return;
+
+  // Nếu nhóm đã được đặt hoặc hoàn tất -> chặn
+  if (["ordering", "completed"].includes(groupOrder.status)) {
+    alert("Nhóm này đã được đặt đơn hoặc đã hoàn tất.");
+    return;
+  }
+
+  // Nếu nhóm chưa đủ thành viên -> chặn
+  if (chosenCount.value < totalMemberCount.value) {
+    alert("Nhóm chưa đủ thành viên để đặt đơn.");
+    return;
+  }
+
+  //  Nếu không phải trưởng nhóm -> chặn
+  if (groupOrder.creatorId !== auth.user.id) {
+    alert("Chỉ trưởng nhóm mới có thể đặt đơn.");
+    return;
+  }
+
+  //  Xác nhận đặt đơn
   const ok = confirm("Xác nhận đặt đơn nhóm cho tất cả thành viên?");
   if (!ok) return;
 
   try {
-    const res = await $fetch(
-      `/group-orders/${groupDetail.value.groupOrder.id}/checkout`,
-      {
-        method: "PATCH",
-        baseURL: config.public.apiBase,
-        headers: { Authorization: `Bearer ${auth.accessToken}` },
-      }
-    );
+    const res = await $fetch(`/group-orders/${groupOrder.id}/checkout`, {
+      method: "PATCH",
+      baseURL: config.public.apiBase,
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+    });
 
     alert("Đặt đơn nhóm thành công!");
-    console.log("Kết quả checkout:", res);
-
-    // Cập nhật trạng thái local
-    groupDetail.value.groupOrder.status = "ordering";
+    groupDetail.value.groupOrder.status = "ordering"; // cập nhật local
   } catch (err) {
     console.error("Lỗi khi đặt đơn nhóm:", err);
     alert(err?.data?.error || "Đặt đơn thất bại, vui lòng thử lại.");
@@ -481,18 +515,28 @@ const isMine = (m) =>
   String(m?.senderId ?? m?.sender_id ?? "") ===
   String(props.currentUserId ?? "");
 
-const normalize = (raw) => ({
-  id: raw.id ?? null,
-  tempId: raw.tempId ?? null,
-  conversationId: raw.conversationId ?? raw.conversation_id ?? null,
-  senderId: raw.senderId ?? raw.sender_id ?? null,
-  senderFullName:
-    raw.senderFullName ?? raw.sender_full_name ?? raw.sender_name ?? null,
+const normalize = (raw) => {
+  const type =
+    raw.type ||
+    raw.message_type ||
+    (raw.senderId === "00000000-0000-0000-0000-000000000000"
+      ? "system"
+      : "text");
 
-  content: raw.content ?? "",
-  status: raw.status ?? undefined,
-  createdAt: raw.createdAt ?? raw.created_at ?? null,
-});
+  return {
+    id: raw.id ?? null,
+    tempId: raw.tempId ?? null,
+    conversationId: raw.conversationId ?? raw.conversation_id ?? null,
+    senderId: raw.senderId ?? raw.sender_id ?? null,
+    senderFullName:
+      raw.senderFullName ?? raw.sender_full_name ?? raw.sender_name ?? null,
+
+    content: raw.content ?? "",
+    status: raw.status ?? undefined,
+    type,
+    createdAt: raw.createdAt ?? raw.created_at ?? null,
+  };
+};
 
 const scrollWrap = ref(null);
 function scrollToBottom() {
@@ -658,22 +702,39 @@ onMounted(() => {
     }
   });
 
-  $socket.on("user-joined", (payload) => {
-    if (payload.conversationId === props.conversationId && payload.fullName) {
-      joinNotice.value = `${payload.fullName} vừa tham gia nhóm!`;
-      setTimeout(() => (joinNotice.value = ""), 4000);
+  $socket.on("user-joined", async (payload) => {
+    if (payload.conversationId !== props.conversationId) return;
+
+    // tin nhan he thong
+    messages.value.push({
+      id: `sys_${Date.now()}`,
+      content: `${payload.fullName || "Người dùng"} đã tham gia nhóm`,
+      senderFullName: "system",
+      type: "system",
+      createdAt: new Date().toISOString(),
+    });
+    scrollToBottom();
+
+    if (isGroupChat.value) {
+      try {
+        const res = await $fetch(`/group-orders/${props.conversationId}`, {
+          method: "GET",
+          baseURL: config.public.apiBase,
+          headers: { Authorization: `Bearer ${auth.accessToken}` },
+        });
+        groupDetail.value = res;
+      } catch (err) {
+        console.error("Không thể reload group-order:", err);
+      }
     }
   });
 
   const chatEl = scrollWrap.value;
   chatEl?.addEventListener("click", (e) => {
-    const target = e.target;
-    if (target.classList.contains("invite-link")) {
+    const link = e.target.closest(".invite-link");
+    if (link && link.dataset.token) {
       e.preventDefault();
-      const token = target.dataset.token;
-      if (token) {
-        router.push(`/invite/${token}`);
-      }
+      router.push(`/invite/${link.dataset.token}`);
     }
   });
 
@@ -691,6 +752,24 @@ onMounted(() => {
 
   nextTick(() => {
     scrollWrap.value?.addEventListener("scroll", handleScroll);
+  });
+
+  $socket.on("group-order-choice", (payload) => {
+    if (payload.conversationId !== props.conversationId) return;
+
+    if (groupDetail.value && groupDetail.value.members) {
+      const idx = groupDetail.value.members.findIndex(
+        (m) => String(m.userId) === String(payload.userId)
+      );
+      if (idx !== -1) {
+        groupDetail.value.members[idx] = {
+          ...groupDetail.value.members[idx],
+          hasChosen: true,
+          quantity: payload.quantity,
+        };
+      }
+      groupDetail.value = JSON.parse(JSON.stringify(groupDetail.value));
+    }
   });
 });
 
@@ -848,6 +927,7 @@ onBeforeUnmount(() => {
   $socket.off("typing");
   $socket.off("user-joined");
   $socket.off("read-updated");
+  $socket.off("group-order-choice");
 
   if (supabaseChannel) supabaseChannel.unsubscribe();
 

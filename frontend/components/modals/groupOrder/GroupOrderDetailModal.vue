@@ -146,6 +146,18 @@
               </div>
             </div>
           </transition>
+          <!-- Nút rời nhóm -->
+          <div
+            v-if="groupOrder.status === 'pending'"
+            class="mt-5 flex justify-center"
+          >
+            <button
+              @click="leaveGroup"
+              class="px-5 py-2 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-xl shadow-sm transition"
+            >
+              Rời nhóm
+            </button>
+          </div>
         </template>
 
         <!-- TAB 2: Sản phẩm -->
@@ -220,6 +232,7 @@ const props = defineProps({
 
 const emit = defineEmits(["close"]);
 const auth = useAuthStore();
+const { $socket } = useNuxtApp();
 
 const tabs = ["Thành viên nhóm", "Sản phẩm mua chung"];
 const activeTab = ref("Thành viên nhóm");
@@ -277,10 +290,58 @@ function copyToken() {
 }
 
 function memberRole(m) {
-  if (m.id === props.groupOrder.creatorId) return "Chủ nhóm";
-  if (m.id === auth.user?.id) return "Thành viên";
+  const memberUserId = m.userId;
+  const creatorId = props.groupOrder.creatorId;
+
+  if (memberUserId === creatorId) return "Trưởng nhóm";
+
   return "Thành viên";
 }
+
+async function leaveGroup() {
+  const ok = confirm("Bạn có chắc muốn rời nhóm này không?");
+  if (!ok) return;
+
+  try {
+    const res = await $fetch(`/group-orders/${props.groupOrder.id}/leave`, {
+      method: "PATCH",
+      baseURL: useRuntimeConfig().public.apiBase,
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+    });
+
+    alert("Đã rời nhóm thành công.");
+    emit("close");
+  } catch (err) {
+    console.error("Lỗi rời nhóm:", err);
+    alert(err?.data?.error || "Không thể rời nhóm.");
+  }
+}
+
+onMounted(() => {
+  // console.log(
+  //   "Modal groupOrder:",
+  //   JSON.parse(JSON.stringify(props.groupOrder))
+  // );
+  // console.log("Modal members:", JSON.parse(JSON.stringify(props.members)));
+
+  $socket.on("member-left", (payload) => {
+    // Nếu chính user hiện tại rời nhóm
+    if (
+      payload.userId === auth.user?.id &&
+      payload.conversationId === conversation.value?.id
+    ) {
+      // Đóng chatbox
+      showChat.value = false;
+    } else if (payload.conversationId === conversation.value?.id) {
+      // Với người khác trong nhóm, hiển thị thông báo trong chat
+      messages.value.push({
+        type: "system",
+        content: payload.message,
+        createdAt: new Date(),
+      });
+    }
+  });
+});
 </script>
 
 <style scoped>

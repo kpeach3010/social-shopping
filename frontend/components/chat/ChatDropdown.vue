@@ -41,12 +41,9 @@
             <div class="flex-1 min-w-0">
               <div class="flex justify-between">
                 <span class="truncate text-sm">
-                  {{
-                    conv.type === "group"
-                      ? conv.convName || "Nhóm"
-                      : conv.senderName
-                  }}
+                  {{ conv.type === "group" ? conv.convName : conv.partnerName }}
                 </span>
+
                 <span class="text-xs text-gray-400">
                   {{ formatTime(conv.createdAt) }}
                 </span>
@@ -115,11 +112,21 @@ async function fetchConversations() {
 
 function openChat(conv) {
   dropdownOpen.value = false;
+
+  const isGroup = conv.type === "group";
+
   window.dispatchEvent(
     new CustomEvent("open-group-chat", {
       detail: {
         conversationId: conv.conversationId,
-        name: conv.type === "group" ? conv.convName : conv.senderName,
+        name: isGroup ? conv.convName : conv.partnerName,
+        type: isGroup ? "group" : "direct",
+        partner: !isGroup
+          ? {
+              id: conv.partnerId,
+              fullName: conv.partnerName,
+            }
+          : null,
       },
     })
   );

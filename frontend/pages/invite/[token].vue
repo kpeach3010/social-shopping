@@ -283,27 +283,21 @@ async function openChatBox() {
   const conv = conversation.value || inviteDetail.value?.conversation;
   if (!conv) return;
 
-  if (conversation.value?.conversationId && !conv.id) {
-    conv.id = conversation.value.conversationId;
-  }
+  const conversationId = conv.id || conv.conversationId;
+  console.log("conv: ", conv);
+  console.log("=> conversationId chọn:", conversationId);
 
-  const conversationId = conv.id || conv.conversationId || conv.groupOrderId;
   if (!conversationId) {
-    console.warn("Không xác định được conversationId khi mở chat nhóm:", conv);
+    console.warn("Không xác định được conversationId:", conv);
     return;
   }
 
-  await router.push("/");
-  setTimeout(() => {
-    window.dispatchEvent(
-      new CustomEvent("open-group-chat", {
-        detail: {
-          id: conversationId,
-          name: conv.name || conv.conversationName || "Nhóm mua chung",
-        },
-      })
-    );
-  }, 300);
+  const data = {
+    id: conversationId,
+    name: conv.name || "Nhóm mua chung",
+    type: "group",
+  };
+  window.dispatchEvent(new CustomEvent("open-group-chat", { detail: data }));
 }
 
 function goHome() {

@@ -9,9 +9,10 @@ import {
   groupOrderMembers,
   inviteLinks,
   productVariants,
+  conversationMembers,
 } from "../db/schema.js";
 import { checkoutService } from "./order.service.js";
-import { eq, and } from "drizzle-orm";
+import { eq, and, asc } from "drizzle-orm";
 
 // lay thong tin group order theo conversationId
 export const getGroupOrderDetailService = async (userId, conversationId) => {
@@ -171,9 +172,7 @@ export const chooseVariantService = async ({
 
   if (!member) throw new Error("Bạn chưa tham gia nhóm này");
 
-  if (member.hasChosen && member.variantId && member.quantity) {
-    throw new Error("Bạn đã chọn sản phẩm, không thể chọn lại");
-  }
+  const isUpdate = member.hasChosen === true;
 
   //  Cap nhat lua chon
   await db
@@ -193,6 +192,7 @@ export const chooseVariantService = async ({
       userId,
       variantId,
       quantity,
+      isUpdate,
     },
   };
 };
@@ -262,4 +262,95 @@ export const groupOrderCheckoutService = async (creatorId, groupOrderId) => {
     .where(eq(groupOrders.id, groupOrderId));
 
   return { orders: createdOrders, groupOrderId };
+};
+
+export const leaveGroupOrderService = async ({ userId, groupOrderId }) => {
+  // Lấy thông tin group
+  const [groupOrder] = await db
+    .select()
+    .from(groupOrders)
+    .where(eq(groupOrders.id, groupOrderId))
+    .limit(1);
+
+  if (!groupOrder) throw new Error("Nhóm không tồn tại");
+  if (groupOrder.status !== "pending")
+    throw new Error("Chỉ có thể rời nhóm khi nhóm đang ở trạng thái chờ.");
+
+  const [covRow] = await db
+    .select({
+      conversationId: conversations.id,
+    })
+    .from(conversations)
+    .where(eq(conversations.groupOrderId, groupOrderId))
+    .limit(1);
+
+  const conversationId = covRow?.conversationId;
+  if (!conversationId) throw new Error("Không tìm thấy conversation của nhóm");
+
+  // Lấy tên người rời
+  const [leaver] = await db
+    .select({ fullName: users.fullName })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  // Xóa thành viên khỏi nhóm và conversation
+  await db
+    .delete(groupOrderMembers)
+    .where(
+      and(
+        eq(groupOrderMembers.groupOrderId, groupOrderId),
+        eq(groupOrderMembers.userId, userId)
+      )
+    );
+
+  await db
+    .delete(conversationMembers)
+    .where(
+      and(
+        eq(conversationMembers.conversationId, conversationId),
+        eq(conversationMembers.userId, userId)
+      )
+    );
+
+  let newLeader = null;
+  let message = `${leaver?.fullName || "Một thành viên"} đã rời nhóm.`;
+
+  // Nếu là trưởng nhóm -> tìm người kế nhiệm
+  if (groupOrder.creatorId === userId) {
+    const [candidate] = await db
+      .select({
+        userId: groupOrderMembers.userId,
+        fullName: users.fullName,
+      })
+      .from(groupOrderMembers)
+      .innerJoin(users, eq(users.id, groupOrderMembers.userId))
+      .where(eq(groupOrderMembers.groupOrderId, groupOrderId))
+      .orderBy(asc(groupOrderMembers.joinedAt))
+      .limit(1);
+
+    if (candidate) {
+      await db
+        .update(groupOrders)
+        .set({ creatorId: candidate.userId })
+        .where(eq(groupOrders.id, groupOrderId));
+
+      newLeader = candidate;
+      message = `${leaver?.fullName || "Trưởng nhóm"} đã rời nhóm. Quyền trưởng nhóm được chuyển cho ${candidate.fullName}.`;
+    } else {
+      await db.delete(groupOrders).where(eq(groupOrders.id, groupOrderId));
+      return {
+        deleted: true,
+        conversationId,
+        message: `${leaver?.fullName || "Trưởng nhóm"} đã rời nhóm. Nhóm đã bị giải tán vì không còn thành viên.`,
+      };
+    }
+  }
+
+  return {
+    message,
+    newLeader,
+    conversationId,
+    leaverName: leaver?.fullName || "Một thành viên",
+  };
 };

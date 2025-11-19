@@ -94,6 +94,25 @@ const config = useRuntimeConfig();
 const { $socket } = useNuxtApp();
 
 onMounted(async () => {
+  window.addEventListener("open-group-chat", (e) => {
+    const conv = e.detail;
+    if (!conv) return;
+
+    chatBoxVisible.value = true;
+    activePartner.value = null;
+
+    const conversationId = conv.id || conv.conversationId || conv.groupOrderId;
+    if (!conversationId) return;
+
+    activeConversation.value = {
+      id: conversationId,
+      name: conv.name || "Nhóm mua chung",
+      type: conv.type || "group",
+    };
+
+    activeConversationId.value = conversationId;
+  });
+
   if (!process.client) return;
 
   // chờ auth sẵn sàng, tránh reload vô hạn
@@ -103,21 +122,23 @@ onMounted(async () => {
   // bỏ qua nếu đang truy cập link mời nhóm
   if (route.path.startsWith("/invite/")) return;
 
-  window.addEventListener("open-group-chat", (e) => {
-    const conv = e.detail;
-    if (!conv) return;
-    chatBoxVisible.value = true;
-    activePartner.value = null;
+  // window.addEventListener("open-group-chat", (e) => {
+  //   const conv = e.detail;
+  //   if (!conv) return;
+  //   chatBoxVisible.value = true;
+  //   activePartner.value = null;
 
-    const conversationId = conv.id || conv.conversationId || conv.groupOrderId;
-    if (!conversationId) return;
+  //   const conversationId = conv.id || conv.conversationId || conv.groupOrderId;
+  //   if (!conversationId) return;
+  //   console.log(" Nhận open-group-chat:", e.detail);
 
-    activeConversation.value = {
-      id: conversationId,
-      name: conv.name || conv.conversationName || "Nhóm mua chung",
-    };
-    activeConversationId.value = conversationId;
-  });
+  //   activeConversation.value = {
+  //     id: conversationId,
+  //     name: conv.name || conv.conversationName || "Nhóm mua chung",
+  //     type: conv.type || "group",
+  //   };
+  //   activeConversationId.value = conversationId;
+  // });
 
   // khi có tin nhắn mới đến
   window.addEventListener("incoming-message", async (e) => {

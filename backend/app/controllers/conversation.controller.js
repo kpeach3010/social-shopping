@@ -34,7 +34,7 @@ export const getOrCreateDirectConversationController = async (req, res) => {
         .where(eq(users.id, userId))
         .limit(1);
 
-      console.log(">>>>>sender:", sender);
+      // console.log(">>>>>sender:", sender);
       // Gửi socket event (partner)
       global.io.to(partnerId).emit("new-conversation", {
         conversationId: conversation.id,
@@ -100,6 +100,18 @@ export const joinGroupOrderByInviteTokenController = async (req, res) => {
     }
 
     const result = await joinGroupOrderByInviteTokenService({ token, userId });
+
+    if (global.io && result.conversationId && result.user) {
+      global.io.to(result.conversationId).emit("user-joined", {
+        conversationId: result.conversationId,
+        userId: result.user,
+        fullName: result.user.fullName,
+      });
+      console.log(
+        `${result.user.fullName} vừa tham gia nhóm ${result.conversationId}`
+      );
+    }
+
     res.status(200).json(result);
   } catch (error) {
     console.error("Lỗi join nhóm:", error);

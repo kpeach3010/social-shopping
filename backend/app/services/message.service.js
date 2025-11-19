@@ -131,3 +131,21 @@ export const getUnreadMessageCountService = async (userId) => {
 
   return rows.length;
 };
+
+export async function createSystemMessage(conversationId, content) {
+  const SYSTEM_USER_ID = "00000000-0000-0000-0000-000000000000";
+  const [msg] = await db
+    .insert(messages)
+    .values({
+      conversationId,
+      content,
+      type: "system",
+      senderId: SYSTEM_USER_ID,
+    })
+    .returning();
+
+  return {
+    ...msg,
+    type: "system",
+  };
+}

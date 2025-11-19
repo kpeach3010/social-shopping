@@ -25,8 +25,8 @@ export const loginController = async (req, res) => {
 };
 
 export const refreshTokenController = async (req, res) => {
-  console.log("📩 [Controller] /auth/refresh-token được gọi!");
-  console.log("🧾 req.body:", req.body);
+  // console.log("[Controller] /auth/refresh-token được gọi!");
+  // console.log("req.body:", req.body);
 
   try {
     const { refreshToken } = req.body;
@@ -39,11 +39,11 @@ export const refreshTokenController = async (req, res) => {
     // Gọi service để làm mới token từ Supabase
     const { session, user } = await refreshTokenService(refreshToken);
 
-    console.log("✅ [Controller] Supabase session:", session);
-    console.log("✅ [Controller] Supabase user:", user);
+    // console.log("[Controller] Supabase session:", session);
+    // console.log("[Controller] Supabase user:", user);
 
     if (!session?.access_token) {
-      console.error("❌ [Controller] Không có access_token trong session.");
+      console.error("[Controller] Không có access_token trong session.");
       return res.status(401).json({ error: "No access token returned" });
     }
 
@@ -54,7 +54,7 @@ export const refreshTokenController = async (req, res) => {
       user,
     });
   } catch (err) {
-    console.error("🔥 [Controller] Refresh token error:", err);
+    console.error("[Controller] Refresh token error:", err);
     return res
       .status(401)
       .json({ error: err.message || "Token refresh failed" });

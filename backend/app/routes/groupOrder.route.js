@@ -21,4 +21,10 @@ router.patch(
   authenticate,
   GroupOrderController.groupOrderCheckoutController
 );
+
+router.patch(
+  "/:groupOrderId/leave",
+  authenticate,
+  GroupOrderController.leaveGroupOrderController
+);
 export default router;

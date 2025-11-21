@@ -559,7 +559,6 @@ export const getInviteLinkDetailService = async (token) => {
       type: coupons.type,
       value: coupons.value,
       maxMember: coupons.maxMember,
-      minTotalQuantity: coupons.minTotalQuantity,
       endsAt: coupons.endsAt,
       description: coupons.description,
     })

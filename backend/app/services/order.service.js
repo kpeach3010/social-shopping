@@ -18,24 +18,27 @@ import supabase from "../../services/supbase/client.js";
 async function copyImageToOrderImages(variant, orderId) {
   if (!variant.imagePath) return { imagePath: null, imageUrl: null };
 
-  const oldPath = variant.imagePath; // ví dụ: categories/shirt/shirt-1/productId123/variants/RED.png
+  const oldPath = variant.imagePath;
+  console.log("COPY FROM:", oldPath);
+
   const fileName = oldPath.split("/").pop();
   const newPath = `order-images/${orderId}/${fileName}`;
+  console.log("COPY TO:", newPath);
 
   const { error } = await supabase.storage
     .from("product-images")
     .copy(oldPath, newPath);
 
   if (error) {
-    console.error("Error copying file to order-images:", error);
+    console.error("Error copying file:", error);
     return { imagePath: variant.imagePath, imageUrl: variant.imageUrl };
   }
 
-  const { data: publicUrl } = supabase.storage
+  const { data } = supabase.storage
     .from("product-images")
     .getPublicUrl(newPath);
 
-  return { imagePath: newPath, imageUrl: publicUrl.publicUrl };
+  return { imagePath: newPath, imageUrl: data.publicUrl };
 }
 
 export const checkoutService = async (
@@ -205,8 +208,11 @@ export const checkoutService = async (
   }
 
   // 7) Copy ảnh + Insert order items + Update stock
+
   const finalOrderItems = [];
   for (const { variant, quantity } of orderItemsData) {
+    console.log("CHECKOUT COPY – imagePath:", variant.imagePath);
+    console.log("CHECKOUT COPY – Trying oldPath:", variant.imagePath);
     const copiedImage = await copyImageToOrderImages(variant, order.id);
 
     const oi = {
@@ -281,6 +287,16 @@ export const cancelOrderService = async (orderId, userId) => {
 
   if (!order) throw new Error("Đơn hàng không tồn tại");
 
+  const [coupon] = await db
+    .select({ kind: coupons.kind })
+    .from(coupons)
+    .where(eq(coupons.code, order.couponCode))
+    .limit(1);
+
+  if (coupon?.kind === "group") {
+    throw new Error("Đơn nhóm không thể tự hủy.");
+  }
+
   // 2) Chỉ cho phép user hủy chính order của mình
   if (order.userId !== userId) {
     throw new Error("Không có quyền hủy đơn hàng này");
@@ -328,8 +344,10 @@ export const getOrdersByUserService = async (userId) => {
       total: orders.total,
       couponCode: orders.couponCode,
       createdAt: orders.createdAt,
+      couponKind: coupons.kind,
     })
     .from(orders)
+    .leftJoin(coupons, eq(orders.couponCode, coupons.code))
     .where(eq(orders.userId, userId));
 
   // lấy items cho tất cả orderId
@@ -362,8 +380,12 @@ export const getOrdersByUserService = async (userId) => {
 // Lấy chi tiết 1 order của user (bao gồm items)
 export const getOrderByIdForUserService = async (orderId, userId) => {
   const [order] = await db
-    .select()
+    .select({
+      ...orders,
+      couponKind: coupons.kind,
+    })
     .from(orders)
+    .leftJoin(coupons, eq(orders.couponCode, coupons.code))
     .where(eq(orders.id, orderId))
     .limit(1);
 

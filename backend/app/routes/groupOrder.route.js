@@ -10,11 +10,11 @@ router.get(
   GroupOrderController.getGroupOrderDetailController
 );
 
-router.patch(
-  "/:groupOrderId/choose",
-  authenticate,
-  GroupOrderController.chooseVariantController
-);
+// router.patch(
+//   "/:groupOrderId/choose",
+//   authenticate,
+//   GroupOrderController.chooseVariantController
+// );
 
 router.patch(
   "/:id/checkout",
@@ -27,4 +27,11 @@ router.patch(
   authenticate,
   GroupOrderController.leaveGroupOrderController
 );
+
+router.post(
+  "/:groupOrderId/select-items",
+  authenticate,
+  GroupOrderController.selectItemsController
+);
+
 export default router;

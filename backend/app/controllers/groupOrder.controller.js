@@ -1,8 +1,9 @@
 import {
   getGroupOrderDetailService,
-  chooseVariantService,
+  // chooseVariantService,
   groupOrderCheckoutService,
   leaveGroupOrderService,
+  selectItemsService,
 } from "../services/groupOrders.service.js";
 
 import { createSystemMessage } from "../services/message.service.js";
@@ -24,84 +25,84 @@ export const getGroupOrderDetailController = async (req, res) => {
   }
 };
 
-export const chooseVariantController = async (req, res) => {
-  try {
-    const { groupOrderId } = req.params;
-    const { variantId, quantity } = req.body;
-    const userId = req.user.id;
+// export const chooseVariantController = async (req, res) => {
+//   try {
+//     const { groupOrderId } = req.params;
+//     const { variantId, quantity } = req.body;
+//     const userId = req.user.id;
 
-    // 1. Gọi service để cập nhật lựa chọn
-    const result = await chooseVariantService({
-      groupOrderId,
-      userId,
-      variantId,
-      quantity,
-    });
+//     // 1. Gọi service để cập nhật lựa chọn
+//     const result = await chooseVariantService({
+//       groupOrderId,
+//       userId,
+//       variantId,
+//       quantity,
+//     });
 
-    const isUpdate = result.data.isUpdate;
+//     const isUpdate = result.data.isUpdate;
 
-    console.log("chooseVariantController result:", result);
+//     console.log("chooseVariantController result:", result);
 
-    // 2. Lấy thông tin user (để hiển thị tên trong hệ thống)
-    const [u] = await db
-      .select({ fullName: users.fullName })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
+//     // 2. Lấy thông tin user (để hiển thị tên trong hệ thống)
+//     const [u] = await db
+//       .select({ fullName: users.fullName })
+//       .from(users)
+//       .where(eq(users.id, userId))
+//       .limit(1);
 
-    const fullName = u?.fullName || "Người dùng";
+//     const fullName = u?.fullName || "Người dùng";
 
-    // 3. Tìm conversation theo groupOrderId
-    const [conv] = await db
-      .select({ id: conversations.id })
-      .from(conversations)
-      .where(eq(conversations.groupOrderId, groupOrderId))
-      .limit(1);
+//     // 3. Tìm conversation theo groupOrderId
+//     const [conv] = await db
+//       .select({ id: conversations.id })
+//       .from(conversations)
+//       .where(eq(conversations.groupOrderId, groupOrderId))
+//       .limit(1);
 
-    if (!conv) {
-      console.error(
-        "Không tìm thấy conversation tương ứng groupOrderId:",
-        groupOrderId
-      );
-    }
+//     if (!conv) {
+//       console.error(
+//         "Không tìm thấy conversation tương ứng groupOrderId:",
+//         groupOrderId
+//       );
+//     }
 
-    const conversationId = conv?.id;
+//     const conversationId = conv?.id;
 
-    // 4. Tạo SYSTEM MESSAGE vào DB
-    const content = isUpdate
-      ? `${fullName} đã cập nhật lựa chọn (${quantity} sản phẩm)`
-      : `${fullName} đã chọn ${quantity} sản phẩm`;
+//     // 4. Tạo SYSTEM MESSAGE vào DB
+//     const content = isUpdate
+//       ? `${fullName} đã cập nhật lựa chọn (${quantity} sản phẩm)`
+//       : `${fullName} đã chọn ${quantity} sản phẩm`;
 
-    // Lưu vào DB như message hệ thống
-    const sysMsg = await createSystemMessage(conversationId, content);
+//     // Lưu vào DB như message hệ thống
+//     const sysMsg = await createSystemMessage(conversationId, content);
 
-    if (global.io && conversationId) {
-      global.io.to(conversationId).emit("message", {
-        id: sysMsg.id,
-        conversationId,
-        content,
-        type: "system",
-        senderId: "00000000-0000-0000-0000-000000000000",
-        createdAt: sysMsg.createdAt,
-      });
-    }
-    // 5. Emit socket realtime
-    if (global.io && conversationId) {
-      global.io.to(conversationId).emit("group-order-choice", {
-        userId,
-        fullName,
-        quantity,
-        conversationId,
-        createdAt: new Date().toISOString(),
-      });
-    }
+//     if (global.io && conversationId) {
+//       global.io.to(conversationId).emit("message", {
+//         id: sysMsg.id,
+//         conversationId,
+//         content,
+//         type: "system",
+//         senderId: "00000000-0000-0000-0000-000000000000",
+//         createdAt: sysMsg.createdAt,
+//       });
+//     }
+//     // 5. Emit socket realtime
+//     if (global.io && conversationId) {
+//       global.io.to(conversationId).emit("group-order-choice", {
+//         userId,
+//         fullName,
+//         quantity,
+//         conversationId,
+//         createdAt: new Date().toISOString(),
+//       });
+//     }
 
-    return res.status(200).json(result);
-  } catch (err) {
-    console.error("ERROR chooseVariantController:", err);
-    return res.status(400).json({ error: err.message, stack: err.stack });
-  }
-};
+//     return res.status(200).json(result);
+//   } catch (err) {
+//     console.error("ERROR chooseVariantController:", err);
+//     return res.status(400).json({ error: err.message, stack: err.stack });
+//   }
+// };
 
 export const groupOrderCheckoutController = async (req, res) => {
   try {
@@ -183,5 +184,91 @@ export const leaveGroupOrderController = async (req, res) => {
   } catch (error) {
     console.error("Lỗi leaveGroupOrder:", error);
     res.status(400).json({ error: error.message });
+  }
+};
+
+export const selectItemsController = async (req, res) => {
+  try {
+    const groupOrderId = req.params.groupOrderId;
+    const userId = req.user.id;
+    const items = req.body.items;
+
+    // 1) Gọi service xử lý chọn sản phẩm
+    const result = await selectItemsService({
+      groupOrderId,
+      userId,
+      items,
+    });
+
+    // 2) Lấy thông tin user
+    const [u] = await db
+      .select({ fullName: users.fullName })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    const fullName = u?.fullName || "Người dùng";
+
+    // 3) Lấy conversation bằng groupOrderId
+    const [conv] = await db
+      .select({ id: conversations.id })
+      .from(conversations)
+      .where(eq(conversations.groupOrderId, groupOrderId))
+      .limit(1);
+
+    const conversationId = conv?.id;
+
+    if (!conversationId) {
+      console.warn("Không tìm thấy conversation cho groupOrder:", groupOrderId);
+      return res.json(result);
+    }
+
+    // 4) Tạo nội dung system message
+    const totalQty = items.reduce((sum, i) => sum + i.quantity, 0);
+
+    const { isUpdate } = result;
+
+    let content;
+    if (isUpdate) {
+      content = `${fullName} đã cập nhật lựa chọn (${totalQty} sản phẩm).`;
+    } else {
+      content = `${fullName} đã chọn ${totalQty} sản phẩm.`;
+    }
+
+    // 5) Lưu system message vào DB
+    const sysMsg = await createSystemMessage(conversationId, content);
+
+    // 6) Emit realtime cho toàn bộ thành viên trong nhóm
+    if (global.io) {
+      // Emit message system vào khung chat
+      global.io.to(conversationId).emit("message", {
+        id: sysMsg.id,
+        conversationId,
+        content,
+        type: "system",
+        senderId: "00000000-0000-0000-0000-000000000000",
+        createdAt: sysMsg.createdAt,
+      });
+
+      // Emit thông tin chọn sản phẩm
+      global.io.to(conversationId).emit("group-order-choice", {
+        userId,
+        fullName,
+        items,
+        isUpdate,
+        totalQty,
+        conversationId,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    // 7) Trả response
+    return res.json({
+      ...result,
+      message: "Chọn sản phẩm thành công",
+    });
+  } catch (err) {
+    console.error("ERROR selectItemsController:", err);
+    res.status(400).json({ error: true, message: err.message });
   }
 };

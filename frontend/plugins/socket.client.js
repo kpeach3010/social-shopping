@@ -15,7 +15,7 @@ export default defineNuxtPlugin((nuxtApp) => {
       socket.io.opts.query = { userId: auth.user.id };
 
       if (!socket.connected) {
-        console.log("🔌 Connecting socket for user:", auth.user.id);
+        console.log("Connecting socket for user:", auth.user.id);
         socket.connect();
       }
     } else if (!auth.user) {

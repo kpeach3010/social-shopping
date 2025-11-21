@@ -53,11 +53,8 @@ export const createCouponService = async (data) => {
       used: data.used ?? 0,
       usage_limit: data.usage_limit,
       perUserLimit: data.perUserLimit,
-      stackable: data.stackable ?? false,
       minOrderTotal: data.minOrderTotal,
       minMember: data.minMember,
-      minTotalQuantity: data.minTotalQuantity,
-      requireSameVariant: data.requireSameVariant ?? false,
       maxMember: data.maxMember ?? 2,
     };
 
@@ -234,12 +231,9 @@ export const updateCouponService = async (couponId, data) => {
   }
   if (data.usage_limit !== undefined) payload.usage_limit = data.usage_limit;
   if (data.perUserLimit !== undefined) payload.perUserLimit = data.perUserLimit;
-  // if (data.stackable !== undefined) payload.stackable = data.stackable;
   if (data.minOrderTotal !== undefined)
     payload.minOrderTotal = data.minOrderTotal;
   if (data.minMember !== undefined) payload.minMember = data.minMember;
-  if (data.minTotalQuantity !== undefined)
-    payload.minTotalQuantity = data.minTotalQuantity;
 
   // Thực hiện update
   const [updated] = await db

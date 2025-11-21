@@ -205,7 +205,7 @@
                     Xem chi tiết
                   </button>
                   <button
-                    v-if="o.status === 'pending'"
+                    v-if="o.status === 'pending' && o.couponKind !== 'group'"
                     class="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700"
                     @click="cancelOrder(o.id)"
                   >
@@ -351,7 +351,10 @@
         <!-- Footer -->
         <div class="sticky bottom-0 bg-white border-t px-6s py-4 text-right">
           <button
-            v-if="orderDetail?.status === 'pending'"
+            v-if="
+              orderDetail?.status === 'pending' &&
+              orderDetail?.couponKind !== 'group'
+            "
             class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 mr-2"
             @click="cancelOrder(orderDetail.id)"
           >

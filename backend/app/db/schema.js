@@ -158,10 +158,7 @@ export const coupons = pgTable("coupons", {
   usage_limit: integer("usage_limit"), // tong so lan su dung
   used: integer("used").notNull().default(0), // da dung bao nhieu lan
   perUserLimit: integer("per_user_limit"), // so lan su dung tren 1 user
-  stackable: boolean("stackable").notNull().default(false), // co the dung cung coupon khac ko
   minOrderTotal: decimal("min_order_total"), // gia tri don hang toi thieu de ap dung coupon
-  // Dieu kien cho don mua chung
-  minTotalQuantity: integer("min_total_quantity"), // tong so luong san pham toi thieu
   // so luong thanh vien toi da
   maxMember: integer("max_member"),
 });
@@ -294,8 +291,6 @@ export const groupOrderMembers = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id),
-    variantId: uuid("variant_id").references(() => productVariants.id),
-    quantity: integer("quantity").notNull().default(1),
     hasChosen: boolean("has_chosen").notNull().default(false), // da chon variant va qty chua
     joinedAt: timestamp("joined_at", { withTimezone: true }).defaultNow(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
@@ -310,6 +305,31 @@ export const groupOrderMembers = pgTable(
       ),
     };
   }
+);
+
+export const groupOrderMemberItems = pgTable(
+  "group_order_member_items",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    memberId: uuid("member_id")
+      .notNull()
+      .references(() => groupOrderMembers.id, { onDelete: "cascade" }),
+
+    variantId: uuid("variant_id")
+      .notNull()
+      .references(() => productVariants.id, { onDelete: "cascade" }),
+
+    quantity: integer("quantity").notNull().default(1),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    // 1 member chỉ có đúng 1 dòng cho mỗi variant
+    uqMemberVariant: uniqueIndex("uq_member_variant").on(
+      table.memberId,
+      table.variantId
+    ),
+  })
 );
 
 // chat schema

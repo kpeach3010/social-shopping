@@ -225,6 +225,13 @@
       "when": 1761458342604,
       "tag": "0031_salty_prism",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1763716082328,
+      "tag": "0032_right_living_lightning",
+      "breakpoints": true
     }
   ]
 }

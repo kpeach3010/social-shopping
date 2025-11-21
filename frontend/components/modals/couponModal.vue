@@ -63,6 +63,11 @@
             <span class="font-medium">{{ c.perUserLimit }}</span> lần
           </p>
 
+          <p v-if="c.userUsedCount !== undefined" class="text-xs text-gray-500">
+            Bạn đã sử dụng:
+            <span class="font-medium">{{ c.userUsedCount }}</span> lần
+          </p>
+
           <!-- ngày hết hạn -->
           <p v-if="c.endsAt" class="text-xs text-red-500 mt-1">
             Hết hạn: {{ formatDate(c.endsAt) }}

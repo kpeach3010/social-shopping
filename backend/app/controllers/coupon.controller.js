@@ -5,6 +5,7 @@ import {
   getAvailableCouponsForProductsService,
   deleteCouponService,
   updateCouponService,
+  getCouponByIdService,
 } from "../services/coupon.service.js";
 
 export const createCouponController = async (req, res) => {
@@ -23,6 +24,24 @@ export const getAllCouponsController = async (req, res) => {
     res.status(200).json(coupons);
   } catch (error) {
     res.status(400).json({ error: error.message });
+  }
+};
+
+export const getCouponByIdController = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const coupon = await getCouponByIdService(id);
+
+    return res.status(200).json({
+      message: "Lấy chi tiết coupon thành công",
+      data: coupon,
+    });
+  } catch (err) {
+    console.error("getCouponByIdController:", err);
+    return res.status(400).json({
+      error: err.message || "Lỗi khi lấy chi tiết coupon",
+    });
   }
 };
 

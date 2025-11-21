@@ -133,8 +133,8 @@
                     <span v-else>{{ formatPrice(c.value) }}</span>
                   </span>
 
-                  <span v-if="c.endsAt" class="text-red-500 text-xs">
-                    Hết hạn {{ formatDate(c.endsAt) }}
+                  <span v-if="c.endsAt" class="text-blue-500 text-xs">
+                    Đơn tối thiểu {{ formatPrice(c.minOrderTotal) }}
                   </span>
                 </div>
 

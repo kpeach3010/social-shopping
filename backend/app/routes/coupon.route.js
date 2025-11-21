@@ -14,6 +14,7 @@ router.post(
 );
 
 router.get("/all-coupons", CouponController.getAllCouponsController);
+
 router.get(
   "/valid-coupons",
   authenticate,
@@ -35,5 +36,7 @@ router.patch(
   hasRoles(Role.STAFF),
   CouponController.updateCouponController
 );
+
+router.get("/:id", authenticate, CouponController.getCouponByIdController);
 
 export default router;

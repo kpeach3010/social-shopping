@@ -91,6 +91,20 @@ export const getAllCouponsService = async () => {
   }
 };
 
+export const getCouponByIdService = async (id) => {
+  const [coupon] = await db
+    .select()
+    .from(coupons)
+    .where(eq(coupons.id, id))
+    .limit(1);
+
+  if (!coupon) {
+    throw new Error("Coupon không tồn tại");
+  }
+
+  return coupon;
+};
+
 // Lấy tất cả coupon còn hiệu lực
 export const getValidCouponsService = async (userId = null) => {
   const now = new Date();
@@ -112,20 +126,26 @@ export const getValidCouponsService = async (userId = null) => {
   // Nếu có userId → lọc theo perUserLimit
   const result = [];
   for (const c of activeCoupons) {
-    if (c.perUserLimit) {
+    let userUsedCount = 0;
+
+    if (userId) {
       const [{ count }] = await db
         .select({ count: sql`COUNT(*)`.mapWith(Number) })
         .from(orders)
         .where(and(eq(orders.userId, userId), eq(orders.couponCode, c.code)));
 
-      if (count >= c.perUserLimit) {
-        // user đã dùng đủ → bỏ qua
-        continue;
+      userUsedCount = count;
+
+      if (c.perUserLimit && userUsedCount >= c.perUserLimit) {
+        continue; // user dùng đủ -> bỏ
       }
     }
-    result.push(c);
-  }
 
+    result.push({
+      ...c,
+      userUsedCount, // ← thêm ở đây
+    });
+  }
   return result;
 };
 

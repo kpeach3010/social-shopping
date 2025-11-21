@@ -132,12 +132,12 @@ export const getUserGroupConversationsService = async (userId) => {
   return result;
 };
 
-// Tạo link mời vào nhóm mua chung
-const LINK_EXPIRATION_HOURS = 24; // link hết hạn sau 24h
+// // Tạo link mời vào nhóm mua chung
+// const LINK_EXPIRATION_HOURS = 24; // link hết hạn sau 24h
 
-function addHours(date, hours) {
-  return new Date(date.getTime() + hours * 60 * 60 * 1000);
-}
+// function addHours(date, hours) {
+//   return new Date(date.getTime() + hours * 60 * 60 * 1000);
+// }
 
 export const createInviteLinkService = async ({
   creatorId,
@@ -195,8 +195,8 @@ export const createInviteLinkService = async ({
   // 4. Nếu chưa có -> tạo mới
   const token = randomUUID();
   const couponExpire = new Date(coupon.endsAt);
-  const linkExpire = addHours(now, LINK_EXPIRATION_HOURS);
-  const expiresAt = couponExpire < linkExpire ? couponExpire : linkExpire;
+  // const linkExpire = addHours(now, LINK_EXPIRATION_HOURS);
+  const expiresAt = couponExpire;
 
   const [newLink] = await db
     .insert(inviteLinks)

@@ -25,7 +25,7 @@ router.patch(
 router.patch(
   "/:groupOrderId/leave",
   authenticate,
-  GroupOrderController.leaveGroupOrderController
+  GroupOrderController.leaveGroupController
 );
 
 router.post(

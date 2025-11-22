@@ -376,6 +376,7 @@ export const conversations = pgTable("conversations", {
   inviteToken: varchar("invite_token", { length: 255 }).unique(), // link moi nguoi vao nhom
   lastMessage: text("last_message"), // tin nhan moi nhat
   lastMessageAt: timestamp("last_message_at", { withTimezone: true }), // thoi diem tin nhan moi nhat
+  archived: boolean("archived").notNull().default(false), // co bi luu tru khong
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

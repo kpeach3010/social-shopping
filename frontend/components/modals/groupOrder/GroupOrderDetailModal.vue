@@ -148,7 +148,10 @@
           </transition>
           <!-- Nút rời nhóm -->
           <div
-            v-if="groupOrder.status === 'pending'"
+            v-if="
+              groupOrder.status === 'pending' ||
+              groupOrder.status === 'completed'
+            "
             class="mt-5 flex justify-center"
           >
             <button

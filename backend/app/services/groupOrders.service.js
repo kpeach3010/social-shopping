@@ -102,9 +102,16 @@ export const getGroupOrderDetailService = async (userId, conversationId) => {
       email: users.email,
       hasChosen: groupOrderMembers.hasChosen,
     })
-    .from(groupOrderMembers)
-    .innerJoin(users, eq(groupOrderMembers.userId, users.id))
-    .where(eq(groupOrderMembers.groupOrderId, groupOrder.id));
+    .from(conversationMembers)
+    .innerJoin(users, eq(conversationMembers.userId, users.id))
+    .leftJoin(
+      groupOrderMembers,
+      and(
+        eq(groupOrderMembers.userId, conversationMembers.userId),
+        eq(groupOrderMembers.groupOrderId, groupOrder.id)
+      )
+    )
+    .where(eq(conversationMembers.conversationId, conversationId));
 
   // Gộp theo userId để không bị trùng
   const members = Array.from(
@@ -384,8 +391,9 @@ export const leaveGroupOrderService = async ({ userId, groupOrderId }) => {
     .limit(1);
 
   if (!groupOrder) throw new Error("Nhóm không tồn tại");
-  if (groupOrder.status !== "pending")
-    throw new Error("Chỉ có thể rời nhóm khi nhóm đang ở trạng thái chờ.");
+  if (groupOrder.status !== "pending") {
+    throw new Error("Service này chỉ dành cho trạng thái pending");
+  }
 
   const [covRow] = await db
     .select({
@@ -448,21 +456,99 @@ export const leaveGroupOrderService = async ({ userId, groupOrderId }) => {
 
       newLeader = candidate;
       message = `${leaver?.fullName || "Trưởng nhóm"} đã rời nhóm. Quyền trưởng nhóm được chuyển cho ${candidate.fullName}.`;
-    } else {
-      await db.delete(groupOrders).where(eq(groupOrders.id, groupOrderId));
-      return {
-        deleted: true,
-        conversationId,
-        message: `${leaver?.fullName || "Trưởng nhóm"} đã rời nhóm. Nhóm đã bị giải tán vì không còn thành viên.`,
-      };
     }
+    const [{ count }] = await db
+      .select({ count: sql`COUNT(*)`.mapWith(Number) })
+      .from(conversationMembers)
+      .where(eq(conversationMembers.conversationId, conversationId));
+
+    if (count === 0) {
+      // Xoá conversation
+      await db
+        .delete(conversations)
+        .where(eq(conversations.id, conversationId));
+      // Xoá groupOrder
+      await db.delete(groupOrders).where(eq(groupOrders.id, groupOrderId));
+    }
+
+    return {
+      message,
+      newLeader,
+      conversationId,
+      leaverName: leaver?.fullName || "Một thành viên",
+    };
+  }
+};
+
+// cho phép rời nhóm khi nhóm đã hoàn thành
+export const leaveConversationAfterDoneService = async ({
+  userId,
+  groupOrderId,
+}) => {
+  // 1) Lấy groupOrder
+  const [groupOrder] = await db
+    .select()
+    .from(groupOrders)
+    .where(eq(groupOrders.id, groupOrderId))
+    .limit(1);
+
+  if (!groupOrder) throw new Error("Nhóm không tồn tại");
+  if (groupOrder.status !== "completed") {
+    throw new Error("Chỉ có thể rời cuộc trò chuyện khi nhóm đã hoàn thành.");
+  }
+
+  // 2) Lấy conversation của group
+  const [covRow] = await db
+    .select({ conversationId: conversations.id })
+    .from(conversations)
+    .where(eq(conversations.groupOrderId, groupOrderId))
+    .limit(1);
+
+  const conversationId = covRow?.conversationId;
+  if (!conversationId) throw new Error("Không tìm thấy conversation của nhóm");
+
+  // 3) Lấy tên người rời
+  const [leaver] = await db
+    .select({ fullName: users.fullName })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  // 4) Xóa ONLY conversation member
+  await db
+    .delete(conversationMembers)
+    .where(
+      and(
+        eq(conversationMembers.conversationId, conversationId),
+        eq(conversationMembers.userId, userId)
+      )
+    );
+
+  // 5) Kiểm tra còn ai trong conversation không
+  const [{ count }] = await db
+    .select({ count: sql`COUNT(*)`.mapWith(Number) })
+    .from(conversationMembers)
+    .where(eq(conversationMembers.conversationId, conversationId));
+
+  let archived = false;
+
+  if (count === 0) {
+    // Archive conversation
+    await db
+      .update(conversations)
+      .set({
+        archived: true,
+        updatedAt: new Date(),
+      })
+      .where(eq(conversations.id, conversationId));
+
+    archived = true;
   }
 
   return {
-    message,
-    newLeader,
     conversationId,
-    leaverName: leaver?.fullName || "Một thành viên",
+    archived,
+    message: `${leaver?.fullName || "Một thành viên"} đã rời cuộc trò chuyện.`,
   };
 };
 

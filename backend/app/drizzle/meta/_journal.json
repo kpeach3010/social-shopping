@@ -239,6 +239,13 @@
       "when": 1763798073786,
       "tag": "0033_tough_whiplash",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1763803474651,
+      "tag": "0034_abnormal_blonde_phantom",
+      "breakpoints": true
     }
   ]
 }

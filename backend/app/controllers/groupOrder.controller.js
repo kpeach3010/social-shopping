@@ -4,11 +4,12 @@ import {
   groupOrderCheckoutService,
   leaveGroupOrderService,
   selectItemsService,
+  leaveConversationAfterDoneService,
 } from "../services/groupOrders.service.js";
 
 import { createSystemMessage } from "../services/message.service.js";
 import { db } from "../db/client.js";
-import { users, conversations } from "../db/schema.js";
+import { users, conversations, groupOrders } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 
 export const getGroupOrderDetailController = async (req, res) => {
@@ -149,41 +150,94 @@ export const groupOrderCheckoutController = async (req, res) => {
   }
 };
 
-export const leaveGroupOrderController = async (req, res) => {
+export const leaveGroupController = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user?.id;
     const { groupOrderId } = req.params;
 
-    const result = await leaveGroupOrderService({ userId, groupOrderId });
+    if (!userId) {
+      return res.status(401).json({ error: "Chưa đăng nhập" });
+    }
 
-    if (global.io && result.conversationId) {
-      // luôn gửi thông báo rời nhóm
-      global.io.to(result.conversationId).emit("user-left", {
-        conversationId: result.conversationId,
-        message: result.message,
+    // Lấy trạng thái nhóm
+    const [group] = await db
+      .select({ status: groupOrders.status })
+      .from(groupOrders)
+      .where(eq(groupOrders.id, groupOrderId))
+      .limit(1);
+
+    if (!group) {
+      return res.status(404).json({ error: "Nhóm không tồn tại" });
+    }
+
+    let result;
+
+    // 1. Rời nhóm khi đang pending
+    if (group.status === "pending") {
+      result = await leaveGroupOrderService({ userId, groupOrderId });
+    }
+    // 2. Rời nhóm khi nhóm đã hoàn tất (completed)
+    else if (group.status === "completed") {
+      result = await leaveConversationAfterDoneService({
+        userId,
+        groupOrderId,
+      });
+    }
+    // 3. Các trạng thái khác thì không cho rời
+    else {
+      return res.status(400).json({
+        error: "Không thể rời nhóm ở trạng thái hiện tại.",
+      });
+    }
+
+    const { conversationId, message, deleted } = result;
+
+    // Nếu service trả về không có conversationId → lỗi
+    if (!conversationId) {
+      return res.status(400).json({
+        error: "Không tìm thấy conversation của nhóm.",
+      });
+    }
+
+    // 4. Tạo system message
+    const sysMsg = await createSystemMessage(conversationId, message);
+
+    // 5. Emit realtime message + user-left
+    if (global.io) {
+      // Emit system message cho UI chat
+      global.io.to(conversationId).emit("message", {
+        id: sysMsg.id,
+        type: "system",
+        conversationId,
+        content: message,
+        senderId: "00000000-0000-0000-0000-000000000000",
+        createdAt: sysMsg.createdAt,
       });
 
-      // nếu có người kế nhiệm, gửi thêm sự kiện leader-changed riêng
-      if (result.newLeader) {
-        global.io.to(result.conversationId).emit("leader-changed", {
-          conversationId: result.conversationId,
-          newLeader: result.newLeader,
-        });
-      }
+      // Emit event riêng
+      global.io.to(conversationId).emit("user-left", {
+        conversationId,
+        userId,
+        message,
+      });
 
-      // nếu nhóm bị giải tán
-      if (result.deleted) {
-        global.io.to(result.conversationId).emit("group-deleted", {
-          conversationId: result.conversationId,
+      global.io.to(userId).emit("force-close-chat", {
+        conversationId,
+      });
+
+      // Nếu nhóm bị xoá (không còn thành viên)
+      if (deleted) {
+        global.io.to(conversationId).emit("group-deleted", {
+          conversationId,
           message: result.message,
         });
       }
     }
 
-    res.json(result);
-  } catch (error) {
-    console.error("Lỗi leaveGroupOrder:", error);
-    res.status(400).json({ error: error.message });
+    return res.status(200).json(result);
+  } catch (err) {
+    console.error("Lỗi leaveGroup:", err);
+    return res.status(400).json({ error: err.message });
   }
 };
 

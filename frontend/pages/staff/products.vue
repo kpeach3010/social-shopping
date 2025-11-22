@@ -12,6 +12,7 @@ import {
 import AddProductModal from "@/components/modals/staff/AddProductModal.vue";
 import EditProductModal from "@/components/modals/staff/EditProductModal.vue";
 import Sidebar from "@/components/modals/staff/Sidebar.vue";
+import AddCategoryModal from "@/components/modals/staff/AddCategoryModal.vue";
 
 const showModal = ref(false);
 const showEditModal = ref(false);
@@ -22,6 +23,8 @@ const isOpen = ref(true);
 const products = ref([]);
 const loading = ref(false);
 const auth = useAuthStore();
+const showCategoryModal = ref(false);
+
 // Hàm fetch chi tiết sản phẩm (bao gồm màu, size, tồn kho...) và danh mục
 const openEditModal = async (product) => {
   editProductLoading.value = true;
@@ -212,6 +215,16 @@ const deleteProducts = async (ids) => {
             >
               Xóa đã chọn ({{ selectedProductIds.length }})
             </button>
+
+            <!-- Nút thêm danh mục -->
+            <button
+              @click="showCategoryModal = true"
+              class="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600"
+            >
+              + Thêm danh mục
+            </button>
+
+            <!-- Nút thêm sản phẩm -->
             <button
               @click="showModal = true"
               class="px-4 py-2 bg-black text-white rounded hover:bg-gray-800"
@@ -342,6 +355,12 @@ const deleteProducts = async (ids) => {
           @close="showEditModal = false"
           @refresh="fetchProducts"
         />
+        <AddCategoryModal
+          v-if="showCategoryModal"
+          @close="showCategoryModal = false"
+          @refresh="fetchProducts"
+        />
+
         <div
           v-if="editProductLoading"
           class="fixed inset-0 z-50 flex items-center justify-center bg-black/30"

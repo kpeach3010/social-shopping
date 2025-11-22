@@ -18,7 +18,7 @@
 
       <div v-else class="space-y-3">
         <div
-          v-for="c in coupons"
+          v-for="c in personalCoupons"
           :key="c.id"
           @click="$emit('select', c)"
           class="p-3 border rounded-md hover:shadow-md hover:border-black/20 cursor-pointer transition bg-white max-w-sm"
@@ -97,6 +97,10 @@ const formatPrice = (v) =>
   new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(
     v || 0
   );
+
+const personalCoupons = computed(() =>
+  props.coupons.filter((c) => c.kind === "general")
+);
 
 const formatDate = (d) => {
   if (!d) return "";

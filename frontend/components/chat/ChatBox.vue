@@ -771,6 +771,41 @@ onMounted(() => {
       groupDetail.value = JSON.parse(JSON.stringify(groupDetail.value));
     }
   });
+
+  $socket.on("user-left", async (payload) => {
+    if (payload.conversationId !== props.conversationId) return;
+    scrollToBottom();
+
+    // reload member list trong groupDetail
+    if (isGroupChat.value) {
+      try {
+        const res = await $fetch(`/group-orders/${props.conversationId}`, {
+          method: "GET",
+          baseURL: config.public.apiBase,
+          headers: { Authorization: `Bearer ${auth.accessToken}` },
+        });
+        groupDetail.value = res;
+      } catch (err) {
+        console.error("Không thể reload group detail sau khi rời:", err);
+      }
+    }
+  });
+
+  $socket.on("force-close-chat", (payload) => {
+    if (payload.conversationId === props.conversationId) {
+      emit("close");
+    }
+  });
+
+  $socket.on("group-deleted", (payload) => {
+    if (payload.conversationId !== props.conversationId) return;
+    scrollToBottom();
+
+    // đóng group box
+    groupDetail.value = null;
+
+    alert("Nhóm đã giải tán");
+  });
 });
 
 function emitTyping() {
@@ -928,6 +963,8 @@ onBeforeUnmount(() => {
   $socket.off("user-joined");
   $socket.off("read-updated");
   $socket.off("group-order-choice");
+  $socket.off("user-left");
+  $socket.off("group-deleted");
 
   if (supabaseChannel) supabaseChannel.unsubscribe();
 

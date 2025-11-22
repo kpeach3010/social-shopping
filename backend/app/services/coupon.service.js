@@ -54,7 +54,6 @@ export const createCouponService = async (data) => {
       usage_limit: data.usage_limit,
       perUserLimit: data.perUserLimit,
       minOrderTotal: data.minOrderTotal,
-      minMember: data.minMember,
       maxMember: data.maxMember ?? 2,
     };
 

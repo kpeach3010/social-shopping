@@ -63,8 +63,10 @@ const currentUserId = computed(() => auth.user?.id || "");
 const isLoggedIn = computed(() => !!auth.accessToken);
 
 watch(activeConversationId, (val) => {
-  if (val) window.__activeConversationId = val;
-  else delete window.__activeConversationId;
+  if (val) {
+    window.__activeConversationId = val;
+    $socket.emit("join-conversation", val);
+  } else delete window.__activeConversationId;
 });
 
 function openChat(payload) {
@@ -235,6 +237,9 @@ onMounted(async () => {
     $socket.off("unread-count-updated");
     $socket.off("new-conversation");
     $socket.off("connect");
+    window.removeEventListener("incoming-message", incomingHandler);
+    window.removeEventListener("unread-count-updated", unreadHandler);
+    window.removeEventListener("typing-message", typingHandler);
   });
 });
 </script>

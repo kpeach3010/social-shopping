@@ -232,6 +232,13 @@
       "when": 1763716082328,
       "tag": "0032_right_living_lightning",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1763798073786,
+      "tag": "0033_tough_whiplash",
+      "breakpoints": true
     }
   ]
 }

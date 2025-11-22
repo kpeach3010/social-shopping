@@ -10,6 +10,7 @@ import {
   colors,
   sizes,
   coupons,
+  groupOrders,
 } from "../db/schema.js";
 import { sql, eq, and, ne, inArray, desc } from "drizzle-orm";
 import { getAvailableCouponsForProductsService } from "./coupon.service.js";
@@ -47,7 +48,8 @@ export const checkoutService = async (
   couponCode,
   shipping,
   paymentMethod = "COD",
-  fromCart = true
+  fromCart = true,
+  groupOrderId = null
 ) => {
   if (!items || items.length === 0) {
     throw new Error("Đơn hàng phải có ít nhất 1 sản phẩm");
@@ -184,6 +186,7 @@ export const checkoutService = async (
     .insert(orders)
     .values({
       userId,
+      groupOrderId,
       status: "pending",
       paymentMethod,
       subtotal,
@@ -425,7 +428,7 @@ export const getOrdersOverviewForStaffService = async () => {
         price: orderItems.price,
         quantity: orderItems.quantity,
         imagePath: orderItems.imagePath,
-        imageUrl: orderItems.imageUrl,
+        imageUrl: orderItems.imageUrl ?? null,
       })
       .from(orderItems)
       .where(eq(orderItems.orderId, order.id));
@@ -454,20 +457,57 @@ export const getOrderByIdService = async (orderId) => {
   return { ...order, items };
 };
 
-// STAFF: duyệt hoặc hủy đơn hàng
+// Heper kiểm tra tất cả đơn của thành viên đã complete chưa
+const checkGroupOrderComplete = async (groupOrderId) => {
+  console.log(`Kiểm tra groupOrder ${groupOrderId} có hoàn thành chưa...`);
+
+  const list = await db
+    .select({ status: orders.status })
+    .from(orders)
+    .where(eq(orders.groupOrderId, groupOrderId));
+
+  console.log(`Tổng số đơn trong nhóm: ${list.length}`);
+  console.log(`Danh sách trạng thái đơn nhóm:`, list);
+
+  if (list.length === 0) {
+    console.log(`GroupOrder ${groupOrderId} không có đơn nào, bỏ qua.`);
+    return;
+  }
+
+  const allCompleted = list.every((o) => o.status === "completed");
+
+  if (!allCompleted) {
+    console.log(`GroupOrder ${groupOrderId} chưa hoàn tất.`);
+    return;
+  }
+
+  await db
+    .update(groupOrders)
+    .set({ status: "completed", updatedAt: new Date() })
+    .where(eq(groupOrders.id, groupOrderId));
+
+  console.log(`GroupOrder ${groupOrderId} đã hoàn thành (completed)!`);
+};
+
+// STAFF: duyệt hoặc hủy đơn hàng (auto sang complete sau khi duyệt 1 phút)
 export const updateOrderStatusService = async (orderId, action, staffId) => {
   const [order] = await db
     .select()
     .from(orders)
     .where(eq(orders.id, orderId))
     .limit(1);
+
   if (!order) throw new Error("Order không tồn tại");
 
   let newStatus;
   if (action === "approve") {
-    if (order.status === "pending") newStatus = "confirmed";
-    else if (order.status === "confirmed") newStatus = "completed";
-    else throw new Error("Không thể duyệt order ở trạng thái hiện tại");
+    if (order.status === "pending") {
+      newStatus = "confirmed";
+    } else if (order.status === "confirmed") {
+      newStatus = "completed";
+    } else {
+      throw new Error("Không thể duyệt order ở trạng thái hiện tại");
+    }
   } else if (action === "reject") {
     if (order.status === "pending") newStatus = "rejected";
     else throw new Error("Chỉ có thể từ chối đơn khi đang pending");
@@ -475,11 +515,49 @@ export const updateOrderStatusService = async (orderId, action, staffId) => {
     throw new Error("Hành động không hợp lệ");
   }
 
+  // Cập nhật vào DB trước
   const [updated] = await db
     .update(orders)
-    .set({ status: newStatus })
+    .set({ status: newStatus, updatedAt: new Date() })
     .where(eq(orders.id, orderId))
     .returning();
+
+  // 1) Auto chuyển sang completed sau 1 phút
+  if (newStatus === "confirmed") {
+    setTimeout(async () => {
+      try {
+        // Kiểm tra lại trạng thái (tránh trường hợp bị reject/cancel giữa chừng)
+        const [current] = await db
+          .select({ status: orders.status })
+          .from(orders)
+          .where(eq(orders.id, orderId))
+          .limit(1);
+
+        if (current?.status !== "confirmed") return;
+
+        // Update auto completed
+        await db
+          .update(orders)
+          .set({ status: "completed", updatedAt: new Date() })
+          .where(eq(orders.id, orderId));
+
+        // Nếu là đơn nhóm -> kiểm tra nhóm
+        if (order.groupOrderId) {
+          await checkGroupOrderComplete(order.groupOrderId);
+        }
+
+        console.log(`Order ${orderId} auto completed`);
+      } catch (err) {
+        console.error("Auto-complete failed:", err);
+      }
+    }, 60 * 1000);
+  }
+
+  // 2) Nếu staff bấm duyệt lần 2 (confirmed -> completed)
+
+  if (newStatus === "completed" && order.groupOrderId) {
+    await checkGroupOrderComplete(order.groupOrderId);
+  }
 
   return updated;
 };

@@ -356,9 +356,11 @@ export const groupOrderCheckoutService = async (creatorId, groupOrderId) => {
       userId,
       items,
       couponCode,
+
       null, // dùng địa chỉ mặc định
       "COD",
-      false // không phải từ giỏ hàng
+      false, // không phải từ giỏ hàng
+      groupOrderId
     );
 
     createdOrders.push(order);

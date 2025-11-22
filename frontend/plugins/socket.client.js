@@ -23,17 +23,18 @@ export default defineNuxtPlugin((nuxtApp) => {
     }
   });
 
-  // Khi socket reconnect tự join lại conversation đang mở
-  socket.on("connect", () => {
-    const activeConv = window.__activeConversationId;
-    if (activeConv) {
-      socket.emit("join-conversation", activeConv);
-    }
-  });
-  // lắng nghe tin nhắn toàn cục
-  socket.on("message", (msg) => {
-    window.dispatchEvent(new CustomEvent("incoming-message", { detail: msg }));
-  });
+  // // Khi socket reconnect tự join lại conversation đang mở
+  // socket.on("connect", () => {
+  //   const activeConv = window.__activeConversationId;
+  //   if (activeConv) {
+  //     socket.emit("join-conversation", activeConv);
+  //   }
+  // });
+  // // lắng nghe tin nhắn toàn cục
+  // socket.on("message", (msg) => {
+  //   if (convId) socket.emit("join-conversation", convId);
+  //   window.dispatchEvent(new CustomEvent("incoming-message", { detail: msg }));
+  // });
 
   socket.on("new-conversation", (payload) => {
     window.dispatchEvent(

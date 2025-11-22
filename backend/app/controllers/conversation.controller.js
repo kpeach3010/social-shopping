@@ -8,6 +8,7 @@ import {
   getConversationByIdService,
   getLastMessagesService,
 } from "../services/conversation.service.js";
+import { createSystemMessage } from "../services/message.service.js";
 import { db } from "../db/client.js";
 import { users } from "../db/schema.js";
 import { eq } from "drizzle-orm";
@@ -99,17 +100,42 @@ export const joinGroupOrderByInviteTokenController = async (req, res) => {
       return res.status(401).json({ error: "Chưa đăng nhập" });
     }
 
+    //1) JOIN GROUP
     const result = await joinGroupOrderByInviteTokenService({ token, userId });
 
-    if (global.io && result.conversationId && result.user) {
-      global.io.to(result.conversationId).emit("user-joined", {
-        conversationId: result.conversationId,
-        userId: result.user,
-        fullName: result.user.fullName,
+    const conversationId = result?.conversationId;
+    const user = result?.user;
+
+    if (!conversationId || !user) {
+      return res.status(200).json(result);
+    }
+
+    //2) Tạo system message
+    const content = `${user.fullName} đã tham gia nhóm.`;
+
+    const sysMsg = await createSystemMessage(conversationId, content);
+
+    //3) Emit realtime giống select-items
+    if (global.io) {
+      // Gửi system message vào khung chat
+      global.io.to(conversationId).emit("message", {
+        id: sysMsg.id,
+        conversationId,
+        content,
+        type: "system",
+        senderId: "00000000-0000-0000-0000-000000000000",
+        createdAt: sysMsg.createdAt,
       });
-      console.log(
-        `${result.user.fullName} vừa tham gia nhóm ${result.conversationId}`
-      );
+
+      // Event riêng báo có người mới join
+      global.io.to(conversationId).emit("user-joined", {
+        conversationId,
+        userId: user.id,
+        fullName: user.fullName,
+        createdAt: new Date().toISOString(),
+      });
+
+      console.log(`${user.fullName} đã tham gia nhóm ${conversationId}`);
     }
 
     res.status(200).json(result);

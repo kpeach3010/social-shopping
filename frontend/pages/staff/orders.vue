@@ -180,12 +180,17 @@ const openDetail = (order) => {
                 <td class="px-2 py-3">
                   <div class="flex items-center gap-1">
                     <template v-if="o.items && o.items.length">
-                      <img
-                        :key="item.imageUrl + idx"
-                        :src="item.imageUrl"
-                        class="w-8 h-8 object-cover rounded border"
-                        :alt="item.productName"
-                      />
+                      <template
+                        v-for="(item, idx) in o.items.slice(0, 2)"
+                        :key="idx"
+                      >
+                        <img
+                          :src="item.imageUrl"
+                          class="w-8 h-8 object-cover rounded border"
+                          :alt="item.productName"
+                        />
+                      </template>
+
                       <span
                         v-if="o.items.length > 2"
                         class="ml-1 text-xs bg-gray-200 text-gray-700 rounded-full px-2 py-0.5 font-semibold"

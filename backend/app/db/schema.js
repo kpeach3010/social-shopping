@@ -216,9 +216,9 @@ export const orders = pgTable("orders", {
   userId: uuid("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
-  // groupId: uuid("group_id").references(() => groupBuys.id, {
-  //   onDelete: "set null",
-  // }),
+  groupOrderId: uuid("group_order_id").references(() => groupOrders.id, {
+    onDelete: "set null",
+  }),
   status: orderStatusEnum("status").notNull().default("pending"),
   paymentMethod: varchar("payment_method", { length: 10 }).default("COD"),
   // paymentStatus: paymentStatusEnum("payment_status").default("unpaid"),

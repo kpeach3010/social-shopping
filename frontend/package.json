@@ -11,13 +11,11 @@
   },
   "dependencies": {
     "@heroicons/vue": "^2.2.0",
-    "@nuxt/eslint": "^1.9.0",
     "@nuxt/image": "^1.11.0",
     "@nuxt/ui": "^4.0.0",
     "@pinia/nuxt": "^0.11.2",
     "@supabase/supabase-js": "^2.74.0",
     "@tailwindcss/postcss": "^4.1.13",
-    "eslint": "^9.36.0",
     "lucide-vue-next": "^0.544.0",
     "nuxt": "^4.1.2",
     "pinia": "^3.0.3",

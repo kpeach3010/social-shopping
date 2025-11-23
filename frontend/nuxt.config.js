@@ -5,7 +5,9 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       // DÙNG ENV, không hardcode
-      apiBase: process.env.NUXT_PUBLIC_API_BASE || "http://localhost:5000/api",
+      apiBase:
+        process.env.NUXT_PUBLIC_API_BASE ||
+        "https://social-shopping-production.up.railway.app/api",
 
       // Supabase (nếu FE dùng)
       supabaseUrl: process.env.NUXT_PUBLIC_SUPABASE_URL,

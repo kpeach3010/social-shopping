@@ -84,64 +84,44 @@ export const loginService = async (loginData) => {
       .from(users)
       .where(eq(users.email, loginData.email));
 
-    if (!user) throw new Error("Tài khoản không tồn tại");
-    if (user.status === "disabled")
+    if (!user) {
+      throw new Error("Tài khoản không tồn tại");
+    }
+
+    if (user.status === "disabled") {
       throw new Error("Tài khoản của bạn đang bị vô hiệu hóa");
+    }
 
-    const response = await login(loginData.email, loginData.password);
-
-    return {
-      user,
-      accessToken: response.data.session.access_token,
-      refreshToken: response.data.session.refresh_token,
-      session: response.data.session,
-    };
+    const { accessToken, refreshToken } = await login(
+      loginData.email,
+      loginData.password
+    );
+    return { user: user, accessToken, refreshToken };
   } catch (e) {
     throw e;
   }
 };
-
 export const refreshTokenService = async (refreshToken) => {
-  console.log("\n===== [SERVICE] REFRESH TOKEN START =====");
-  console.log("Refresh token nhận vào:", refreshToken);
+  const { data, error } = await supabaseAuth.auth.refreshSession({
+    refresh_token: refreshToken,
+  });
 
-  try {
-    const { data, error } = await supabaseAuth.auth.refreshSession({
-      refresh_token: refreshToken,
-    });
-
-    if (error) {
-      console.error("❌ Lỗi Supabase refresh:", error);
-      throw new Error("Invalid refresh token");
-    }
-
-    if (!data || !data.session) {
-      console.error("❌ Không có session trả về từ Supabase");
-      throw new Error("No session data");
-    }
-
-    console.log("Supabase session:", data.session);
-
-    const supaUser = data.user;
-    console.log("Supabase user:", supaUser);
-
-    // Lấy user DB tương ứng supabaseUser.id
-    const [dbUser] = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, supaUser.id))
-      .limit(1);
-
-    console.log("DB user:", dbUser);
-
-    console.log("===== [SERVICE] REFRESH TOKEN END =====\n");
-
-    return {
-      session: data.session,
-      user: dbUser,
-    };
-  } catch (err) {
-    console.error("❌ [SERVICE] REFRESH TOKEN ERROR:", err.message);
-    throw err;
+  if (error) throw new Error("Invalid refresh token");
+  if (!data || !data.session || !data.user) {
+    throw new Error("Supabase không trả về session hoặc user");
   }
+
+  const { session, user } = data;
+
+  // Query user từ DB theo đúng ID của Supabase Auth
+  const [dbUser] = await db.select().from(users).where(eq(users.id, user.id));
+
+  if (!dbUser) {
+    throw new Error("User không tồn tại trong database");
+  }
+
+  return {
+    session,
+    user: dbUser,
+  };
 };

@@ -18,45 +18,31 @@ export const loginController = async (req, res) => {
   try {
     const { email, password } = req.body;
     const response = await loginService({ email, password });
-    res.status(200).json({
-      user: response.user,
-      accessToken: response.accessToken,
-      refreshToken: response.refreshToken,
-      session: response.session,
-    });
+    res.status(200).json(response);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 };
 
 export const refreshTokenController = async (req, res) => {
-  console.log("\n=== [CONTROLLER] REFRESH TOKEN CALLED ===");
-  console.log("Body nhận:", req.body);
-
   try {
     const { refreshToken } = req.body;
 
     if (!refreshToken) {
-      console.warn("⚠️ Missing refreshToken");
-      return res.status(400).json({ error: "Missing refresh token" });
+      return res.status(400).json({ error: "refreshToken is required" });
     }
 
+    // Gọi service đã query database
     const { session, user } = await refreshTokenService(refreshToken);
 
-    console.log("===== REFRESH RESPONSE RAW =====");
-    console.log({
-      accessToken: session.access_token,
-      refreshToken: session.refresh_token,
-      user,
-    });
-
     return res.status(200).json({
+      user, // user lấy từ DB
       accessToken: session.access_token,
       refreshToken: session.refresh_token,
-      user,
     });
   } catch (err) {
-    console.error("❌ [REFRESH ERROR]:", err.message);
-    return res.status(401).json({ error: err.message });
+    return res.status(401).json({
+      error: err.message || "Token refresh failed",
+    });
   }
 };

@@ -23,19 +23,17 @@ export const register = async (email, password, userMetadata) => {
 };
 
 export const login = async (email, password) => {
-  try {
-    const response = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (response.error) {
-      throw new Error(response.error.message);
-    }
-    return {
-      accessToken: response.data.session.access_token,
-      refreshToken: response.data.session.refresh_token,
-    };
-  } catch (e) {
-    throw e;
-  }
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (error) throw new Error(error.message);
+  if (!data || !data.session) throw new Error("Supabase không trả về session");
+
+  return {
+    accessToken: data.session.access_token,
+    refreshToken: data.session.refresh_token,
+    supabaseUser: data.user,
+  };
 };

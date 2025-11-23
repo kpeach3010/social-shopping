@@ -1,42 +1,32 @@
 export default defineNuxtPlugin(async (nuxtApp) => {
+  // Ngăn không chạy 2 lần (HMR, reload)
   if (globalThis.__fetchInterceptorSet) return;
   globalThis.__fetchInterceptorSet = true;
 
   const pinia = nuxtApp.$pinia;
   const auth = useAuthStore(pinia);
+  const chatStore = useChatStore ? useChatStore(pinia) : null;
 
+  // Load token khi client mount
   if (process.client) await auth.loadFromStorage();
 
+  // Giữ bản gốc của $fetch
   const originalFetch = globalThis.$fetch;
+
   const apiBase = useRuntimeConfig().public.apiBase;
+  console.log("🔥 Fetch Interceptor init — apiBase =", apiBase);
 
   globalThis.__isRefreshing = false;
   globalThis.__refreshQueue = [];
 
+  // =============================================
+  //  OVERRIDE FETCH
+  // =============================================
   globalThis.$fetch = async (url, options = {}) => {
-    // ❌ Không động vào request assets của Nuxt/Vercel
-    if (typeof url === "string") {
-      if (url.startsWith("/_nuxt") || url.includes("/_nuxt/")) {
-        return originalFetch(url, options);
-      }
-    }
-
-    // ❌ Không intercept request FULL URL không phải backend
-    if (
-      typeof url === "string" &&
-      (url.startsWith("http://") || url.startsWith("https://"))
-    ) {
-      if (!url.startsWith(apiBase)) {
-        return originalFetch(url, options);
-      }
-    }
-
-    // -------------------------
-    // 🚀 GẮN BASE URL CHO API
-    // -------------------------
+    // ----- LUÔN THÊM BASE URL -----
     options.baseURL = apiBase;
 
-    // 🚀 GẮN TOKEN
+    // ----- LUÔN GẮN TOKEN -----
     const token =
       auth.accessToken ||
       (process.client ? localStorage.getItem("accessToken") : null);
@@ -51,17 +41,21 @@ export default defineNuxtPlugin(async (nuxtApp) => {
     } catch (err) {
       const status = err?.status || err?.response?.status;
 
+      // Nếu không phải lỗi 401 thì trả ra
       if (status !== 401) throw err;
 
-      // -------------------------
-      //      REFRESH TOKEN
-      // -------------------------
+      // ========================
+      // ĐANG REFRESH → XẾP HÀNG
+      // ========================
       if (globalThis.__isRefreshing) {
         return new Promise((resolve, reject) => {
           globalThis.__refreshQueue.push({ resolve, reject, url, options });
         });
       }
 
+      // =============================================
+      //  BẮT ĐẦU REFRESH TOKEN
+      // =============================================
       globalThis.__isRefreshing = true;
 
       try {
@@ -72,8 +66,10 @@ export default defineNuxtPlugin(async (nuxtApp) => {
         if (!rt) {
           auth.logout();
           navigateTo("/");
-          throw new Error("Không có refresh token");
+          throw new Error("Missing refresh token");
         }
+
+        console.log("🔁 Refreshing token…");
 
         const refreshRes = await originalFetch("/auth/refresh-token", {
           method: "POST",
@@ -81,15 +77,27 @@ export default defineNuxtPlugin(async (nuxtApp) => {
           body: { refreshToken: rt },
         });
 
-        const newAT = refreshRes.accessToken || refreshRes.data?.accessToken;
-        const newRT = refreshRes.refreshToken || refreshRes.data?.refreshToken;
-        const newUser = refreshRes.user || refreshRes.data?.user || auth.user;
+        const newAT =
+          refreshRes.accessToken ||
+          refreshRes.data?.accessToken ||
+          refreshRes.data?.access_token;
 
-        if (!newAT) throw new Error("Không nhận được token mới");
+        const newRT =
+          refreshRes.refreshToken ||
+          refreshRes.data?.refreshToken ||
+          refreshRes.data?.refresh_token;
 
+        const newUser = refreshRes.user || refreshRes.data?.user;
+
+        if (!newAT) throw new Error("Refresh API did not return access token");
+
+        // Cập nhật auth
         auth.setAuth(newUser, newAT, newRT);
 
-        const retryRes = await originalFetch(url, {
+        // ========================
+        //  RETRY REQUEST GỐC
+        // ========================
+        const retry = await originalFetch(url, {
           ...options,
           baseURL: apiBase,
           headers: {
@@ -98,10 +106,11 @@ export default defineNuxtPlugin(async (nuxtApp) => {
           },
         });
 
-        globalThis.__refreshQueue.forEach(({ resolve }) => resolve(retryRes));
+        // Xử lý hàng đợi request đang chờ
+        globalThis.__refreshQueue.forEach(({ resolve }) => resolve(retry));
         globalThis.__refreshQueue = [];
 
-        return retryRes;
+        return retry;
       } catch (e) {
         globalThis.__refreshQueue.forEach(({ reject }) => reject(e));
         globalThis.__refreshQueue = [];

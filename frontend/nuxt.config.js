@@ -27,11 +27,11 @@ export default defineNuxtConfig({
   // Thêm cấu hình này để asset luôn load từ Vercel
   app: {
     baseURL: "/", // đường dẫn gốc cho router
-    cdnURL: "https://social-shopping-app.vercel.app/_nuxt/",
+    cdnURL: "https://social-shopping-app.vercel.app/",
   },
 
   build: {
     // đảm bảo publicPath trỏ về đúng domain frontend
-    publicPath: "https://social-shopping-app.vercel.app/_nuxt/",
+    publicPath: "https://social-shopping-app.vercel.app/",
   },
 });

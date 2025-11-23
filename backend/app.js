@@ -18,7 +18,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:3000",
-      "https://social-shopping.vercel.app", // FE deploy Vercel
+      "https://social-shopping-app.vercel.app", // FE deploy Vercel
       "https://social-shopping-production.up.railway.app", // domain FE gọi API
     ],
     credentials: true,

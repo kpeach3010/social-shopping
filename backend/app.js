@@ -14,7 +14,19 @@ import groupOrderRoutes from "./app/routes/groupOrder.route.js";
 
 const app = express();
 
-app.use(cors());
+app.use(
+  cors({
+    origin: [
+      "http://localhost:3000",
+      "https://social-shopping.vercel.app", // FE deploy Vercel
+      "https://social-shopping-production.up.railway.app", // domain FE gọi API
+    ],
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
+
 app.use(express.json());
 app.use("/api/auth", authRoutes);
 

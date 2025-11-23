@@ -11,14 +11,18 @@ import supabase from "./services/supbase/client.js";
 
 async function startServer() {
   try {
-    const PORT = config.PORT || 5000;
+    const PORT = config.PORT || process.env.PORT || 5000;
 
     // Tạo server HTTP và tích hợp Socket.IO
     const server = http.createServer(app);
     const io = new Server(server, {
       cors: {
-        origin: "*",
-        methods: ["GET", "POST"],
+        origin: [
+          "http://localhost:3000",
+          "https://social-shopping.vercel.app",
+          "https://social-shopping-production.up.railway.app",
+        ],
+        credentials: true,
       },
     });
 

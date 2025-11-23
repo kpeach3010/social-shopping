@@ -3,7 +3,7 @@ import { useAuthStore } from "../stores/auth.js";
 
 export default defineNuxtPlugin((nuxtApp) => {
   const auth = useAuthStore();
-  const socket = io("http://localhost:5000", {
+  const socket = io("https://social-shopping-production.up.railway.app", {
     transports: ["websocket"],
     withCredentials: true,
     query: { userId: auth.user?.id },

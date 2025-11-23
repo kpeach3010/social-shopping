@@ -4,7 +4,6 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   const pinia = nuxtApp.$pinia;
   const auth = useAuthStore(pinia);
-
   const originalFetch = globalThis.$fetch;
   const apiBase = useRuntimeConfig().public.apiBase;
 
@@ -12,33 +11,25 @@ export default defineNuxtPlugin((nuxtApp) => {
   globalThis.__refreshQueue = [];
 
   globalThis.$fetch = async (url, options = {}) => {
-    // 1) Không intercept file Nuxt / assets
+    // Không intercept assets
     if (typeof url === "string" && url.startsWith("/_nuxt/")) {
       return originalFetch(url, options);
     }
 
-    // 2) Không intercept URL tuyệt đối
-    if (
-      typeof url === "string" &&
-      (url.startsWith("http://") || url.startsWith("https://"))
-    ) {
-      return originalFetch(url, options);
-    }
-
-    // 3) Tự động gắn baseURL cho đường dẫn tương đối
+    // Gắn baseURL nếu là đường dẫn tương đối
     if (typeof url === "string" && url.startsWith("/")) {
       options.baseURL = apiBase;
     }
 
-    // Gắn access token nếu có
-    const token =
-      auth.accessToken ||
-      (process.client ? localStorage.getItem("accessToken") : null);
+    // 🚨 Chỉ gửi Authorization khi token hợp lệ
+    const token = auth.accessToken || localStorage.getItem("accessToken");
 
-    options.headers = {
-      ...(options.headers || {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    };
+    if (token && token.startsWith("ey")) {
+      options.headers = {
+        ...(options.headers || {}),
+        Authorization: `Bearer ${token}`,
+      };
+    }
 
     try {
       return await originalFetch(url, options);
@@ -47,7 +38,7 @@ export default defineNuxtPlugin((nuxtApp) => {
 
       if (status !== 401) throw err;
 
-      // Đang refresh → xếp hàng
+      // Đang refresh → xếp hàng đợi
       if (globalThis.__isRefreshing) {
         return new Promise((resolve, reject) => {
           globalThis.__refreshQueue.push({ resolve, reject, url, options });
@@ -57,47 +48,28 @@ export default defineNuxtPlugin((nuxtApp) => {
       globalThis.__isRefreshing = true;
 
       try {
-        // Lấy refresh token
-        const rt =
-          auth.refreshToken ||
-          (process.client ? localStorage.getItem("refreshToken") : null);
+        const rt = auth.refreshToken || localStorage.getItem("refreshToken");
 
-        if (!rt) {
-          auth.logout();
-          navigateTo("/");
-          throw new Error("Missing refresh token");
-        }
+        if (!rt) throw new Error("Missing refresh token");
 
-        // Gọi refresh token
-        const refreshRes = await originalFetch("/api/auth/refresh-token", {
+        // ✔️ SỬA baseURL cho đúng
+        const refreshRes = await originalFetch("/auth/refresh-token", {
           method: "POST",
           baseURL: apiBase,
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ refreshToken: rt }),
         });
 
-        const newAT =
-          refreshRes.accessToken ||
-          refreshRes.data?.accessToken ||
-          refreshRes.data?.access_token;
-
-        const newRT =
-          refreshRes.refreshToken ||
-          refreshRes.data?.refreshToken ||
-          refreshRes.data?.refresh_token;
-
-        const newUser =
-          refreshRes.user && refreshRes.user.id ? refreshRes.user : auth.user;
+        const newAT = refreshRes.accessToken;
+        const newRT = refreshRes.refreshToken;
+        const newUser = refreshRes.user || auth.user;
 
         if (!newAT) throw new Error("Refresh API missing accessToken");
 
-        // Cập nhật auth đầy đủ
         auth.setAuth(newUser, newAT, newRT);
 
-        // Gọi lại request gốc
-        const retryRes = await originalFetch(url, {
+        // Retry request cũ
+        return await originalFetch(url, {
           ...options,
           baseURL: apiBase,
           headers: {
@@ -105,22 +77,9 @@ export default defineNuxtPlugin((nuxtApp) => {
             Authorization: `Bearer ${newAT}`,
           },
         });
-
-        console.log("===== REFRESH RESPONSE RAW =====", refreshRes);
-
-        globalThis.__refreshQueue.forEach(({ resolve }) => resolve(retryRes));
-        globalThis.__refreshQueue = [];
-
-        return retryRes;
-      } catch (err2) {
-        globalThis.__refreshQueue.forEach(({ reject }) => reject(err2));
-        globalThis.__refreshQueue = [];
-
-        auth.logout();
-        navigateTo("/");
-        throw err2;
       } finally {
         globalThis.__isRefreshing = false;
+        globalThis.__refreshQueue = [];
       }
     }
   };

@@ -22,6 +22,7 @@ export const loginController = async (req, res) => {
       user: response.user,
       accessToken: response.accessToken,
       refreshToken: response.refreshToken,
+      session: response.session,
     });
   } catch (error) {
     res.status(400).json({ error: error.message });

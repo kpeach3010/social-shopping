@@ -84,23 +84,23 @@ export const loginService = async (loginData) => {
       .from(users)
       .where(eq(users.email, loginData.email));
 
-    if (!user) {
-      throw new Error("Tài khoản không tồn tại");
-    }
-
-    if (user.status === "disabled") {
+    if (!user) throw new Error("Tài khoản không tồn tại");
+    if (user.status === "disabled")
       throw new Error("Tài khoản của bạn đang bị vô hiệu hóa");
-    }
 
-    const { accessToken, refreshToken } = await login(
-      loginData.email,
-      loginData.password
-    );
-    return { user: user, accessToken, refreshToken };
+    const response = await login(loginData.email, loginData.password);
+
+    return {
+      user,
+      accessToken: response.data.session.access_token,
+      refreshToken: response.data.session.refresh_token,
+      session: response.data.session,
+    };
   } catch (e) {
     throw e;
   }
 };
+
 export const refreshTokenService = async (refreshToken) => {
   console.log("\n===== [SERVICE] REFRESH TOKEN START =====");
   console.log("Refresh token nhận vào:", refreshToken);

@@ -94,7 +94,11 @@ const onSubmit = async () => {
     });
 
     // lưu token và user vào store
-    authStore.setAuth(res.user, res.accessToken, res.refreshToken);
+    authStore.setAuth(
+      res.user,
+      res.accessToken,
+      res.refreshToken || res.session?.refresh_token
+    );
 
     // redirect theo role
     if (res.user.role === "staff") {

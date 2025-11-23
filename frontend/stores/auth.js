@@ -13,14 +13,22 @@ export const useAuthStore = defineStore("auth", {
       // Only overwrite `user` when a concrete (non-null/undefined) value is provided.
       // This prevents wiping the stored user when the refresh endpoint returns
       // no user object.
-      if (typeof user !== "undefined" && user !== null) {
-        this.user = user;
+      if (user) {
+        // user phải là user DB (có id, email, role, fullName,...)
+        if (user.id && user.email && typeof user.role !== "undefined") {
+          this.user = user;
+        }
       }
 
       this.accessToken = accessToken || null;
 
       // refreshToken có thể không đổi; chỉ cập nhật khi có
       if (typeof refreshToken === "string") this.refreshToken = refreshToken;
+      console.log("===== STORE SETAUTH =====", {
+        user,
+        accessToken,
+        refreshToken,
+      });
 
       if (process.client) {
         if (this.accessToken)

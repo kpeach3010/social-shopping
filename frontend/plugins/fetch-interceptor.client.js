@@ -1,86 +1,81 @@
-// plugins/fetch-interceptor.client.js
-export default defineNuxtPlugin(async (nuxtApp) => {
-  // Ngăn không chạy lại
+export default defineNuxtPlugin((nuxtApp) => {
   if (globalThis.__fetchInterceptorSet) return;
   globalThis.__fetchInterceptorSet = true;
 
   const pinia = nuxtApp.$pinia;
   const auth = useAuthStore(pinia);
-  const chatStore = useChatStore ? useChatStore(pinia) : null;
-
-  // 🚀 LOAD TOKEN TRƯỚC KHI FETCH
-  await auth.loadFromStorage();
 
   const originalFetch = globalThis.$fetch;
   const apiBase = useRuntimeConfig().public.apiBase;
-
-  console.log("🔥 Interceptor ready. API =", apiBase);
 
   globalThis.__isRefreshing = false;
   globalThis.__refreshQueue = [];
 
   globalThis.$fetch = async (url, options = {}) => {
-    // ==========================
-    //  ALWAYS ADD BASE URL
-    // ==========================
-    options.baseURL = apiBase;
+    // 1) Không intercept file Nuxt / assets
+    if (typeof url === "string" && url.startsWith("/_nuxt/")) {
+      return originalFetch(url, options);
+    }
 
-    // ==========================
-    //  ALWAYS ADD TOKEN
-    // ==========================
+    // 2) Không intercept URL tuyệt đối
+    if (
+      typeof url === "string" &&
+      (url.startsWith("http://") || url.startsWith("https://"))
+    ) {
+      return originalFetch(url, options);
+    }
+
+    // 3) Tự động gắn baseURL cho đường dẫn tương đối
+    if (typeof url === "string" && url.startsWith("/")) {
+      options.baseURL = apiBase;
+    }
+
+    // Gắn access token nếu có
     const token =
       auth.accessToken ||
       (process.client ? localStorage.getItem("accessToken") : null);
 
-    if (token) {
-      options.headers = {
-        ...(options.headers || {}),
-        Authorization: `Bearer ${token}`,
-      };
-    }
+    options.headers = {
+      ...(options.headers || {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
 
-    // ==========================
-    //  CALL API
-    // ==========================
     try {
       return await originalFetch(url, options);
     } catch (err) {
       const status = err?.status || err?.response?.status;
 
-      // Không phải lỗi token → throw luôn
       if (status !== 401) throw err;
 
-      // ==========================
-      //  ĐANG REFRESH → CHỜ
-      // ==========================
+      // Đang refresh → xếp hàng
       if (globalThis.__isRefreshing) {
         return new Promise((resolve, reject) => {
           globalThis.__refreshQueue.push({ resolve, reject, url, options });
         });
       }
 
-      // BẮT ĐẦU REFRESH
       globalThis.__isRefreshing = true;
 
       try {
+        // Lấy refresh token
         const rt =
           auth.refreshToken ||
           (process.client ? localStorage.getItem("refreshToken") : null);
 
         if (!rt) {
-          console.warn("⚠️ No refreshToken → logout");
           auth.logout();
           navigateTo("/");
-          throw new Error("NO_REFRESH_TOKEN");
+          throw new Error("Missing refresh token");
         }
 
-        // ==========================
-        //  REFRESH TOKEN
-        // ==========================
-        const refreshRes = await originalFetch("/auth/refresh-token", {
+        // Gọi refresh token
+        const refreshRes = await originalFetch("/api/auth/refresh-token", {
           method: "POST",
           baseURL: apiBase,
-          body: { refreshToken: rt },
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ refreshToken: rt }),
         });
 
         const newAT =
@@ -93,18 +88,15 @@ export default defineNuxtPlugin(async (nuxtApp) => {
           refreshRes.data?.refreshToken ||
           refreshRes.data?.refresh_token;
 
-        const newUser = refreshRes.user || refreshRes.data?.user || auth.user;
+        const newUser =
+          refreshRes.user && refreshRes.user.id ? refreshRes.user : auth.user;
 
-        if (!newAT) {
-          throw new Error("REFRESH_NO_AT");
-        }
+        if (!newAT) throw new Error("Refresh API missing accessToken");
 
-        // UPDATE AUTH STORE
+        // Cập nhật auth đầy đủ
         auth.setAuth(newUser, newAT, newRT);
 
-        // ==========================
-        //  RETRY REQUEST GỐC
-        // ==========================
+        // Gọi lại request gốc
         const retryRes = await originalFetch(url, {
           ...options,
           baseURL: apiBase,
@@ -114,18 +106,19 @@ export default defineNuxtPlugin(async (nuxtApp) => {
           },
         });
 
-        // Resolve hàng đợi
+        console.log("===== REFRESH RESPONSE RAW =====", refreshRes);
+
         globalThis.__refreshQueue.forEach(({ resolve }) => resolve(retryRes));
         globalThis.__refreshQueue = [];
 
         return retryRes;
-      } catch (e) {
-        // Reject hàng đợi
-        globalThis.__refreshQueue.forEach(({ reject }) => reject(e));
+      } catch (err2) {
+        globalThis.__refreshQueue.forEach(({ reject }) => reject(err2));
         globalThis.__refreshQueue = [];
+
         auth.logout();
         navigateTo("/");
-        throw e;
+        throw err2;
       } finally {
         globalThis.__isRefreshing = false;
       }

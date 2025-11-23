@@ -102,32 +102,46 @@ export const loginService = async (loginData) => {
   }
 };
 export const refreshTokenService = async (refreshToken) => {
-  console.log("⚙️ [Service] RefreshToken nhận vào:", refreshToken);
+  console.log("\n===== [SERVICE] REFRESH TOKEN START =====");
+  console.log("Refresh token nhận vào:", refreshToken);
 
-  // Gọi Supabase để làm mới session
-  const { data, error } = await supabaseAuth.auth.refreshSession({
-    refresh_token: refreshToken,
-  });
+  try {
+    const { data, error } = await supabaseAuth.auth.refreshSession({
+      refresh_token: refreshToken,
+    });
 
-  // Ghi log chi tiết để dễ debug
-  console.log(
-    "📦 [Service] Supabase trả về:",
-    JSON.stringify({ data, error }, null, 2)
-  );
+    if (error) {
+      console.error("❌ Lỗi Supabase refresh:", error);
+      throw new Error("Invalid refresh token");
+    }
 
-  if (error) {
-    console.error("❌ [Service] Lỗi Supabase refresh:", error);
-    throw new Error("Invalid refresh token");
+    if (!data || !data.session) {
+      console.error("❌ Không có session trả về từ Supabase");
+      throw new Error("No session data");
+    }
+
+    console.log("Supabase session:", data.session);
+
+    const supaUser = data.user;
+    console.log("Supabase user:", supaUser);
+
+    // Lấy user DB tương ứng supabaseUser.id
+    const [dbUser] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, supaUser.id))
+      .limit(1);
+
+    console.log("DB user:", dbUser);
+
+    console.log("===== [SERVICE] REFRESH TOKEN END =====\n");
+
+    return {
+      session: data.session,
+      user: dbUser,
+    };
+  } catch (err) {
+    console.error("❌ [SERVICE] REFRESH TOKEN ERROR:", err.message);
+    throw err;
   }
-
-  if (!data || !data.session) {
-    console.error(
-      "⚠️ [Service] Không có session trong response Supabase:",
-      data
-    );
-    throw new Error("No session data from Supabase");
-  }
-
-  // Trả về cả user và session cho controller
-  return data; // { user, session }
 };

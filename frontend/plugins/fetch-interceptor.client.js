@@ -21,7 +21,7 @@ export default defineNuxtPlugin((nuxtApp) => {
       options.baseURL = apiBase;
     }
 
-    // 🚨 Chỉ gửi Authorization khi token hợp lệ
+    // Chỉ gửi Authorization khi token hợp lệ
     const token = auth.accessToken || localStorage.getItem("accessToken");
 
     if (token && token.startsWith("ey")) {

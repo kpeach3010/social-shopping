@@ -12,7 +12,7 @@
     <!-- Danh sách sản phẩm -->
     <section class="container mx-auto px-4 py-10">
       <div class="text-center">
-        <h2 class="text-2xl font-bold mb-6">TẤT CẢ SẢN PHẨM</h2>
+        <h2 class="text-2xl font-bold mb-6">TẤT CẢ SẢN PHẨM ???</h2>
       </div>
 
       <div

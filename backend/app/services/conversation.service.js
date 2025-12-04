@@ -28,6 +28,7 @@ import {
   asc,
   desc,
   sql,
+  not,
 } from "drizzle-orm";
 import { exists } from "drizzle-orm";
 import { randomUUID } from "crypto";
@@ -168,15 +169,19 @@ export const createInviteLinkService = async ({
       expiresAt: inviteLinks.expiresAt,
       conversationName: conversations.name,
       isUsed: inviteLinks.isUsed,
+      groupStatus: groupOrders.status,
     })
     .from(inviteLinks)
     .leftJoin(conversations, eq(inviteLinks.conversationId, conversations.id))
+    .leftJoin(groupOrders, eq(conversations.groupOrderId, groupOrders.id))
     .where(
       and(
         eq(inviteLinks.creatorId, creatorId),
         eq(inviteLinks.productId, productId),
         eq(inviteLinks.couponId, couponId),
-        or(isNull(inviteLinks.expiresAt), gt(inviteLinks.expiresAt, now))
+        or(isNull(inviteLinks.expiresAt), gt(inviteLinks.expiresAt, now)),
+        //  không lấy group đã completed
+        or(isNull(groupOrders.status), not(eq(groupOrders.status, "completed")))
       )
     )
     .limit(1);
@@ -208,7 +213,6 @@ export const createInviteLinkService = async ({
       isUsed: false,
       expiresAt,
     })
-    .onConflictDoNothing()
     .returning();
 
   // Nếu insert bị bỏ qua (do trùng) -> lấy lại link cũ

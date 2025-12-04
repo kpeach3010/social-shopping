@@ -11,7 +11,7 @@ import supabase from "./services/supbase/client.js";
 
 async function startServer() {
   try {
-    const PORT = config.PORT || process.env.PORT || 5000;
+    const PORT = config.PORT || 5000;
 
     // Tạo server HTTP và tích hợp Socket.IO
     const server = http.createServer(app);
@@ -20,7 +20,6 @@ async function startServer() {
         origin: "*",
         methods: ["GET", "POST"],
       },
-      transports: ["websocket", "polling"],
     });
 
     global.io = io; // lưu io vào biến toàn cục để các module khác có thể sử dụng

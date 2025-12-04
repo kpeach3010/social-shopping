@@ -1,0 +1,1 @@
+DROP INDEX "uq_invite_creator_product_coupon";

@@ -333,36 +333,26 @@ export const groupOrderMemberItems = pgTable(
 );
 
 // chat schema
-export const inviteLinks = pgTable(
-  "invite_links",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    token: varchar("token", { length: 255 }).notNull().unique(),
-    creatorId: uuid("creator_id").references(() => users.id, {
-      onDelete: "cascade",
-    }),
-    productId: uuid("product_id").references(() => products.id, {
-      onDelete: "cascade",
-    }),
-    couponId: uuid("coupon_id").references(() => coupons.id, {
-      onDelete: "cascade",
-    }),
-    isUsed: boolean("is_used").notNull().default(false),
-    expiresAt: timestamp("expires_at", { withTimezone: true }),
-    conversationId: uuid("conversation_id")
-      .unique()
-      .references(() => conversations.id),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
-  },
-  (table) => {
-    return {
-      uqCreatorProductCoupon: uniqueIndex(
-        "uq_invite_creator_product_coupon"
-      ).on(table.creatorId, table.productId, table.couponId),
-    };
-  }
-);
+export const inviteLinks = pgTable("invite_links", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  token: varchar("token", { length: 255 }).notNull().unique(),
+  creatorId: uuid("creator_id").references(() => users.id, {
+    onDelete: "cascade",
+  }),
+  productId: uuid("product_id").references(() => products.id, {
+    onDelete: "cascade",
+  }),
+  couponId: uuid("coupon_id").references(() => coupons.id, {
+    onDelete: "cascade",
+  }),
+  isUsed: boolean("is_used").notNull().default(false),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  conversationId: uuid("conversation_id")
+    .unique()
+    .references(() => conversations.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
 
 // room chat (1-1, group)
 export const conversations = pgTable("conversations", {

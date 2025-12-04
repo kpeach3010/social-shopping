@@ -19,6 +19,7 @@ const selectedStatus = ref("all");
 const showDetailModal = ref(false);
 const detailOrderId = ref(null);
 const auth = useAuthStore();
+const config = useRuntimeConfig();
 
 const statusOptions = [
   { value: "all", label: "Tất cả" },
@@ -57,7 +58,8 @@ const formatPrice = (v) => {
 const fetchOrders = async () => {
   loading.value = true;
   try {
-    orders.value = await $fetch("http://localhost:5000/api/orders/overview", {
+    orders.value = await $fetch("/orders/overview", {
+      baseURL: config.public.apiBase,
       headers: { Authorization: `Bearer ${auth.accessToken}` },
     });
   } catch (err) {
@@ -86,8 +88,9 @@ const paginatedOrders = computed(() => {
 const approveOrder = async (id) => {
   if (!confirm("Xác nhận đơn hàng này?")) return;
   try {
-    await $fetch(`http://localhost:5000/api/orders/approve/${id}`, {
+    await $fetch(`/orders/approve/${id}`, {
       method: "PATCH",
+      baseURL: config.public.apiBase,
       headers: { Authorization: `Bearer ${auth.accessToken}` },
     });
     await fetchOrders();
@@ -101,8 +104,9 @@ const approveOrder = async (id) => {
 const rejectOrder = async (id) => {
   if (!confirm("Từ chối đơn hàng này?")) return;
   try {
-    await $fetch(`http://localhost:5000/api/orders/reject/${id}`, {
+    await $fetch(`/orders/reject/${id}`, {
       method: "PATCH",
+      baseURL: config.public.apiBase,
       headers: { Authorization: `Bearer ${auth.accessToken}` },
     });
     await fetchOrders();

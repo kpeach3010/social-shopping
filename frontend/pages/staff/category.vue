@@ -17,6 +17,7 @@ const categories = ref([]); // Dữ liệu phẳng từ API
 const loading = ref(false);
 const auth = useAuthStore();
 const expandedCategories = ref({});
+const config = useRuntimeConfig();
 
 definePageMeta({
   middleware: "staff",
@@ -75,9 +76,9 @@ const fetchCategories = async () => {
   loading.value = true;
   try {
     // API này cần trả về field 'productCount' cho từng category
-    const data = await $fetch(
-      "http://localhost:5000/api/category/all-categories"
-    );
+    const data = await $fetch("/category/all-categories", {
+      baseURL: config.public.apiBase,
+    });
     categories.value = data;
   } catch (err) {
     alert("Lỗi tải danh mục!");
@@ -98,13 +99,11 @@ const openEditModal = (category) => {
 const deleteCategory = async (id, name) => {
   if (!confirm(`Bạn có chắc muốn xóa danh mục: "${name}" không?`)) return;
   try {
-    const res = await $fetch(
-      `http://localhost:5000/api/category/delete-category/${id}`,
-      {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${auth.accessToken}` },
-      }
-    );
+    const res = await $fetch(`/category/delete-category/${id}`, {
+      method: "DELETE",
+      baseURL: config.public.apiBase,
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+    });
     await fetchCategories();
     alert(res.message || "Xóa thành công");
   } catch (err) {

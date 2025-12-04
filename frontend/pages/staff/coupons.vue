@@ -10,7 +10,7 @@ const auth = useAuthStore();
 const isOpen = ref(true);
 const coupons = ref([]);
 const loading = ref(false);
-
+const config = useRuntimeConfig();
 const showCreateModal = ref(false);
 const showEditModal = ref(false);
 const editCouponData = ref(null);
@@ -25,7 +25,7 @@ const fetchCoupons = async () => {
   loading.value = true;
   try {
     coupons.value = await $fetch("/coupons/all-coupons", {
-      baseURL: useRuntimeConfig().public.apiBase,
+      baseURL: config.public.apiBase,
     });
   } catch (e) {
     console.error("Fetch coupon lỗi:", e);
@@ -89,7 +89,7 @@ const deleteCoupons = async (ids) => {
   try {
     await $fetch(`/coupons/delete-coupon/${arr.join(",")}`, {
       method: "DELETE",
-      baseURL: useRuntimeConfig().public.apiBase,
+      baseURL: config.public.apiBase,
       headers: { Authorization: `Bearer ${auth.accessToken}` },
     });
 

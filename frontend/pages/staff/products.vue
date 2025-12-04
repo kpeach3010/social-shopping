@@ -24,14 +24,19 @@ const products = ref([]);
 const loading = ref(false);
 const auth = useAuthStore();
 const showCategoryModal = ref(false);
+const config = useRuntimeConfig();
 
 // Hàm fetch chi tiết sản phẩm (bao gồm màu, size, tồn kho...) và danh mục
 const openEditModal = async (product) => {
   editProductLoading.value = true;
   try {
     const [detail, categories] = await Promise.all([
-      $fetch(`http://localhost:5000/api/product/get-product/${product.id}`),
-      $fetch("http://localhost:5000/api/category/all-categories"),
+      $fetch(`/product/get-product/${product.id}`, {
+        baseURL: config.public.apiBase,
+      }),
+      $fetch("/category/all-categories", {
+        baseURL: config.public.apiBase,
+      }),
     ]);
     // Chuyển variants về cấu trúc colors -> sizes
     const colorMap = {};
@@ -94,7 +99,9 @@ const formatPrice = (v) => {
 const fetchProducts = async () => {
   loading.value = true;
   try {
-    const data = await $fetch("http://localhost:5000/api/product/all-products");
+    const data = await $fetch("/product/all-products", {
+      baseURL: config.public.apiBase,
+    });
     products.value = data;
   } catch (err) {
     console.error("Lỗi fetch products:", err);
@@ -167,13 +174,11 @@ const deleteProducts = async (ids) => {
       : `Bạn có chắc muốn xóa ${idArr.length} sản phẩm đã chọn?`;
   if (!confirm(confirmMsg)) return;
   try {
-    await $fetch(
-      `http://localhost:5000/api/product/delete-many/${idArr.join(",")}`,
-      {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${auth.accessToken}` },
-      }
-    );
+    await $fetch(`/product/delete-many/${idArr.join(",")}`, {
+      method: "DELETE",
+      baseURL: config.public.apiBase,
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+    });
     // Nếu xóa nhiều thì clear hết, xóa 1 thì loại id đó khỏi selectedProductIds
     if (idArr.length === 1) {
       selectedProductIds.value = selectedProductIds.value.filter(

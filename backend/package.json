@@ -2,11 +2,11 @@
   "name": "social-shopping-app-backend",
   "version": "1.0.0",
   "main": "server.js",
+   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon server.js",
-    "start": "node server.js",  
-    "type": "module"
+    "start": "node server.js"
   },
   "author": "Khanh Dao",
   "license": "ISC",

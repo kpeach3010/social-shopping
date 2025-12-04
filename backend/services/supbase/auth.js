@@ -6,6 +6,7 @@ export const register = async (email, password, userMetadata) => {
       email,
       password,
       options: {
+        // emailRedirectTo: `${config.public.baseUrl}/auth/verify-noop`,
         data: {
           phone: userMetadata.phone,
           full_name: userMetadata.fullName,

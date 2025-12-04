@@ -60,7 +60,7 @@ export const registerService = async (registerData) => {
     // CỘT date: bắt buộc 'YYYY-MM-DD' (string)
     if (registerData.dateOfBirth) {
       if (!isYYYYMMDD(registerData.dateOfBirth)) {
-        // có thể throw 400 tùy controller của mày
+        // có thể throw 400 tùy controller
         throw new Error("dateOfBirth must be 'YYYY-MM-DD'");
       }
       payload.dateOfBirth = registerData.dateOfBirth;

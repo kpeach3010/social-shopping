@@ -1,5 +1,11 @@
 <script setup>
-import { Shirt, BadgePercent, ShoppingBag, BarChart } from "lucide-vue-next";
+import {
+  Shirt,
+  BadgePercent,
+  ShoppingBag,
+  BarChart,
+  ChartBarStacked,
+} from "lucide-vue-next";
 const props = defineProps({
   isOpen: { type: Boolean, default: true },
   showToggle: { type: Boolean, default: true },
@@ -7,9 +13,9 @@ const props = defineProps({
 
 const menu = [
   { to: "/staff/products", label: "Sản phẩm", icon: Shirt },
+  { to: "/staff/category", label: "Danh mục sản phẩm", icon: ChartBarStacked },
   { to: "/staff/coupons", label: "Mã giảm giá", icon: BadgePercent },
   { to: "/staff/orders", label: "Đơn hàng", icon: ShoppingBag },
-  { to: "/staff/statistics", label: "Thống kê", icon: BarChart },
 ];
 </script>
 <template>

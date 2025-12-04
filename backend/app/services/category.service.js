@@ -1,6 +1,6 @@
 import { db } from "../db/client.js";
 import { categories, products } from "../db/schema.js";
-import { eq, ne, inArray } from "drizzle-orm";
+import { eq, ne, inArray, count, sql } from "drizzle-orm";
 
 export const createCategoryService = async (data) => {
   try {
@@ -28,23 +28,35 @@ export const createCategoryService = async (data) => {
     return inserted[0];
   } catch (error) {
     console.error("Error creating category:", error);
-    throw new Error("Failed to create category");
+    throw error;
   }
 };
 
 export const getAllCategoriesService = async () => {
   try {
     const allCategories = await db
-      .select()
+      .select({
+        // Lấy tất cả các cột của bảng categories
+        id: categories.id,
+        name: categories.name,
+        parentId: categories.parentId,
+        sort: categories.sort,
+        // Đếm số lượng sản phẩm (map sang số nguyên)
+        productCount: count(products.id).mapWith(Number),
+      })
       .from(categories)
+      // Join với bảng products để đếm
+      .leftJoin(products, eq(categories.id, products.categoryId))
+      // Group by ID danh mục để hàm count hoạt động đúng cho từng dòng
+      .groupBy(categories.id)
       .orderBy(categories.sort);
+
     return allCategories;
   } catch (error) {
     console.error("Error fetching categories:", error);
-    throw new Error("Failed to fetch categories");
+    throw error;
   }
 };
-
 // lay 1 danh muc theo id
 export const getCategoryById = async (id) => {
   try {
@@ -61,23 +73,27 @@ export const getCategoryById = async (id) => {
     return category[0];
   } catch (error) {
     console.error("Error fetching category by ID:", error);
-    throw new Error("Failed to fetch category by ID");
+    throw error;
   }
 };
 
 export const updateCategoryService = async (id, data) => {
   try {
-    // Kiem tra ton tai
-
     const existing = await getCategoryById(id);
 
-    // neu co name moi thi kiem tra trung ten
-    if (data.name) {
+    // FIX 1: Chỉ kiểm tra trùng tên NẾU tên có thay đổi
+    // (Nếu chỉ đổi danh mục cha mà tên giữ nguyên thì bỏ qua bước này)
+    if (data.name && data.name !== existing.name) {
       const nameExists = await db
         .select()
         .from(categories)
-        .where(eq(categories.name, data.name), ne(categories.id, id))
-        // loai tru chinh no
+        .where(
+          // FIX 2: Dùng and() để gộp 2 điều kiện
+          and(
+            eq(categories.name, data.name),
+            ne(categories.id, id) // Loại trừ chính nó
+          )
+        )
         .limit(1);
 
       if (nameExists.length > 0) {
@@ -85,14 +101,14 @@ export const updateCategoryService = async (id, data) => {
       }
     }
 
-    // payload update
+    // FIX 3: Logic xử lý cập nhật cha
     const payload = {
-      name: data.name ?? existing.name,
-      parentId: data.parentId ?? existing.parentId,
-      sort: data.sort ?? existing.sort,
+      name: data.name !== undefined ? data.name : existing.name,
+      // Cho phép set về null nếu gửi lên là null
+      parentId: data.parentId !== undefined ? data.parentId : existing.parentId,
+      sort: data.sort !== undefined ? data.sort : existing.sort,
     };
 
-    // update vao db
     const updated = await db
       .update(categories)
       .set(payload)
@@ -102,25 +118,63 @@ export const updateCategoryService = async (id, data) => {
     return updated[0];
   } catch (error) {
     console.error("Error updating category:", error);
-    throw new Error("Failed to update category");
+    throw error;
   }
 };
 
-// xoa danh muc
+// Hàm đệ quy để tìm tất cả ID danh mục con của một danh mục (bao gồm cả ID danh mục gốc)
+const findNestedCategoryIds = async (parentId) => {
+  // Bắt đầu với ID của danh mục gốc
+  let allIds = [parentId];
+
+  // 1. Tìm tất cả danh mục con trực tiếp của parentId
+  const directChildren = await db
+    .select({ id: categories.id })
+    .from(categories)
+    .where(eq(categories.parentId, parentId));
+
+  // 2. Lặp qua các danh mục con và gọi đệ quy
+  for (const child of directChildren) {
+    // Gọi đệ quy cho từng danh mục con
+    const nestedChildrenIds = await findNestedCategoryIds(child.id);
+    // Thêm các ID tìm được vào mảng chính
+    allIds = allIds.concat(nestedChildrenIds);
+  }
+
+  return allIds;
+};
+
+// Xóa một danh mục sau khi kiểm tra không có sản phẩm nào thuộc danh mục đó hoặc danh mục con của nó
 export const deleteCategoryService = async (id) => {
   try {
-    // Kiem tra ton tai
-    await getCategoryById(id);
+    // 1. Tìm tất cả ID danh mục con liên quan
+    const nestedIds = await findNestedCategoryIds(id); // Giả định hàm này hoạt động
 
-    // xoa danh muc
+    // 2. Đếm số lượng sản phẩm
+    const productCountResult = await db
+      .select({ count: count(products.id) })
+      .from(products)
+      .where(inArray(products.categoryId, nestedIds));
+
+    const countProducts = productCountResult[0].count;
+
+    if (countProducts > 0) {
+      // 3. NÉM RA THÔNG BÁO NGHIỆP VỤ MONG MUỐN
+      throw new Error(
+        `Không thể xóa danh mục do có ${countProducts} sản phẩm thuộc danh mục này hoặc các danh mục con.`
+      );
+    }
+
+    // 4. THỰC HIỆN XÓA
     await db.delete(categories).where(eq(categories.id, id));
-    return { message: "Category deleted successfully" };
+
+    return { message: `Xóa danh mục thành công` };
   } catch (error) {
     console.error("Error deleting category:", error);
-    throw new Error("Failed to delete category");
+
+    throw error;
   }
 };
-
 export const getProductsByCategoryService = async (categoryId) => {
   // lấy tất cả sub-category ids
   const subCategories = await db

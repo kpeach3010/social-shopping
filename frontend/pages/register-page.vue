@@ -160,15 +160,20 @@
               ></textarea>
             </div>
           </div>
-
+          <div v-if="errorMessage" class="text-red-600 mt-2 text-sm">
+            {{ errorMessage }}
+          </div>
           <div>
+            <div
+              v-if="successMessage"
+              class="text-green-600 mt-2 text-sm font-semibold"
+            >
+              {{ successMessage }}
+            </div>
             <button
               type="submit"
               class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-black hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-200"
             >
-              <div v-if="errorMessage" class="text-red-600 mt-2 text-sm">
-                {{ errorMessage }}
-              </div>
               Đăng ký
             </button>
           </div>
@@ -195,9 +200,11 @@ const form = reactive({
 
 const config = useRuntimeConfig();
 const errorMessage = ref("");
+const successMessage = ref("");
 
 const onSubmit = async () => {
   errorMessage.value = "";
+  successMessage.value = "";
   try {
     // Clone form
     const payload = { ...form };
@@ -222,6 +229,13 @@ const onSubmit = async () => {
     });
 
     console.log("Đăng ký thành công:", res);
+
+    successMessage.value =
+      "Đăng ký thành công! Vui lòng **kiểm tra email** của bạn để xác nhận tài khoản trước khi đăng nhập. Bạn sẽ được chuyển hướng đến trang Đăng nhập sau 5 giây.";
+    // Đợi 5000ms (5 giây) sau đó chuyển hướng đến trang đăng nhập
+    setTimeout(() => {
+      navigateTo("/login-page", { replace: true });
+    }, 5000);
   } catch (err) {
     const e = err as any;
     const msg =

@@ -49,6 +49,18 @@
             {{ errorMessage }}
           </p>
 
+          <div class="mt-6 text-center">
+            <p class="text-sm text-gray-600">
+              Bạn chưa có tài khoản?
+              <button
+                @click="goToRegister"
+                type="button"
+                class="font-medium text-black hover:text-gray-800 focus:outline-none focus:underline transition-colors duration-200"
+              >
+                Đăng ký
+              </button>
+            </p>
+          </div>
           <!-- Nút đăng nhập -->
           <div>
             <button
@@ -77,6 +89,10 @@ const form = reactive({
 const errorMessage = ref(null);
 const config = useRuntimeConfig();
 const authStore = useAuthStore();
+
+const goToRegister = () => {
+  navigateTo("/register-page");
+};
 
 const onSubmit = async () => {
   errorMessage.value = null;

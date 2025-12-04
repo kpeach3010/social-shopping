@@ -1,36 +1,21 @@
 <template>
   <aside
-    ref="sidebarRef"
     :class="[
-      'bg-white border border-gray-200 rounded-lg shadow-lg flex flex-col transition-shadow duration-300 overflow-hidden fixed z-50',
+      'bg-white border border-gray-200 rounded-lg shadow-lg flex flex-col transition-all duration-300 overflow-hidden',
       isOpen ? 'w-64' : 'w-16',
-      isDragging ? 'cursor-grabbing shadow-2xl' : '',
     ]"
-    :style="{
-      maxHeight: '60vh',
-      minWidth: '48px',
-      top: position.top + 'px',
-      left: position.left + 'px',
-      visibility: isInitialized ? 'visible' : 'hidden', // Ẩn đi cho đến khi tính xong vị trí ban đầu
-    }"
+    style="max-height: 60vh; min-width: 48px"
   >
-    <div
-      class="flex items-center justify-between p-3 border-b bg-gray-50 cursor-move select-none"
-      @mousedown="startDrag"
-    >
-      <h2
-        v-if="isOpen"
-        class="text-base font-bold text-gray-700 pointer-events-none"
-      >
+    <!-- Header -->
+    <div class="flex items-center justify-between p-3 border-b bg-gray-50">
+      <h2 v-if="isOpen" class="text-base font-bold text-gray-700">
         Chat
         <ChatBubbleOvalLeftEllipsisIcon class="w-6 h-6 inline-block mr-1" />
       </h2>
-
       <button
         v-if="showToggle"
-        @mousedown.stop
         @click="$emit('toggle')"
-        class="p-2 rounded hover:bg-gray-100 cursor-pointer"
+        class="p-2 rounded hover:bg-gray-100"
         :title="isOpen ? 'Thu gọn' : 'Mở rộng'"
       >
         <svg
@@ -50,6 +35,7 @@
       </button>
     </div>
 
+    <!-- Tabs -->
     <div class="flex gap-2 border-b">
       <button
         v-for="tab in tabs"
@@ -66,7 +52,9 @@
       </button>
     </div>
 
-    <nav class="flex-1 space-y-1 px-2 py-2 overflow-y-auto" @mousedown.stop>
+    <!-- Danh sách -->
+    <nav class="flex-1 space-y-1 px-2 py-2 overflow-y-auto">
+      <!-- Direct -->
       <template v-if="activeTab === 'direct'">
         <button
           v-for="user in users"
@@ -86,6 +74,7 @@
         </button>
       </template>
 
+      <!-- Group -->
       <template v-else>
         <button
           v-for="conv in groupConversations"
@@ -103,7 +92,6 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from "vue"; // Import thêm ref, lifecycle
 import { UserCircle } from "lucide-vue-next";
 import {
   UserGroupIcon,
@@ -130,73 +118,6 @@ const tabs = [
   { value: "group", label: "Nhóm" },
 ];
 const activeTab = ref("direct");
-
-// --- LOGIC KÉO THẢ (DRAG & DROP) ---
-const sidebarRef = ref(null);
-const isInitialized = ref(false);
-const isDragging = ref(false);
-const position = ref({ top: 0, left: 0 });
-const dragOffset = ref({ x: 0, y: 0 });
-
-// Hàm đặt vị trí mặc định (Góc phải dưới)
-const setDefaultPosition = () => {
-  if (sidebarRef.value) {
-    const el = sidebarRef.value;
-    const windowWidth = window.innerWidth;
-    const windowHeight = window.innerHeight;
-    const elWidth = el.offsetWidth || 256; // 256px ~ w-64
-    const elHeight = el.offsetHeight || 400;
-
-    // Cách lề phải 20px, lề dưới 20px
-    position.value.left = windowWidth - elWidth - 20;
-    position.value.top = windowHeight - elHeight - 20;
-    isInitialized.value = true;
-  }
-};
-
-const startDrag = (event) => {
-  isDragging.value = true;
-  const rect = sidebarRef.value.getBoundingClientRect();
-
-  // Tính khoảng cách từ con trỏ chuột đến góc trái trên của element
-  dragOffset.value = {
-    x: event.clientX - rect.left,
-    y: event.clientY - rect.top,
-  };
-
-  // Thêm sự kiện vào window để khi kéo chuột nhanh ra ngoài element vẫn bắt được
-  window.addEventListener("mousemove", onDrag);
-  window.addEventListener("mouseup", stopDrag);
-};
-
-const onDrag = (event) => {
-  if (!isDragging.value) return;
-
-  let newLeft = event.clientX - dragOffset.value.x;
-  let newTop = event.clientY - dragOffset.value.y;
-
-  // Giới hạn không cho kéo ra ngoài màn hình (Optional)
-  const windowWidth = window.innerWidth;
-  const windowHeight = window.innerHeight;
-  const elWidth = sidebarRef.value.offsetWidth;
-  const elHeight = sidebarRef.value.offsetHeight;
-
-  // Giới hạn màn hình
-  if (newLeft < 0) newLeft = 0;
-  if (newLeft + elWidth > windowWidth) newLeft = windowWidth - elWidth;
-  if (newTop < 0) newTop = 0;
-  if (newTop + elHeight > windowHeight) newTop = windowHeight - elHeight;
-
-  position.value.left = newLeft;
-  position.value.top = newTop;
-};
-
-const stopDrag = () => {
-  isDragging.value = false;
-  window.removeEventListener("mousemove", onDrag);
-  window.removeEventListener("mouseup", stopDrag);
-};
-// -----------------------------------
 
 async function loadSidebarData() {
   try {
@@ -250,15 +171,6 @@ async function loadSidebarData() {
 }
 
 onMounted(async () => {
-  // Khởi tạo vị trí ban đầu
-  // Dùng setTimeout nhỏ để đảm bảo DOM đã render xong width/height
-  setTimeout(() => {
-    setDefaultPosition();
-  }, 100);
-
-  // Xử lý resize window để chat không bị mất ra ngoài
-  window.addEventListener("resize", setDefaultPosition);
-
   const isReady = await useWaitForAuthReady();
   if (!isReady) return;
   await loadSidebarData();
@@ -266,8 +178,5 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   $socket.off("group-activated");
-  window.removeEventListener("resize", setDefaultPosition);
-  window.removeEventListener("mousemove", onDrag);
-  window.removeEventListener("mouseup", stopDrag);
 });
 </script>

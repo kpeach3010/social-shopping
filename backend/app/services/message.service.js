@@ -7,7 +7,7 @@ import {
   conversationMembers,
 } from "../db/schema.js";
 
-import { eq, asc, and, or, inArray, ne, isNull, gt } from "drizzle-orm";
+import { eq, asc, and, or, inArray, ne, isNull, gt, count } from "drizzle-orm";
 
 export const getMessagesService = async (conversationId) => {
   return await db
@@ -101,15 +101,9 @@ export const getUnreadMessageCountService = async (userId) => {
   const conversationIds = memberRows.map((r) => r.conversationId);
   if (conversationIds.length === 0) return 0;
 
-  // 2. join messageReads de lay last_read_at
-  const rows = await db
-    .select({
-      id: messages.id,
-      createdAt: messages.createdAt,
-      senderId: messages.senderId,
-      conversationId: messages.conversationId,
-      lastReadAt: messageReads.lastReadAt,
-    })
+  // 2. count unread messages efficiently at DB level
+  const [{ count: unreadCount }] = await db
+    .select({ count: count().mapWith(Number) })
     .from(messages)
     .leftJoin(
       messageReads,
@@ -129,7 +123,7 @@ export const getUnreadMessageCountService = async (userId) => {
       )
     );
 
-  return rows.length;
+  return unreadCount || 0;
 };
 
 export async function createSystemMessage(conversationId, content) {

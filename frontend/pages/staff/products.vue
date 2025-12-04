@@ -122,12 +122,6 @@ const changePage = (page) => {
   }
 };
 
-const menu = [
-  { to: "/staff/products", label: "Sản phẩm", icon: Shirt },
-  { to: "/staff/coupons", label: "Mã giảm giá", icon: BadgePercent },
-  { to: "/staff/orders", label: "Đơn hàng", icon: ShoppingBag },
-  { to: "/staff/statistics", label: "Thống kê", icon: BarChart },
-];
 const selectedProductIds = ref([]);
 
 // Chọn tất cả sản phẩm trên trang hiện tại

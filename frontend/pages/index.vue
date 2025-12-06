@@ -49,7 +49,7 @@
         class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
       >
         <div
-          v-for="product in products"
+          v-for="product in paginatedProducts"
           :key="product.id"
           class="border rounded-lg shadow-sm hover:shadow-lg transition bg-white"
         >
@@ -90,6 +90,34 @@
         </div>
       </div>
     </section>
+    <!-- Phân trang FE -->
+    <!-- Pagination -->
+    <div class="flex justify-center items-center gap-2 mt-12 select-none">
+      <!-- Prev -->
+      <button
+        @click="page > 1 && page--"
+        :disabled="page === 1"
+        class="px-4 py-2 border rounded-lg text-sm transition hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent"
+      >
+        ← Trước
+      </button>
+
+      <!-- Page number -->
+      <div
+        class="px-4 py-2 font-medium text-gray-700 bg-gray-50 border rounded-lg"
+      >
+        Trang {{ page }} / {{ totalPages }}
+      </div>
+
+      <!-- Next -->
+      <button
+        @click="page < totalPages && page++"
+        :disabled="page === totalPages"
+        class="px-4 py-2 border rounded-lg text-sm transition hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent"
+      >
+        Sau →
+      </button>
+    </div>
   </div>
 </template>
 
@@ -99,6 +127,17 @@ import { FunnelIcon } from "@heroicons/vue/24/outline";
 const showFilter = ref(false);
 const config = useRuntimeConfig();
 const products = ref([]);
+const page = ref(1);
+const limit = 12; // mỗi trang 12 sản phẩm
+const paginatedProducts = computed(() => {
+  const start = (page.value - 1) * limit;
+  return products.value.slice(start, start + limit);
+});
+
+const totalPages = computed(() => {
+  return Math.ceil(products.value.length / limit);
+});
+
 onMounted(async () => {
   try {
     const res = await $fetch("/product/all-products", {

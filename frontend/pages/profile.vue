@@ -111,6 +111,15 @@
               </p>
             </div>
           </div>
+          <!-- Nút mở modal cập nhật -->
+          <div class="mt-6 flex justify-end">
+            <button
+              class="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-900"
+              @click="openEditProfile"
+            >
+              Cập nhật thông tin
+            </button>
+          </div>
         </div>
 
         <!-- Tab Lịch sử đơn hàng -->
@@ -364,10 +373,17 @@
       </div>
     </div>
   </div>
+  <ProfileModal
+    :show="showEditProfile"
+    :userData="auth.user"
+    @close="closeEditProfile"
+    @refresh="auth.loadFromStorage()"
+  />
 </template>
 
 <script setup>
 import { useAuthStore } from "@/stores/auth";
+import ProfileModal from "@/components/modals/ProfileModal.vue";
 
 const auth = useAuthStore();
 const config = useRuntimeConfig();
@@ -382,6 +398,19 @@ const selectedStatus = ref("pending");
 // Popup
 const showDetail = ref(false);
 const orderDetail = ref(null);
+
+// Modal cập nhật thông tin cá nhân
+const showEditProfile = ref(false);
+
+// Mở/đóng modal cập nhật
+const openEditProfile = () => {
+  showEditProfile.value = true;
+};
+
+// Đóng modal cập nhật
+const closeEditProfile = () => {
+  showEditProfile.value = false;
+};
 
 const statuses = [
   { value: "pending", label: "Đang chờ xác nhận" },

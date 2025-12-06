@@ -159,3 +159,50 @@ export const enableUserService = async (id) => {
 export const getAllUsersService = async () => {
   return await db.select().from(users);
 };
+
+// Cap nhat thong tin user
+export const updateUserService = async (userId, payload) => {
+  const allowedFields = [
+    "fullName",
+    "phone",
+    "gender",
+    "dateOfBirth",
+    "province",
+    "district",
+    "ward",
+    "addressDetail",
+  ];
+
+  // Lọc dữ liệu hợp lệ
+  const data = {};
+  for (const key of allowedFields) {
+    if (payload[key] !== undefined) {
+      data[key] = payload[key];
+    }
+  }
+
+  if (Object.keys(data).length === 0) {
+    throw new Error("Không có dữ liệu hợp lệ để cập nhật.");
+  }
+
+  data.updatedAt = new Date();
+
+  const updated = await db
+    .update(users)
+    .set(data)
+    .where(eq(users.id, userId))
+    .returning({
+      id: users.id,
+      fullName: users.fullName,
+      phone: users.phone,
+      gender: users.gender,
+      dateOfBirth: users.dateOfBirth,
+      province: users.province,
+      district: users.district,
+      ward: users.ward,
+      addressDetail: users.addressDetail,
+      updatedAt: users.updatedAt,
+    });
+
+  return updated[0];
+};

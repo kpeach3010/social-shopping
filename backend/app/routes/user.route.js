@@ -23,5 +23,7 @@ router.patch(
   hasRoles(Role.ADMIN),
   UserController.enableUserController
 );
+
+router.patch("/profile", authenticate, UserController.updateUserController);
 router.get("/", UserController.getAllUsersController);
 export default router;

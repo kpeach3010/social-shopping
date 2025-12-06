@@ -3,6 +3,7 @@ import {
   disableUserService,
   enableUserService,
   getAllUsersService,
+  updateUserService,
 } from "../services/user.service.js";
 
 export const createStaffController = async (req, res) => {
@@ -41,5 +42,21 @@ export const getAllUsersController = async (req, res) => {
     res.json(allUsers);
   } catch (error) {
     res.status(400).json({ error: error.message });
+  }
+};
+
+export const updateUserController = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const updatedUser = await updateUserService(userId, req.body);
+
+    return res.json({
+      message: "Cập nhật thông tin thành công",
+      data: updatedUser,
+    });
+  } catch (err) {
+    return res.status(400).json({
+      message: err.message || "Có lỗi xảy ra",
+    });
   }
 };

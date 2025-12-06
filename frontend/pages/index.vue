@@ -15,6 +15,36 @@
         <h2 class="text-2xl font-bold mb-6">TẤT CẢ SẢN PHẨM</h2>
       </div>
 
+      <!-- Bộ lọc -->
+      <div class="flex justify-end mb-4 relative">
+        <button
+          @click="showFilter = !showFilter"
+          class="flex items-center gap-2 px-3 py-2 border rounded hover:bg-gray-100"
+        >
+          <FunnelIcon class="w-5 h-5" />
+          <span>Lọc giá</span>
+        </button>
+
+        <!-- Dropdown -->
+        <div
+          v-if="showFilter"
+          class="absolute right-0 mt-12 bg-white border rounded shadow-md w-40 z-50"
+        >
+          <button
+            class="w-full text-left px-4 py-2 hover:bg-gray-100"
+            @click="filterByPrice('asc')"
+          >
+            Giá thấp → cao
+          </button>
+          <button
+            class="w-full text-left px-4 py-2 hover:bg-gray-100"
+            @click="filterByPrice('desc')"
+          >
+            Giá cao → thấp
+          </button>
+        </div>
+      </div>
+
       <div
         class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
       >
@@ -64,6 +94,9 @@
 </template>
 
 <script setup>
+import { FunnelIcon } from "@heroicons/vue/24/outline";
+
+const showFilter = ref(false);
 const config = useRuntimeConfig();
 const products = ref([]);
 onMounted(async () => {
@@ -76,4 +109,17 @@ onMounted(async () => {
     console.error("Lỗi fetch products:", err);
   }
 });
+
+const filterByPrice = async (sort) => {
+  showFilter.value = false; // đóng dropdown
+
+  try {
+    const res = await $fetch(`/product/products-by-price?sort=${sort}`, {
+      baseURL: config.public.apiBase,
+    });
+    products.value = res.data || res;
+  } catch (err) {
+    console.error("Lỗi lọc sản phẩm:", err);
+  }
+};
 </script>

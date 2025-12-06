@@ -12,7 +12,7 @@ import {
   coupons,
   groupOrders,
 } from "../db/schema.js";
-import { sql, eq, and, ne, inArray, desc } from "drizzle-orm";
+import { sql, eq, and, ne, inArray, desc, ilike } from "drizzle-orm";
 import { getAvailableCouponsForProductsService } from "./coupon.service.js";
 import supabase from "../../services/supbase/client.js";
 
@@ -618,4 +618,46 @@ export const getOrderWithUserInfoByIdService = async (orderId) => {
     .where(eq(orderItems.orderId, orderId));
 
   return { ...order, items };
+};
+
+// Tim kiem don hang theo id
+export const searchOrdersByIdService = async (keyword) => {
+  if (!keyword || !keyword.trim()) return [];
+
+  const search = `%${keyword.trim()}%`;
+
+  try {
+    const baseOrders = await db
+      .select()
+      .from(orders)
+      // FIX: Ép kiểu orders.id sang text để dùng ilike
+      .where(ilike(sql`${orders.id}::text`, search));
+
+    if (!baseOrders.length) return [];
+
+    const ids = baseOrders.map((o) => o.id);
+
+    const items = await db
+      .select({
+        orderId: orderItems.orderId,
+        productName: products.name,
+        imageUrl: products.thumbnailUrl,
+        quantity: orderItems.quantity,
+      })
+      .from(orderItems)
+      .leftJoin(products, eq(orderItems.productId, products.id))
+      // FIX: Ép kiểu orderItems.orderId sang text ở đây nữa nếu cần thiết
+      .where(ilike(sql`${orderItems.orderId}::text`, search));
+
+    return baseOrders.map((o) => ({
+      id: o.id,
+      createdAt: o.createdAt,
+      total: o.total,
+      status: o.status,
+      items: items.filter((i) => i.orderId === o.id),
+    }));
+  } catch (error) {
+    console.log("Search orders error:", error);
+    throw new Error("Failed to search orders");
+  }
 };

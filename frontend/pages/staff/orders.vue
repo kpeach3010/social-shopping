@@ -8,6 +8,7 @@ import OrderDetailModal from "@/components/modals/staff/OrderDetailModal.vue";
 
 const currentPage = ref(1);
 const perPage = 8;
+const searchKeyword = ref("");
 
 const isOpen = ref(true);
 const toggleSidebar = () => {
@@ -121,6 +122,43 @@ const openDetail = (order) => {
   detailOrderId.value = order.id;
   showDetailModal.value = true;
 };
+
+const resetSearch = async () => {
+  searchKeyword.value = "";
+  await fetchOrders();
+};
+
+const searchOrders = async () => {
+  if (!searchKeyword.value || !searchKeyword.value.trim()) {
+    await fetchOrders();
+    return;
+  }
+
+  loading.value = true;
+
+  try {
+    const response = await $fetch(`/orders/search?id=${searchKeyword.value}`, {
+      baseURL: config.public.apiBase,
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+    });
+
+    console.log("Response API:", response);
+    if (response && Array.isArray(response.data)) {
+      orders.value = response.data;
+    } else {
+      // Trường hợp không tìm thấy hoặc cấu trúc khác
+      orders.value = [];
+    }
+
+    currentPage.value = 1;
+  } catch (err) {
+    console.error("Lỗi tìm đơn:", err);
+    orders.value = [];
+    alert("Không tìm thấy đơn hàng!");
+  } finally {
+    loading.value = false;
+  }
+};
 </script>
 
 <template>
@@ -129,6 +167,32 @@ const openDetail = (order) => {
     <div class="flex-1 flex flex-col">
       <main class="flex-1 p-6">
         <h1 class="text-2xl font-bold mb-4">Quản lý đơn hàng</h1>
+
+        <!-- Search bar -->
+        <div class="mb-4 flex items-center gap-2">
+          <input
+            v-model="searchKeyword"
+            type="text"
+            placeholder="Tìm mã đơn..."
+            class="px-4 py-2 border rounded w-64"
+            @keyup.enter="searchOrders"
+          />
+          <button
+            class="px-4 py-2 bg-black text-white rounded"
+            @click="searchOrders"
+          >
+            Tìm kiếm
+          </button>
+
+          <!-- nút reset -->
+          <button
+            v-if="searchKeyword"
+            class="px-3 py-2 border rounded text-gray-700"
+            @click="resetSearch"
+          >
+            X
+          </button>
+        </div>
 
         <!-- Tabs -->
         <div class="mb-4">

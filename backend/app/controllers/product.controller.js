@@ -7,6 +7,7 @@ import {
   updateProductService,
   deleteColorService,
   searchProductByNameService,
+  getProductsByPriceService,
 } from "../services/product.service.js";
 
 export const createProductController = async (req, res) => {
@@ -183,5 +184,24 @@ export const searchProductByNameController = async (req, res) => {
     res.status(200).json(products);
   } catch (error) {
     res.status(400).json({ error: error.message });
+  }
+};
+
+export const getProductsByPriceController = async (req, res) => {
+  try {
+    const sort = req.query.sort || "asc"; // "asc" hoặc "desc"
+
+    const products = await getProductsByPriceService({ sort });
+
+    return res.status(200).json({
+      status: "success",
+      sort,
+      data: products,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      status: "error",
+      message: "Không thể lấy danh sách sản phẩm",
+    });
   }
 };

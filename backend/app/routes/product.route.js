@@ -22,6 +22,12 @@ router.get("/all-products", ProductController.getAllProductController);
 // Lấy sản phẩm theo ID
 router.get("/get-product/:id", ProductController.getProductByIdController);
 
+// Lấy sản phẩm theo giá
+router.get(
+  "/products-by-price",
+  ProductController.getProductsByPriceController
+);
+
 // Xóa 1 sản phẩm
 router.delete(
   "/delete-many/:ids",

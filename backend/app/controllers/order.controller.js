@@ -6,6 +6,7 @@ import {
   getOrdersOverviewForStaffService,
   cancelOrderService,
   getOrderWithUserInfoByIdService,
+  searchOrdersByIdService,
 } from "../services/order.service.js";
 
 export const checkoutController = async (req, res) => {
@@ -103,5 +104,24 @@ export const rejectOrderController = async (req, res) => {
     res.json(order);
   } catch (err) {
     res.status(400).json({ error: err.message });
+  }
+};
+
+export const searchOrdersByIdController = async (req, res) => {
+  try {
+    const { id } = req.query;
+
+    const data = await searchOrdersByIdService(id);
+
+    return res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (err) {
+    console.error("Search order error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to search orders",
+    });
   }
 };

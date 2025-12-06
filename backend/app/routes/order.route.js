@@ -31,6 +31,12 @@ router.get(
 );
 
 router.get(
+  "/search",
+  hasRoles(Role.STAFF),
+  OrderController.searchOrdersByIdController
+);
+
+router.get(
   "/overview",
   hasRoles(Role.STAFF),
   OrderController.getOrdersOverviewForStaffController

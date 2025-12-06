@@ -8,7 +8,7 @@ import {
   couponProducts,
   coupons,
 } from "../db/schema.js";
-import { sql, eq, and, ne } from "drizzle-orm";
+import { sql, eq, and, ne, asc, desc } from "drizzle-orm";
 import supabase from "../../services/supbase/client.js";
 
 // Hàm upload ảnh lên bucket
@@ -1004,5 +1004,21 @@ export const searchProductByNameService = async (keyword) => {
   } catch (error) {
     console.error("Error searching products:", error);
     throw new Error("Failed to search products");
+  }
+};
+
+export const getProductsByPriceService = async ({ sort = "asc" }) => {
+  try {
+    const orderBy =
+      sort === "desc"
+        ? desc(products.price_default)
+        : asc(products.price_default);
+
+    const data = await db.select().from(products).orderBy(orderBy);
+
+    return data;
+  } catch (error) {
+    console.error("getProductsByPriceService error:", error);
+    throw error;
   }
 };

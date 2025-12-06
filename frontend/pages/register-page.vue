@@ -50,6 +50,7 @@
               <input
                 v-model="form.password"
                 type="password"
+                placeholder="Mật khẩu phải lớn hơn 5 kí tự"
                 required
                 class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
               />
@@ -172,7 +173,13 @@
             </div>
             <button
               type="submit"
-              class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-black hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-200"
+              :disabled="!isFormValid"
+              :class="[
+                'w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-200',
+                !isFormValid
+                  ? 'bg-gray-400 cursor-not-allowed hover:bg-gray-400'
+                  : 'bg-black hover:bg-gray-800',
+              ]"
             >
               Đăng ký
             </button>
@@ -185,6 +192,12 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: false });
+import { reactive, ref, computed } from "vue";
+
+const config = useRuntimeConfig();
+const errorMessage = ref("");
+const successMessage = ref("");
+
 const form = reactive({
   email: "",
   password: "",
@@ -198,9 +211,20 @@ const form = reactive({
   addressDetail: "",
 });
 
-const config = useRuntimeConfig();
-const errorMessage = ref("");
-const successMessage = ref("");
+const isFormValid = computed(() => {
+  return (
+    form.email.trim() !== "" &&
+    form.password.trim() !== "" &&
+    form.fullName.trim() !== "" &&
+    form.phone.trim() !== "" &&
+    form.gender.trim() !== "" &&
+    form.dateOfBirth.trim() !== "" &&
+    form.province.trim() !== "" &&
+    form.district.trim() !== "" &&
+    form.ward.trim() !== "" &&
+    form.addressDetail.trim() !== ""
+  );
+});
 
 const onSubmit = async () => {
   errorMessage.value = "";

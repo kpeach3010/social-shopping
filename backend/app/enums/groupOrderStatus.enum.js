@@ -3,5 +3,5 @@ export const groupOrderStatusEnum = Object.freeze({
   LOCKED: "locked", // da du nguoi, giai doan chon qty và variant
   ORDERING: "ordering", // truong nhom bam dat don
   COMPLETED: "completed", // don hang hoan thanh
-  CANCELLED: "cancelled", // nhom bị huy hoac het ham coupon ma chua du so luong thanh vien
+  CANCELLED: "cancelled", // nhom bị huy hoac het han coupon ma chua du so luong thanh vien
 });

@@ -2,6 +2,7 @@ import http from "http";
 import { Server } from "socket.io";
 import app from "./app.js";
 import { startInviteLinkCleanupCron } from "./app/cron/cleanupInviteLinks.js";
+import { initCronJobs } from "./app/cron/index.js";
 import config from "./app/config/index.js";
 import {
   createUserService,
@@ -227,6 +228,7 @@ async function startServer() {
     server.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
       startInviteLinkCleanupCron();
+      initCronJobs(io);
     });
 
     // Kiểm tra và tạo user admin nếu chưa tồn tại

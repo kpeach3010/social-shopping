@@ -772,6 +772,17 @@ onMounted(() => {
     }
   });
 
+  // lang nghe su kien chuyen trang thai nhom sang cancelled
+  $socket.on("group-order-cancelled", (payload) => {
+    if (payload.conversationId !== props.conversationId) return;
+
+    if (groupDetail.value?.groupOrder) {
+      groupDetail.value.groupOrder.status = "cancelled";
+    }
+
+    scrollToBottom();
+  });
+
   $socket.on("user-left", async (payload) => {
     if (payload.conversationId !== props.conversationId) return;
     scrollToBottom();
@@ -965,6 +976,7 @@ onBeforeUnmount(() => {
   $socket.off("group-order-choice");
   $socket.off("user-left");
   $socket.off("group-deleted");
+  $socket.off("group-order-cancelled");
 
   if (supabaseChannel) supabaseChannel.unsubscribe();
 

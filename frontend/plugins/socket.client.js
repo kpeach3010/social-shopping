@@ -2,13 +2,22 @@ import { io } from "socket.io-client";
 import { useAuthStore } from "../stores/auth.js";
 
 export default defineNuxtPlugin((nuxtApp) => {
+  const config = useRuntimeConfig();
   const auth = useAuthStore();
-  const socket = io("https://social-shopping-production.up.railway.app", {
-    transports: ["websocket"],
-    withCredentials: true,
-    query: { userId: auth.user?.id },
-    autoConnect: false,
-  });
+  const apiBase =
+    config.public.apiBase ||
+    (typeof window !== "undefined" && window.location.origin);
+  const socketServer = String(apiBase).replace(/\/(api.*$)/, "");
+
+  const socket = io(
+    socketServer || "https://social-shopping-production.up.railway.app",
+    {
+      transports: ["websocket"],
+      withCredentials: true,
+      query: { userId: auth.user?.id },
+      autoConnect: false,
+    }
+  );
 
   watchEffect(() => {
     if (auth.user?.id) {

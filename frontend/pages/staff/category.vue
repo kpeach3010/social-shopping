@@ -154,7 +154,7 @@ const isExpanded = (categoryId) => {
             class="flex bg-gray-200 text-gray-700 font-semibold p-3 text-sm uppercase tracking-wider"
           >
             <div class="w-1/2 pl-4">Tên Danh mục</div>
-            <div class="w-1/4 text-center">Thứ tự</div>
+            <div class="w-1/4 text-center">Số lượng SP</div>
             <div class="w-1/4 text-right pr-4">Hành động</div>
           </div>
 

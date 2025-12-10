@@ -167,7 +167,7 @@
         <template v-else>
           <div class="flex flex-col items-center space-y-3">
             <img
-              :src="product.thumbnailUrrl"
+              :src="product.thumbnailUrl"
               alt="Sản phẩm"
               class="w-40 h-40 object-cover rounded-lg shadow"
             />

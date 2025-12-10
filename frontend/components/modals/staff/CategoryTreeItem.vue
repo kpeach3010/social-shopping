@@ -27,17 +27,6 @@
         <span class="font-medium text-gray-800">{{ category.name }}</span>
 
         <span
-          class="text-[10px] font-bold px-2 py-0.5 rounded-full ml-2 border"
-          :class="
-            category.totalProductCount > 0
-              ? 'bg-blue-50 text-blue-600 border-blue-100'
-              : 'bg-gray-100 text-gray-400 border-gray-200'
-          "
-        >
-          {{ category.totalProductCount }} sp
-        </span>
-
-        <span
           v-if="level === 0"
           class="ml-2 px-1.5 py-0.5 text-[10px] font-semibold text-gray-500 bg-gray-100 rounded border border-gray-200"
         >
@@ -45,8 +34,17 @@
         </span>
       </div>
 
-      <div class="w-1/4 text-center text-gray-500 font-mono text-xs">
-        {{ category.sort }}
+      <div class="w-1/4 text-center">
+        <span
+          v-if="level === 0"
+          class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200"
+        >
+          {{ category.totalProductCount || 0 }} sản phẩm
+        </span>
+
+        <span v-else class="text-gray-500 text-xs">
+          {{ category.totalProductCount || 0 }}
+        </span>
       </div>
 
       <div class="w-1/4 flex justify-end gap-2 pr-4">
@@ -84,7 +82,6 @@
 </template>
 
 <script>
-// Lưu ý: Dùng Options API export default để hỗ trợ đệ quy "name: CategoryTreeItem" tốt nhất
 import {
   ChevronDown,
   ChevronRight,

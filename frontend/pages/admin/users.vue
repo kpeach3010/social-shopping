@@ -14,10 +14,15 @@ const showCreateModal = ref(false);
 const currentPage = ref(1);
 const perPage = 12;
 
+// Đảm bảo dòng này đã có trong script setup của bạn
+const config = useRuntimeConfig();
+
 const fetchUsers = async () => {
   loading.value = true;
   try {
-    users.value = await $fetch("http://localhost:5000/api/users", {
+    // Sửa: Dùng đường dẫn tương đối và baseURL từ config
+    users.value = await $fetch("/users", {
+      baseURL: config.public.apiBase,
       headers: { Authorization: `Bearer ${auth.accessToken}` },
     });
   } catch (err) {
@@ -59,9 +64,10 @@ const statusClass = (status) =>
 const disableUser = async (id) => {
   if (!confirm("Vô hiệu hóa tài khoản này?")) return;
   try {
-    await $fetch(`/api/users/disable/${id}`, {
+    // Sửa: Dùng đường dẫn tương đối và baseURL từ config
+    await $fetch(`/users/disable/${id}`, {
       method: "PATCH",
-      baseURL: "http://localhost:5000",
+      baseURL: config.public.apiBase,
       headers: { Authorization: `Bearer ${auth.accessToken}` },
     });
     await fetchUsers();
@@ -75,9 +81,10 @@ const disableUser = async (id) => {
 const enableUser = async (id) => {
   if (!confirm("Khôi phục tài khoản?")) return;
   try {
-    await $fetch(`/api/users/enable/${id}`, {
+    // Sửa: Dùng đường dẫn tương đối và baseURL từ config
+    await $fetch(`/users/enable/${id}`, {
       method: "PATCH",
-      baseURL: "http://localhost:5000",
+      baseURL: config.public.apiBase,
       headers: { Authorization: `Bearer ${auth.accessToken}` },
     });
     await fetchUsers();

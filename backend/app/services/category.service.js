@@ -147,31 +147,35 @@ const findNestedCategoryIds = async (parentId) => {
 // Xóa một danh mục sau khi kiểm tra không có sản phẩm nào thuộc danh mục đó hoặc danh mục con của nó
 export const deleteCategoryService = async (id) => {
   try {
-    // 1. Tìm tất cả ID danh mục con liên quan
-    const nestedIds = await findNestedCategoryIds(id); // Giả định hàm này hoạt động
+    return await db.transaction(async (tx) => {
+      // 1. Lấy tất cả ID liên quan (Cha + Con + Cháu...)
+      // Kết quả vd: [ID_Cha, ID_Con_1, ID_Con_2]
+      const nestedIds = await findNestedCategoryIds(id);
 
-    // 2. Đếm số lượng sản phẩm
-    const productCountResult = await db
-      .select({ count: count(products.id) })
-      .from(products)
-      .where(inArray(products.categoryId, nestedIds));
+      // 2. Đếm tổng sản phẩm nằm trong BẤT KỲ danh mục nào thuộc cây này
+      const productCountResult = await tx
+        .select({ count: count(products.id) })
+        .from(products)
+        .where(inArray(products.categoryId, nestedIds));
 
-    const countProducts = productCountResult[0].count;
+      const countProducts = Number(productCountResult[0]?.count || 0);
 
-    if (countProducts > 0) {
-      // 3. NÉM RA THÔNG BÁO NGHIỆP VỤ MONG MUỐN
-      throw new Error(
-        `Không thể xóa danh mục do có ${countProducts} sản phẩm thuộc danh mục này hoặc các danh mục con.`
-      );
-    }
+      // 3. Logic kiểm tra điều kiện
+      if (countProducts > 0) {
+        // Nếu có dù chỉ 1 sản phẩm trong bất kỳ danh mục con nào -> CHẶN
+        throw new Error(
+          `Không thể xóa! Tìm thấy ${countProducts} sản phẩm thuộc danh mục này hoặc các danh mục con.`
+        );
+      }
 
-    // 4. THỰC HIỆN XÓA
-    await db.delete(categories).where(eq(categories.id, id));
+      // Xóa tất cả các danh mục có ID nằm trong danh sách nestedIds
+      // Việc này giải quyết lỗi Foreign Key vì cả cha và con đều bị xóa cùng lệnh
+      await tx.delete(categories).where(inArray(categories.id, nestedIds));
 
-    return { message: `Xóa danh mục thành công` };
+      return { message: "Đã xóa danh mục và toàn bộ danh mục con thành công." };
+    });
   } catch (error) {
     console.error("Error deleting category:", error);
-
     throw error;
   }
 };

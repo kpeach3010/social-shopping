@@ -111,7 +111,7 @@
             <!-- Bong bóng -->
             <div
               :class="[
-                'inline-block px-4 py-2 rounded-2xl text-sm whitespace-pre-wrap break-words break-all leading-relaxed',
+                'inline-block px-4 py-2 rounded-2xl text-sm whitespace-pre-wrap break-words leading-relaxed',
                 isMine(msg)
                   ? 'bg-gray-400 text-white rounded-br-none'
                   : 'bg-gray-200 text-gray-800 rounded-bl-none',
@@ -408,6 +408,11 @@ const groupMembersDisplay = computed(() => {
     const size = m.sizeName || m.size || "";
     let variantText = "";
 
+    let totalQuantity = 0;
+    if (m.items && Array.isArray(m.items)) {
+      totalQuantity = m.items.reduce((sum, item) => sum + item.quantity, 0);
+    }
+
     if (m.hasChosen) {
       if (color || size) {
         variantText = [color, size].filter(Boolean).join(" / ");
@@ -421,7 +426,7 @@ const groupMembersDisplay = computed(() => {
       fullName,
       shortName,
       hasChosen: !!m.hasChosen,
-      quantity: m.quantity ?? null,
+      quantity: m.hasChosen ? totalQuantity : null,
       variantText,
       isCreator:
         String(m.userId) ===
@@ -949,16 +954,13 @@ async function openGroupDetail() {
 
   try {
     console.log("FETCHING...");
-    const res = await $fetch(
-      `/group-orders/${props.conversation.id}?type=group`,
-      {
-        method: "GET",
-        baseURL: config.public.apiBase,
-        headers: {
-          Authorization: `Bearer ${auth.accessToken}`,
-        },
-      }
-    );
+    const res = await $fetch(`/group-orders/${props.conversationId}`, {
+      method: "GET",
+      baseURL: config.public.apiBase,
+      headers: {
+        Authorization: `Bearer ${auth.accessToken}`,
+      },
+    });
 
     console.log("Group detail fetched:", res);
     groupDetail.value = res;

@@ -173,7 +173,7 @@ const searchOrders = async () => {
           <input
             v-model="searchKeyword"
             type="text"
-            placeholder="Tìm mã đơn..."
+            placeholder="Tìm kiếm bằng mã đơn..."
             class="px-4 py-2 border rounded w-64"
             @keyup.enter="searchOrders"
           />

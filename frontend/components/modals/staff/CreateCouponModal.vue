@@ -105,7 +105,7 @@
         <!-- Limits -->
         <div class="grid grid-cols-2 gap-4">
           <div class="space-y-1">
-            <label class="font-medium">Giới hạn sử dụng</label>
+            <label class="font-medium">Số lượng mã giảm giá</label>
             <input
               v-model="coupon.usage_limit"
               type="number"
@@ -114,7 +114,7 @@
           </div>
 
           <div class="space-y-1">
-            <label class="font-medium">Giới hạn mỗi người</label>
+            <label class="font-medium">Giới hạn lượt sử dụng mỗi người</label>
             <input
               v-model="coupon.perUserLimit"
               type="number"
@@ -125,7 +125,7 @@
 
         <!-- Min Order -->
         <div class="space-y-1">
-          <label class="font-medium">Đơn tối thiểu</label>
+          <label class="font-medium">Giá trị đơn tối thiểu</label>
           <input
             v-model="coupon.minOrderTotal"
             type="number"
@@ -137,46 +137,51 @@
         <template v-if="coupon.kind === 'group'">
           <!-- Max Member -->
           <div class="space-y-1">
-            <label class="font-medium">Thành viên tối đa</label>
+            <label class="font-medium"
+              >Số thành viên yêu cầu khi sử dụng mã nhóm *</label
+            >
             <input
               v-model="coupon.maxMember"
               type="number"
               class="w-full border px-3 py-2 rounded"
             />
           </div>
-
-          <!-- Product List -->
-          <div class="space-y-2">
-            <label class="font-medium">Áp dụng cho sản phẩm</label>
-
-            <div
-              class="border rounded p-3 max-h-64 overflow-y-auto space-y-2 bg-gray-50"
-            >
-              <label
-                v-for="p in products"
-                :key="p.id"
-                class="flex gap-3 items-center border-b pb-2 cursor-pointer"
-              >
-                <input
-                  type="checkbox"
-                  :value="p.id"
-                  :checked="coupon.productIds.includes(p.id)"
-                  @change="toggleProduct(p.id)"
-                />
-                <img
-                  :src="p.thumbnailUrl"
-                  class="w-12 h-12 object-cover rounded border"
-                />
-                <div class="flex flex-col">
-                  <span class="font-semibold">{{ p.name }}</span>
-                  <span class="text-xs text-gray-500">
-                    {{ new Intl.NumberFormat("vi-VN").format(p.price) }}₫
-                  </span>
-                </div>
-              </label>
-            </div>
-          </div>
         </template>
+
+        <!-- Product List -->
+        <div class="space-y-2">
+          <label class="font-medium">Áp dụng cho sản phẩm</label>
+
+          <div
+            class="border rounded p-3 max-h-64 overflow-y-auto space-y-2 bg-gray-50"
+          >
+            <label
+              v-for="p in products"
+              :key="p.id"
+              class="flex gap-3 items-center border-b pb-2 cursor-pointer"
+            >
+              <input
+                type="checkbox"
+                :value="p.id"
+                :checked="coupon.productIds.includes(p.id)"
+                @change="toggleProduct(p.id)"
+              />
+              <img
+                :src="p.thumbnailUrl"
+                class="w-12 h-12 object-cover rounded border"
+              />
+              <div class="flex flex-col">
+                <span class="font-semibold">{{ p.name }}</span>
+                <span class="text-xs text-gray-500">
+                  {{ new Intl.NumberFormat("vi-VN").format(p.price) }}₫
+                </span>
+              </div>
+            </label>
+          </div>
+          <p class="text-xs text-gray-500 italic">
+            * Không chọn sản phẩm nào đồng nghĩa áp dụng cho tất cả.
+          </p>
+        </div>
 
         <!-- Button -->
         <button

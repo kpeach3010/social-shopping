@@ -8,7 +8,7 @@ import {
   couponProducts,
   coupons,
 } from "../db/schema.js";
-import { sql, eq, and, ne, asc, desc } from "drizzle-orm";
+import { sql, eq, and, ne, asc, desc, notInArray } from "drizzle-orm";
 import supabase from "../../services/supbase/client.js";
 
 // Hàm upload ảnh lên bucket
@@ -148,6 +148,41 @@ export async function moveAllFilesRecursive(bucket, oldPrefix, newPrefix) {
 // tạo sản phẩm mới, kèm upload ảnh, tạo variant, color, size
 export const createProductService = async (data) => {
   try {
+    // Kiểm tra thông tin cơ bản của sản phẩm
+    if (!data.name || !data.name.trim()) {
+      throw new Error("Tên sản phẩm không được để trống.");
+    }
+    if (!data.categoryId) {
+      throw new Error("Danh mục sản phẩm không được để trống.");
+    }
+    if (!data.price_default || isNaN(Number(data.price_default))) {
+      throw new Error("Giá sản phẩm không hợp lệ hoặc đang bị bỏ trống.");
+    }
+    if (!Array.isArray(data.colors) || data.colors.length === 0) {
+      throw new Error("Sản phẩm bắt buộc phải có ít nhất một màu.");
+    }
+    // Kiểm tra chi tiết từng màu
+    for (const [index, c] of data.colors.entries()) {
+      // 1.1 Check tên màu
+      if (!c.colorName || !c.colorName.trim()) {
+        throw new Error(`Màu ở vị trí thứ ${index + 1} chưa có tên.`);
+      }
+
+      // 1.2 Check danh sách size của màu đó
+      if (!Array.isArray(c.sizes) || c.sizes.length === 0) {
+        throw new Error(
+          `Màu "${c.colorName}" bắt buộc phải có ít nhất một kích cỡ (size).`
+        );
+      }
+
+      // 1.3 Check từng size (nếu cần kỹ hơn)
+      for (const s of c.sizes) {
+        if (!s.sizeName || !s.sizeName.trim()) {
+          throw new Error(`Trong màu "${c.colorName}", có size chưa đặt tên.`);
+        }
+      }
+    }
+
     data.variants = Array.isArray(data.variants) ? data.variants : [];
 
     // 1) Insert product
@@ -554,401 +589,292 @@ export const deleteProductService = async (productIds) => {
 };
 
 // Cập nhật sản phẩm
+// ==========================
+// UPDATE PRODUCT (đồng bộ với CREATE)
+// ==========================
+
 export const updateProductService = async (productId, data) => {
   try {
-    // 1) Lấy product (chỉ định fields rõ ràng)
-    const [product] = await db
-      .select({
-        id: products.id,
-        categoryId: products.categoryId,
-        name: products.name,
-        description: products.description,
-        price_default: products.price_default,
-        stock: products.stock,
-        thumbnailPath: products.thumbnailPath,
-        thumbnailUrl: products.thumbnailUrl,
-      })
-      .from(products)
-      .where(eq(products.id, productId))
-      .limit(1);
+    return await db.transaction(async (tx) => {
+      // 1) Lấy product cũ
+      const [product] = await tx
+        .select()
+        .from(products)
+        .where(eq(products.id, productId))
+        .limit(1);
 
-    if (!product) throw new Error("Product not found");
+      if (!product) throw new Error("Product not found");
 
-    // 2) Update product base fields
-    const payload = {
-      name: data.name ?? product.name,
-      description: data.description ?? product.description,
-      price_default: data.price_default ?? product.price_default,
-    };
+      const oldCategoryId = product.categoryId;
+      const currentCategoryId = data.categoryId || oldCategoryId; // ID category cuối cùng
 
-    if (data.categoryId && data.categoryId != product.categoryId) {
-      const oldCategoryPath = await buildCategoryPath(product.categoryId);
-      const newCategoryPath = await buildCategoryPath(data.categoryId);
+      // 2) Payload update thông tin cơ bản
+      const payload = {
+        name: data.name ?? product.name,
+        description: data.description ?? product.description,
+        price_default: data.price_default ?? product.price_default,
+        updatedAt: new Date(),
+      };
 
-      await moveAllFilesRecursive(
-        "product-images",
-        `categories/${oldCategoryPath}/${product.id}/`,
-        `categories/${newCategoryPath}/${product.id}/`
-      );
-      payload.categoryId = data.categoryId;
-      if (product.thumbnailPath) {
-        const fileName = product.thumbnailPath.split("/").pop(); // lấy "thumbnail.png"
-        const newPath = `categories/${newCategoryPath}/${product.id}/${fileName}`;
+      // 3) Xử lý đổi danh mục (Category) -> Move toàn bộ folder ảnh
+      // Bước này chạy TRƯỚC khi xử lý từng màu để đảm bảo file nằm đúng chỗ
+      if (data.categoryId && data.categoryId !== oldCategoryId) {
+        const oldCategoryPath = await buildCategoryPath(oldCategoryId);
+        const newCategoryPath = await buildCategoryPath(data.categoryId);
 
-        payload.thumbnailPath = newPath;
+        console.log(
+          `>>> Moving Category: ${oldCategoryPath} -> ${newCategoryPath}`
+        );
 
-        const { data: publicUrl } = supabase.storage
-          .from("product-images")
-          .getPublicUrl(newPath);
+        // 3.a Move folder vật lý
+        await moveAllFilesRecursive(
+          "product-images",
+          `categories/${oldCategoryPath}/${productId}/`,
+          `categories/${newCategoryPath}/${productId}/`
+        );
 
-        payload.thumbnailUrl = publicUrl.publicUrl;
+        // 3.b Cập nhật DB cho tất cả các màu (để lát nữa query lấy được path đúng)
+        const allColors = await tx
+          .select()
+          .from(colors)
+          .where(eq(colors.productId, productId));
+
+        for (const clr of allColors) {
+          if (!clr.imagePath) continue;
+
+          // Lấy tên file gốc (giữ nguyên tên file, chỉ đổi folder cha)
+          const fileName = clr.imagePath.split("/").pop();
+          const newPath = `categories/${newCategoryPath}/${productId}/variants/${fileName}`;
+
+          const { data: urlData } = supabase.storage
+            .from("product-images")
+            .getPublicUrl(newPath);
+
+          await tx
+            .update(colors)
+            .set({ imagePath: newPath, imageUrl: urlData?.publicUrl })
+            .where(eq(colors.id, clr.id));
+        }
+
+        // 3.c Update Thumbnail Path
+        if (product.thumbnailPath) {
+          const fileName = product.thumbnailPath.split("/").pop();
+          const newPath = `categories/${newCategoryPath}/${productId}/${fileName}`;
+          const { data: publicUrl } = supabase.storage
+            .from("product-images")
+            .getPublicUrl(newPath);
+          payload.thumbnailPath = newPath;
+          payload.thumbnailUrl = publicUrl.publicUrl;
+        }
+
+        payload.categoryId = data.categoryId;
       }
-    }
-    if (data.thumbnail) {
-      // Thumbnail (nếu có)
-      const categoryPath = await buildCategoryPath(product.categoryId);
-      const uploaded = await uploadToBucket(
-        data.thumbnail.buffer,
-        "thumbnail.png",
-        categoryPath,
-        productId
-      );
-      payload.thumbnailPath = uploaded.path;
-      payload.thumbnailUrl = uploaded.url;
-    }
 
-    await db.update(products).set(payload).where(eq(products.id, productId));
+      // 4) Upload thumbnail mới (nếu có)
+      if (data.thumbnailFile) {
+        const catPath = await buildCategoryPath(currentCategoryId);
+        const fileName = `thumbnail.png`;
 
-    // 3) Variants
-    if (Array.isArray(data.variants)) {
-      for (const v of data.variants) {
-        if (!v) continue;
+        const uploaded = await uploadToBucket(
+          data.thumbnailFile.buffer,
+          fileName,
+          catPath,
+          productId
+        );
 
-        // ----- Color -----
-        let colorId = null;
-        let colorNameUpper = null;
-        if (v.colorName) {
-          colorNameUpper = v.colorName.trim().toUpperCase();
-          const [existingColor] = await db
-            .select({ id: colors.id, name: colors.name })
-            .from(colors)
-            .where(
-              and(
-                eq(colors.productId, productId),
-                eq(colors.name, colorNameUpper)
-              )
-            )
-            .limit(1);
+        payload.thumbnailPath = uploaded.path;
+        payload.thumbnailUrl = uploaded.url;
+      }
 
-          if (existingColor) {
-            colorId = existingColor.id;
+      // 5) Update Product info
+      await tx.update(products).set(payload).where(eq(products.id, productId));
+
+      // 6) Xử lý COLORS
+      if (Array.isArray(data.colors)) {
+        for (const c of data.colors) {
+          const colorId = c.id || c.colorId;
+          const colorNameUpper = c.colorName?.trim().toUpperCase();
+          const catPath = await buildCategoryPath(currentCategoryId); // Lấy path mới nhất
+
+          let savedColorId;
+
+          if (colorId) {
+            // ============================================
+            // UPDATE EXISTING COLOR
+            // ============================================
+
+            // Lấy màu cũ để kiểm tra path (lúc này path đã đúng theo category mới nhờ bước 3)
+            const [oldColor] = await tx
+              .select()
+              .from(colors)
+              .where(eq(colors.id, colorId))
+              .limit(1);
+            if (!oldColor) continue;
+
+            const updateData = { name: colorNameUpper };
+
+            // Kiểm tra xem có cần Rename ảnh không?
+            // Điều kiện: Tên đổi + Không upload file mới + Đã có ảnh cũ
+            const isNameChanged = oldColor.name !== colorNameUpper;
+            const hasNewFile = c.file && c.file.buffer;
+
+            if (isNameChanged && !hasNewFile && oldColor.imagePath) {
+              console.log(
+                `>>> Renaming color image: ${oldColor.name} -> ${colorNameUpper}`
+              );
+
+              // 1. Xác định ext cũ (.png, .jpg...)
+              const ext = oldColor.imagePath.split(".").pop();
+
+              // 2. Tạo path mới dựa trên slug tên mới
+              // Format: categories/ao-thun/123/variants/den-trang.png
+              const newFileName = `${toSlug(c.colorName)}.${ext}`;
+              const newPath = `categories/${catPath}/${productId}/variants/${newFileName}`;
+
+              try {
+                // 3. Gọi hàm rename của bạn
+                // QUAN TRỌNG: Dùng oldColor.imagePath làm nguồn (không đoán mò)
+                if (oldColor.imagePath !== newPath) {
+                  const renamed = await renameFileInBucket(
+                    oldColor.imagePath,
+                    newPath
+                  );
+                  updateData.imagePath = renamed.path;
+                  updateData.imageUrl = renamed.url;
+                }
+              } catch (err) {
+                console.error(
+                  "Rename failed, keeping old filename:",
+                  err.message
+                );
+                // Nếu rename lỗi (vd file không tồn tại), ta chỉ update tên màu, bỏ qua update path
+              }
+            }
+
+            // Nếu có Upload file MỚI (Ghi đè tất cả logic rename)
+            if (hasNewFile) {
+              const fileName = `${toSlug(c.colorName)}.png`; // Override tên theo chuẩn create
+              const uploaded = await uploadToBucket(
+                c.file.buffer,
+                fileName,
+                catPath,
+                productId,
+                true // isVariant
+              );
+              updateData.imagePath = uploaded.path;
+              updateData.imageUrl = uploaded.url;
+            }
+
+            await tx
+              .update(colors)
+              .set(updateData)
+              .where(eq(colors.id, colorId));
+            savedColorId = colorId;
           } else {
-            const [newColor] = await db
+            // ============================================
+            // CREATE NEW COLOR
+            // ============================================
+            let imagePath = null;
+            let imageUrl = null;
+
+            if (c.file && c.file.buffer) {
+              const fileName = `${toSlug(c.colorName)}.png`;
+              const uploaded = await uploadToBucket(
+                c.file.buffer,
+                fileName,
+                catPath,
+                productId,
+                true
+              );
+              imagePath = uploaded.path;
+              imageUrl = uploaded.url;
+            }
+
+            const [newColor] = await tx
               .insert(colors)
-              .values({ productId, name: colorNameUpper })
-              .returning({ id: colors.id, name: colors.name });
-            colorId = newColor.id;
-          }
-        }
-
-        // ----- Size -----
-        let sizeId = null;
-        let sizeNameUpper = null;
-        if (v.sizeName) {
-          sizeNameUpper = v.sizeName.trim().toUpperCase();
-          const [existingSize] = await db
-            .select({ id: sizes.id, name: sizes.name })
-            .from(sizes)
-            .where(
-              and(eq(sizes.productId, productId), eq(sizes.name, sizeNameUpper))
-            )
-            .limit(1);
-
-          if (existingSize) {
-            sizeId = existingSize.id;
-          } else {
-            const [newSize] = await db
-              .insert(sizes)
-              .values({ productId, name: sizeNameUpper })
-              .returning({ id: sizes.id, name: sizes.name });
-            sizeId = newSize.id;
-          }
-        }
-
-        // ================== UPDATE ==================
-        if (v.id && v.id.trim() !== "") {
-          // Lấy variant cũ (chỉ định fields)
-          const [oldVariant] = await db
-            .select({
-              id: productVariants.id,
-              stock: productVariants.stock,
-              price: productVariants.price,
-              colorId: productVariants.colorId,
-              sizeId: productVariants.sizeId,
-            })
-            .from(productVariants)
-            .where(eq(productVariants.id, v.id))
-            .limit(1);
-
-          if (!oldVariant) throw new Error("Variant not found");
-
-          console.log("oldVariant:", oldVariant);
-
-          const finalColorId = colorId ?? oldVariant.colorId;
-          const finalSizeId = sizeId ?? oldVariant.sizeId;
-
-          // Lấy thông tin màu (cả name và image)
-          let finalColorName = null;
-          let newImagePath = null;
-          let newImageUrl = null;
-
-          if (finalColorId) {
-            const [colorRow] = await db
-              .select({
-                name: colors.name,
-                imagePath: colors.imagePath,
-                imageUrl: colors.imageUrl,
+              .values({
+                productId,
+                name: colorNameUpper,
+                imagePath,
+                imageUrl,
               })
-              .from(colors)
-              .where(eq(colors.id, finalColorId))
-              .limit(1);
+              .returning({ id: colors.id });
 
-            finalColorName = colorRow?.name || "VARIANT";
-            newImagePath = colorRow?.imagePath;
-            newImageUrl = colorRow?.imageUrl;
-
-            // Nếu có file upload mới → update bảng colors
-            if (v.file && v.file.buffer) {
-              const categoryPath = await buildCategoryPath(product.categoryId);
-              const uploaded = await uploadToBucket(
-                v.file.buffer,
-                `${toSlug(finalColorName)}.png`,
-                categoryPath,
-                productId,
-                true
-              );
-
-              newImagePath = uploaded.path;
-              newImageUrl = uploaded.url;
-
-              // Cập nhật bảng colors
-              await db
-                .update(colors)
-                .set({
-                  imagePath: newImagePath,
-                  imageUrl: newImageUrl,
-                })
-                .where(eq(colors.id, finalColorId));
-            }
+            savedColorId = newColor.id;
           }
 
-          // Lấy tên size
-          let finalSizeName = null;
-          if (finalSizeId) {
-            const [sizeRow] = await db
-              .select({ name: sizes.name })
-              .from(sizes)
-              .where(eq(sizes.id, finalSizeId))
-              .limit(1);
+          // ============================================
+          // VARIANTS / SIZES (Upsert Logic)
+          // ============================================
+          if (Array.isArray(c.sizes)) {
+            for (const s of c.sizes) {
+              const sizeNameUpper = s.sizeName?.trim().toUpperCase();
 
-            finalSizeName = sizeRow?.name;
-          }
+              // Upsert Size Master
+              let [sizeMaster] = await tx
+                .select()
+                .from(sizes)
+                .where(
+                  and(
+                    eq(sizes.productId, productId),
+                    eq(sizes.name, sizeNameUpper)
+                  )
+                )
+                .limit(1);
 
-          await db
-            .update(productVariants)
-            .set({
-              stock: v.stock ?? oldVariant.stock,
-              price: v.price ?? oldVariant.price,
-              colorId: finalColorId,
-              sizeId: finalSizeId,
-              stockKeepingUnit: generateSku(finalColorName, finalSizeName),
-            })
-            .where(eq(productVariants.id, v.id));
-        }
+              if (!sizeMaster) {
+                [sizeMaster] = await tx
+                  .insert(sizes)
+                  .values({ productId, name: sizeNameUpper })
+                  .returning();
+              }
 
-        // ================== INSERT / UPSERT ==================
-        else {
-          // Để insert/upsert, bắt buộc phải có colorName + sizeName
-          if (!colorNameUpper || !sizeNameUpper) {
-            throw new Error(
-              "Khi tạo variant mới bắt buộc phải có cả colorName và sizeName"
-            );
-          }
+              const sku = generateSku(c.colorName, s.sizeName);
+              const variantId = s.id;
 
-          // Kiểm tra tồn tại (productId + colorId + sizeId)
-          const [existingVariant] = await db
-            .select({
-              id: productVariants.id,
-              stock: productVariants.stock,
-              price: productVariants.price,
-              colorId: productVariants.colorId,
-              sizeId: productVariants.sizeId,
-            })
-            .from(productVariants)
-            .where(
-              and(
-                eq(productVariants.productId, productId),
-                eq(productVariants.colorId, colorId),
-                eq(productVariants.sizeId, sizeId)
-              )
-            )
-            .limit(1);
-
-          if (existingVariant) {
-            // Nếu client không truyền thì dùng lại colorId/sizeId cũ
-            const finalColorId = colorId ?? existingVariant.colorId;
-            const finalSizeId = sizeId ?? existingVariant.sizeId;
-
-            // Lấy tên từ DB để sinh SKU
-            const [colorRow] = await db
-              .select({ name: colors.name })
-              .from(colors)
-              .where(eq(colors.id, finalColorId))
-              .limit(1);
-
-            const [sizeRow] = await db
-              .select({ name: sizes.name })
-              .from(sizes)
-              .where(eq(sizes.id, finalSizeId))
-              .limit(1);
-
-            const finalColorName = colorRow?.name;
-            const finalSizeName = sizeRow?.name;
-
-            // Nếu có file upload → update ảnh trong bảng colors
-            if (v.file && v.file.buffer) {
-              const categoryPath = await buildCategoryPath(product.categoryId);
-              const uploaded = await uploadToBucket(
-                v.file.buffer,
-                `${finalColorName}.png`,
-                categoryPath,
-                productId,
-                true
-              );
-
-              await db
-                .update(colors)
-                .set({
-                  imagePath: uploaded.path,
-                  imageUrl: uploaded.url,
-                })
-                .where(eq(colors.id, finalColorId));
+              if (variantId) {
+                await tx
+                  .update(productVariants)
+                  .set({
+                    price: Number(s.price),
+                    stock: Number(s.stock),
+                    sizeId: sizeMaster.id,
+                    colorId: savedColorId,
+                    stockKeepingUnit: sku,
+                  })
+                  .where(eq(productVariants.id, variantId));
+              } else {
+                await tx.insert(productVariants).values({
+                  productId,
+                  colorId: savedColorId,
+                  sizeId: sizeMaster.id,
+                  price: Number(s.price) || Number(data.price_default),
+                  stock: Number(s.stock),
+                  stockKeepingUnit: sku,
+                });
+              }
             }
-
-            await db
-              .update(productVariants)
-              .set({
-                stock: v.stock ?? existingVariant.stock,
-                price: v.price ?? existingVariant.price,
-                stockKeepingUnit: generateSku(finalColorName, finalSizeName),
-              })
-              .where(eq(productVariants.id, existingVariant.id));
-          } else {
-            // Nếu có file upload → update ảnh trong bảng colors
-            if (v.file && v.file.buffer) {
-              const categoryPath = await buildCategoryPath(product.categoryId);
-              const uploaded = await uploadToBucket(
-                v.file.buffer,
-                `${toSlug(colorNameUpper)}.png`,
-                categoryPath,
-                productId,
-                true
-              );
-
-              await db
-                .update(colors)
-                .set({
-                  imagePath: uploaded.path,
-                  imageUrl: uploaded.url,
-                })
-                .where(eq(colors.id, colorId));
-            }
-            await db.insert(productVariants).values({
-              productId,
-              colorId,
-              sizeId,
-              stock: v.stock ?? 0,
-              price: v.price ?? product.price_default,
-              stockKeepingUnit: generateSku(colorNameUpper, sizeNameUpper),
-            });
           }
         }
       }
 
-      // 4) Recalculate tổng stock
-      const [{ totalStock }] = await db
-        .select({ totalStock: sql`SUM(${productVariants.stock})` })
+      // 7) Tính lại tổng stock
+      const [stockResult] = await tx
+        .select({ total: sql`sum(${productVariants.stock})` })
         .from(productVariants)
         .where(eq(productVariants.productId, productId));
 
-      await db
+      const realTotalStock = Number(stockResult?.total || 0);
+
+      await tx
         .update(products)
-        .set({ stock: totalStock ?? 0 })
+        .set({ stock: realTotalStock })
         .where(eq(products.id, productId));
-    }
 
-    // 5) Coupon
-    if (data.couponId) {
-      const exists = await db
-        .select({ productId: couponProducts.productId })
-        .from(couponProducts)
-        .where(
-          and(
-            eq(couponProducts.productId, product.id),
-            eq(couponProducts.couponId, data.couponId)
-          )
-        );
-
-      if (exists.length === 0) {
-        await db.insert(couponProducts).values({
-          couponId: data.couponId,
-          productId: product.id,
-        });
-      }
-    }
-
-    // 6) Trả về kết quả (chỉ định fields)
-    const [updatedProduct] = await db
-      .select({
-        id: products.id,
-        categoryId: products.categoryId,
-        name: products.name,
-        description: products.description,
-        price_default: products.price_default,
-        stock: products.stock,
-        thumbnailPath: products.thumbnailPath,
-        thumbnailUrl: products.thumbnailUrl,
-        createdAt: products.createdAt,
-        updatedAt: products.updatedAt,
-      })
-      .from(products)
-      .where(eq(products.id, productId))
-      .limit(1);
-
-    const updateCoupons = await db
-      .select()
-      .from(couponProducts)
-      .where(eq(couponProducts.productId, productId));
-
-    const variants = await db
-      .select({
-        id: productVariants.id,
-        sku: productVariants.stockKeepingUnit,
-        stock: productVariants.stock,
-        price: productVariants.price,
-        color: colors.name,
-        size: sizes.name,
-        imageUrl: colors.imageUrl,
-        imagePath: colors.imagePath,
-      })
-      .from(productVariants)
-      .leftJoin(colors, eq(productVariants.colorId, colors.id))
-      .leftJoin(sizes, eq(productVariants.sizeId, sizes.id))
-      .where(eq(productVariants.productId, productId));
-
-    return { updatedProduct, variants, updateCoupons };
+      return { success: true, productId };
+    });
   } catch (error) {
-    console.error("Error in updateProductService:", error);
+    console.error("Error updating product:", error);
     throw error;
   }
 };

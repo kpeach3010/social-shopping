@@ -200,12 +200,6 @@ const submitCategory = async () => {
         class="sticky bottom-0 bg-white border-t px-6 py-4 flex justify-end gap-3"
       >
         <button
-          @click="emit('close')"
-          class="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50 transition"
-        >
-          Hủy bỏ
-        </button>
-        <button
           @click="submitCategory"
           :disabled="loading"
           class="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"

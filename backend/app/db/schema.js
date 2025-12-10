@@ -211,7 +211,6 @@ export const cartItems = pgTable(
 
 export const orders = pgTable("orders", {
   id: uuid("id").defaultRandom().primaryKey(),
-  // code: varchar("code", { length: 40 }).notNull().unique(),
 
   userId: uuid("user_id")
     .notNull()
@@ -221,7 +220,6 @@ export const orders = pgTable("orders", {
   }),
   status: orderStatusEnum("status").notNull().default("pending"),
   paymentMethod: varchar("payment_method", { length: 10 }).default("COD"),
-  // paymentStatus: paymentStatusEnum("payment_status").default("unpaid"),
 
   subtotal: decimal("subtotal", { precision: 12, scale: 2 }).notNull(), // Tổng tiền trước giảm giá
   discountTotal: decimal("discount_total", { precision: 12, scale: 2 }).default(
@@ -276,7 +274,6 @@ export const groupOrders = pgTable("group_orders", {
   currentMember: integer("current_member").notNull().default(1), // so luong thanh vien hien tai
   status: groupOrderStatusEnum("status").notNull().default("pending"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-  expiresAt: timestamp("expires_at", { withTimezone: true }),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
 
@@ -410,7 +407,7 @@ export const messages = pgTable("messages", {
     .notNull()
     .references(() => users.id),
   content: text("content").notNull(),
-  type: messageTypesEnum("type").notNull().default("text"), // text, image, file, sticker
+  type: messageTypesEnum("type").notNull().default("text"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

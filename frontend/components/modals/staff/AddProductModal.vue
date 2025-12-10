@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onUnmounted } from "vue";
-import { ImageUp, X } from "lucide-vue-next";
+import { ImageUp, X, Loader2 } from "lucide-vue-next";
 import CategoryDropdown from "@/components/category/CategoryDropdown.vue";
 
 const emit = defineEmits(["close"]);
@@ -8,6 +8,8 @@ const categories = ref([]);
 const selectedCategory = ref(null);
 const config = useRuntimeConfig();
 const auth = useAuthStore();
+// Tạo biến state loading
+const isLoading = ref(false);
 
 // Thông tin sản phẩm
 const product = ref({
@@ -97,7 +99,9 @@ onUnmounted(() => {
 
 // Submit API
 const submitProduct = async () => {
+  if (isLoading.value) return;
   try {
+    isLoading.value = true;
     const formData = new FormData();
     console.log("Thumbnail debug:", product.value.thumbnail);
 
@@ -119,6 +123,7 @@ const submitProduct = async () => {
       });
     });
     console.log("Thumbnail to upload:", product.value.thumbnail);
+
     console.log("FormData entries:");
     for (const [key, val] of formData.entries()) {
       console.log(key, val);
@@ -148,6 +153,8 @@ const submitProduct = async () => {
       console.error("Lỗi thêm sản phẩm:", err);
       alert("Có lỗi xảy ra, vui lòng thử lại");
     }
+  } finally {
+    isLoading.value = false;
   }
 };
 
@@ -368,9 +375,12 @@ onMounted(fetchCategories);
       >
         <button
           @click="submitProduct"
-          class="px-4 py-2 bg-black text-white rounded hover:bg-gray-800"
+          :disabled="isLoading"
+          class="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2"
         >
-          Lưu sản phẩm
+          <Loader2 v-if="isLoading" class="w-4 h-4 animate-spin" />
+
+          <span>{{ isLoading ? "Đang xử lý..." : "Lưu sản phẩm" }}</span>
         </button>
       </div>
     </div>

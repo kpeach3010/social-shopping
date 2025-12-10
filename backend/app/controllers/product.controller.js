@@ -125,41 +125,43 @@ export const deleteVariantController = async (req, res) => {
 export const updateProductController = async (req, res) => {
   try {
     const productId = req.params.id;
-    const data = req.body || {};
+    const body = req.body || {};
 
-    // ép kiểu string -> object
-    if (typeof data.variants == "string") {
-      data.variants = JSON.parse(data.variants);
+    // Gán giá trị mặc định nếu undefined
+    body.colors = body.colors ?? "[]";
+
+    // Parse JSON
+    try {
+      if (typeof body.colors === "string")
+        body.colors = JSON.parse(body.colors);
+    } catch {}
+
+    // Lấy thumbnail mới nếu có
+    const thumbFile = req.files.find((f) => f.fieldname === "thumbnail");
+    if (thumbFile) {
+      body.thumbnailFile = thumbFile; // có .buffer
     }
 
-    console.log("req.body:", req.body);
-    console.log("req.files:", req.files);
-
-    // Kiem tra body co file va co file thumbnail
-    if (req.files && req.files.length > 0) {
-      const thumbFile = req.files.find((f) => f.fieldname === "thumbnail");
-      if (thumbFile) {
-        data.thumbnail = thumbFile;
-      }
-
-      data.variants = data.variants?.map((v, idx) => {
-        const variantFile = req.files.find(
-          (f) => f.fieldname === `variants[${idx}][file]`
+    // Gán file cho từng màu
+    if (Array.isArray(body.colors)) {
+      body.colors = body.colors.map((c, idx) => {
+        const colorFile = req.files.find(
+          (f) => f.fieldname === `colors[${idx}][file]`
         );
-        return {
-          ...v,
-          file: variantFile || null,
-        };
+        if (colorFile) c.file = colorFile;
+        return c;
       });
     }
 
-    const updated = await updateProductService(productId, data);
-    res.status(200).json({
+    // Gọi service — truyền đúng input như create
+    const result = await updateProductService(productId, body);
+
+    res.json({
       message: "Product updated successfully",
-      data: updated,
+      data: result,
     });
   } catch (error) {
-    console.error("Error updating product:", error);
+    console.error("Error in updateProductController:", error);
     res.status(400).json({ error: error.message });
   }
 };

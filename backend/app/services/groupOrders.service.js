@@ -20,23 +20,25 @@ import { and, eq, inArray, lt, gte, lte, isNull, sql, asc } from "drizzle-orm";
 
 // lay thong tin group order theo conversationId
 export const getGroupOrderDetailService = async (userId, conversationId) => {
-  // lay conversation
+  // 1. Lấy thông tin conversation
   const [conv] = await db
     .select({
       id: conversations.id,
-      groupOrderId: conversations.groupOrderId,
       name: conversations.name,
       type: conversations.type,
+      groupOrderId: conversations.groupOrderId,
     })
     .from(conversations)
     .where(eq(conversations.id, conversationId))
     .limit(1);
 
-  if (!conv || !conv.groupOrderId) {
-    throw new Error("Conversation or Group Order not found");
+  if (!conv) throw new Error("Conversation not found");
+
+  if (!conv.groupOrderId) {
+    throw new Error("This conversation is not a group order");
   }
 
-  // lay invite link cua group order
+  // 2. Lấy invite link theo conversationId (schema đúng)
   const [invite] = await db
     .select({
       token: inviteLinks.token,
@@ -46,8 +48,7 @@ export const getGroupOrderDetailService = async (userId, conversationId) => {
     .where(eq(inviteLinks.conversationId, conversationId))
     .limit(1);
 
-  const token = invite ? invite.token : null;
-  // lay thong tin group order
+  // 3. Lấy group order
   const [groupOrder] = await db
     .select({
       id: groupOrders.id,
@@ -56,85 +57,114 @@ export const getGroupOrderDetailService = async (userId, conversationId) => {
       currentMember: groupOrders.currentMember,
       productId: groupOrders.productId,
       couponId: groupOrders.couponId,
-      createdAt: groupOrders.createdAt,
-      expiresAt: groupOrders.expiresAt,
       creatorId: groupOrders.creatorId,
+      createdAt: groupOrders.createdAt,
+      updatedAt: groupOrders.updatedAt,
     })
     .from(groupOrders)
-    .where(eq(groupOrders.id, conv.groupOrderId));
+    .where(eq(groupOrders.id, conv.groupOrderId))
+    .limit(1);
 
-  if (!groupOrder) {
-    throw new Error("Group Order not found");
-  }
+  if (!groupOrder) throw new Error("Group order not found");
 
-  // console.log("conv:", conv);
-  // console.log("groupOrderId:", conv.groupOrderId);
-
-  // Lay san pham va coupon
+  // 4. Lấy product
   const [product] = await db
     .select({
       id: products.id,
       name: products.name,
-      thumbnailUrrl: products.thumbnailUrl,
+      description: products.description,
       price_default: products.price_default,
       stock: products.stock,
+      thumbnailUrl: products.thumbnailUrl,
     })
     .from(products)
     .where(eq(products.id, groupOrder.productId));
 
+  // 5. Lấy coupon
   const [coupon] = await db
     .select({
       id: coupons.id,
       code: coupons.code,
-      type: coupons.type,
       value: coupons.value,
+      type: coupons.type,
+      kind: coupons.kind,
       endsAt: coupons.endsAt,
       maxMember: coupons.maxMember,
     })
     .from(coupons)
     .where(eq(coupons.id, groupOrder.couponId));
 
-  // Lay danh sach thanh vien trong group order
+  // 6. Lấy danh sách thành viên trong conversation
   const rawMembers = await db
     .select({
       userId: users.id,
       fullName: users.fullName,
       email: users.email,
+      joinedAt: conversationMembers.joinedAt,
       hasChosen: groupOrderMembers.hasChosen,
+      memberId: groupOrderMembers.id,
+      variantId: groupOrderMemberItems.variantId,
+      quantity: groupOrderMemberItems.quantity,
     })
     .from(conversationMembers)
     .innerJoin(users, eq(conversationMembers.userId, users.id))
     .leftJoin(
       groupOrderMembers,
       and(
-        eq(groupOrderMembers.userId, conversationMembers.userId),
-        eq(groupOrderMembers.groupOrderId, groupOrder.id)
+        eq(groupOrderMembers.groupOrderId, groupOrder.id),
+        eq(groupOrderMembers.userId, conversationMembers.userId)
       )
+    )
+    .leftJoin(
+      groupOrderMemberItems,
+      eq(groupOrderMemberItems.memberId, groupOrderMembers.id)
     )
     .where(eq(conversationMembers.conversationId, conversationId));
 
-  // Gộp theo userId để không bị trùng
-  const members = Array.from(
-    new Map(rawMembers.map((m) => [m.userId, m])).values()
-  );
+  const memberMap = new Map();
+
+  for (const row of rawMembers) {
+    if (!memberMap.has(row.userId)) {
+      memberMap.set(row.userId, {
+        userId: row.userId,
+        fullName: row.fullName,
+        email: row.email,
+        joinedAt: row.joinedAt,
+        hasChosen: !!row.hasChosen,
+        items: [],
+      });
+    }
+
+    if (row.variantId) {
+      memberMap.get(row.userId).items.push({
+        variantId: row.variantId,
+        quantity: row.quantity,
+      });
+    }
+  }
+
+  const members = [...memberMap.values()];
 
   const normalizedMembers = members.map((m) => ({
     ...m,
     hasChosen: !!m.hasChosen,
-    quantity: m.quantity ?? 0,
   }));
 
-  // Kiểm tra người hiện tại có trong nhóm không
+  // 7. User có phải thành viên?
   const isMember = normalizedMembers.some((m) => m.userId === userId);
 
   return {
-    conversation: { id: conversationId, name: conv.name, type: conv.type },
+    conversation: {
+      id: conv.id,
+      name: conv.name,
+      type: conv.type,
+    },
     groupOrder,
     product,
     coupon,
     members: normalizedMembers,
     isMember,
-    inviteToken: token,
+    inviteToken: invite?.token ?? null,
   };
 };
 

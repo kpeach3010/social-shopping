@@ -10,11 +10,18 @@ import {
 
 export const createCouponController = async (req, res) => {
   try {
-    const data = req.body;
-    const newCoupon = await createCouponService(data);
-    res.status(201).json(newCoupon);
+    const result = await createCouponService(req.body);
+    return res.status(201).json({
+      message: "Tạo mã giảm giá thành công!",
+      data: result,
+    });
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error("Create Coupon Error:", error);
+
+    // Trả về đúng message lỗi service ném ra (VD: Mã đã tồn tại)
+    return res.status(400).json({
+      message: error.message || "Không thể tạo mã giảm giá",
+    });
   }
 };
 

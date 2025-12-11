@@ -76,8 +76,8 @@
 
           <NuxtLink
             to="/cart"
-            v-if="auth.user?.role !== 'staff'"
-            class="relative flex items-center text-gray-700 hover:text-black focus:outline-none focus:ring-0 active:outline-none"
+            v-if="auth.user?.role !== 'staff' || auth.user?.role !== 'admin'"
+            class="relative flex items-center text-gray-700 hover:text-black focus:outline-none focus-visible:outline-none focus:ring-0 active:outline-none"
             tabindex="-1"
           >
             <div class="relative inline-block">
@@ -307,10 +307,17 @@ onMounted(async () => {
   if (process.client)
     window.addEventListener("auth-changed", __authChangedHandler);
   // listen for cart-updated event dispatched by interceptor after refresh
-  const __cartUpdatedHandler = (e) => {
+  const __cartUpdatedHandler = async (e) => {
     try {
       const c = e?.detail?.count;
-      if (typeof c === "number") cartCount.value = c;
+
+      // Nếu sự kiện có gửi kèm số lượng thì dùng luôn
+      if (typeof c === "number") {
+        cartCount.value = c;
+      } else {
+        // Nếu không có số lượng (sự kiện trống), thì gọi API load lại
+        await loadCartCount();
+      }
     } catch (err) {
       console.warn("cart-updated handler error", err);
     }

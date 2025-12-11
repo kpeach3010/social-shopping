@@ -152,6 +152,18 @@ onMounted(async () => {
       !chatBoxVisible.value || activeConversationId.value !== convId;
 
     if (hidden) {
+      // 1. Mở khung chat ngay lập tức với thông tin tạm (Skeleton)
+      chatBoxVisible.value = true;
+      activeConversationId.value = convId;
+
+      // Setup data tạm để user không thấy trống trơn
+      if (!activeConversation.value || activeConversation.value.id !== convId) {
+        activeConversation.value = {
+          id: convId,
+          name: "Đang tải...", // Tên tạm
+          type: "direct", // Giả định
+        };
+      }
       try {
         const res = await $fetch(`/conversations/${convId}`, {
           baseURL: config.public.apiBase,

@@ -4,6 +4,7 @@ export const useAuthStore = defineStore("auth", {
     user: null,
     accessToken: null,
     refreshToken: null,
+    isTokenRefreshing: false,
   }),
 
   getters: {

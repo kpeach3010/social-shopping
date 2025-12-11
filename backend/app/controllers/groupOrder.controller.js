@@ -155,9 +155,7 @@ export const leaveGroupController = async (req, res) => {
     const userId = req.user?.id;
     const { groupOrderId } = req.params;
 
-    if (!userId) {
-      return res.status(401).json({ error: "Chưa đăng nhập" });
-    }
+    if (!userId) return res.status(401).json({ error: "Chưa đăng nhập" });
 
     // Lấy trạng thái nhóm
     const [group] = await db
@@ -166,45 +164,59 @@ export const leaveGroupController = async (req, res) => {
       .where(eq(groupOrders.id, groupOrderId))
       .limit(1);
 
-    if (!group) {
-      return res.status(404).json({ error: "Nhóm không tồn tại" });
-    }
+    if (!group) return res.status(404).json({ error: "Nhóm không tồn tại" });
 
     let result;
 
-    // 1. Rời nhóm khi đang pending
     if (group.status === "pending") {
       result = await leaveGroupOrderService({ userId, groupOrderId });
-    }
-    // 2. Rời nhóm khi nhóm đã hoàn tất (completed)
-    else if (group.status === "completed") {
+    } else if (group.status === "completed") {
       result = await leaveConversationAfterDoneService({
         userId,
         groupOrderId,
       });
-    }
-    // 3. Các trạng thái khác thì không cho rời
-    else {
-      return res.status(400).json({
-        error: "Không thể rời nhóm ở trạng thái hiện tại.",
-      });
+    } else {
+      return res
+        .status(400)
+        .json({ error: "Không thể rời nhóm ở trạng thái hiện tại." });
     }
 
-    const { conversationId, message, deleted } = result;
+    // --- [SỬA 1]: Đổi 'deleted' thành 'isDisbanded' cho đúng với Service ---
+    const { conversationId, message, isDisbanded } = result;
 
-    // Nếu service trả về không có conversationId → lỗi
     if (!conversationId) {
-      return res.status(400).json({
-        error: "Không tìm thấy conversation của nhóm.",
-      });
+      return res
+        .status(400)
+        .json({ error: "Không tìm thấy conversation của nhóm." });
     }
+
+    // --- [SỬA 2 - QUAN TRỌNG]: Kick TẤT CẢ socket của user ra khỏi phòng ---
+    try {
+      const sockets = await global.io.in(conversationId).fetchSockets();
+
+      // Duyệt qua tất cả socket trong phòng này
+      for (const socket of sockets) {
+        // Nếu socket này thuộc về userId đang rời
+        if (
+          String(socket.data?.userId || socket.handshake?.query?.userId) ===
+          String(userId)
+        ) {
+          socket.leave(conversationId); // Kick ngay
+          // console.log(`Đã kick socket ${socket.id} của user ${userId} ra khỏi phòng`);
+        }
+      }
+    } catch (e) {
+      console.error("Lỗi khi kick socket:", e);
+    }
+    // -----------------------------------------------------------------------
 
     // 4. Tạo system message
     const sysMsg = await createSystemMessage(conversationId, message);
 
-    // 5. Emit realtime message + user-left
+    // 5. Emit realtime
     if (global.io) {
-      // Emit system message cho UI chat
+      // Vì đã kick user ra rồi, nên dòng này chỉ người CÒN LẠI mới nhận được
+      // -> Chatbox của người rời sẽ KHÔNG tự bật lên nữa
       global.io.to(conversationId).emit("message", {
         id: sysMsg.id,
         type: "system",
@@ -214,19 +226,20 @@ export const leaveGroupController = async (req, res) => {
         createdAt: sysMsg.createdAt,
       });
 
-      // Emit event riêng
+      // Emit event user-left cho người còn lại reload danh sách
       global.io.to(conversationId).emit("user-left", {
         conversationId,
         userId,
         message,
       });
 
+      // Bắt buộc đóng chat phía client (Lớp bảo vệ thứ 2)
       global.io.to(userId).emit("force-close-chat", {
         conversationId,
       });
 
-      // Nếu nhóm bị xoá (không còn thành viên)
-      if (deleted) {
+      // Nếu nhóm bị xoá
+      if (isDisbanded) {
         global.io.to(conversationId).emit("group-deleted", {
           conversationId,
           message: result.message,

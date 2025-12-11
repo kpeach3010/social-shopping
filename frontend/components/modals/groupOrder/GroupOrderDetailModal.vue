@@ -233,7 +233,7 @@ const props = defineProps({
   inviteToken: String,
 });
 
-const emit = defineEmits(["close"]);
+const emit = defineEmits(["close", "leave-success"]);
 const auth = useAuthStore();
 const { $socket } = useNuxtApp();
 
@@ -314,6 +314,9 @@ async function leaveGroup() {
 
     alert("Đã rời nhóm thành công.");
     emit("close");
+
+    // Báo đã rời nhóm thành công
+    emit("leave-success");
   } catch (err) {
     console.error("Lỗi rời nhóm:", err);
     alert(err?.data?.error || "Không thể rời nhóm.");
@@ -344,6 +347,11 @@ onMounted(() => {
       });
     }
   });
+});
+
+onBeforeUnmount(() => {
+  // Tắt lắng nghe khi Modal bị đóng/hủy
+  $socket.off("member-left");
 });
 </script>
 

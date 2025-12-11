@@ -91,7 +91,7 @@
             <strong>{{ inviteDetail?.groupOrder?.targetMember }}</strong>
           </p>
           <p>
-            Người tạo nhóm:
+            Trưởng nhóm:
             <strong>{{ inviteDetail?.creator?.fullName }}</strong>
           </p>
           <p>Email: {{ inviteDetail?.creator?.email }}</p>
@@ -222,10 +222,10 @@ onMounted(async () => {
     if (auth.user && res?.creator?.id === auth.user.id) {
       isCreator.value = true;
       if (res.conversation) {
-        info.value = "Bạn là người tạo nhóm. Có thể vào chat nhóm.";
+        info.value = "Bạn là Trưởng nhóm. Có thể vào chat nhóm.";
       } else {
         info.value =
-          "Bạn là người tạo link. Chờ người khác tham gia để nhóm được kích hoạt.";
+          "Bạn là Trưởng nhóm. Chờ người khác tham gia để nhóm được kích hoạt.";
       }
       return; // Dừng lại, không auto join
     }

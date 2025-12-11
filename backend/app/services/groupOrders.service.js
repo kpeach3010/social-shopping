@@ -276,92 +276,130 @@ export const groupOrderCheckoutService = async (creatorId, groupOrderId) => {
 
 // Roi nhom khi nhom o trang thai pending
 export const leaveGroupOrderService = async ({ userId, groupOrderId }) => {
-  // Lấy thông tin group
-  const [groupOrder] = await db
-    .select()
-    .from(groupOrders)
-    .where(eq(groupOrders.id, groupOrderId))
-    .limit(1);
-
-  if (!groupOrder) throw new Error("Nhóm không tồn tại");
-  if (groupOrder.status !== "pending") {
-    throw new Error("Service này chỉ dành cho trạng thái pending");
-  }
-
-  const [covRow] = await db
-    .select({
-      conversationId: conversations.id,
-    })
-    .from(conversations)
-    .where(eq(conversations.groupOrderId, groupOrderId))
-    .limit(1);
-
-  const conversationId = covRow?.conversationId;
-  if (!conversationId) throw new Error("Không tìm thấy conversation của nhóm");
-
-  // Lấy tên người rời
-  const [leaver] = await db
-    .select({ fullName: users.fullName })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-
-  // Xóa thành viên khỏi nhóm và conversation
-  await db
-    .delete(groupOrderMembers)
-    .where(
-      and(
-        eq(groupOrderMembers.groupOrderId, groupOrderId),
-        eq(groupOrderMembers.userId, userId)
-      )
-    );
-
-  await db
-    .delete(conversationMembers)
-    .where(
-      and(
-        eq(conversationMembers.conversationId, conversationId),
-        eq(conversationMembers.userId, userId)
-      )
-    );
-
-  let newLeader = null;
-  let message = `${leaver?.fullName || "Một thành viên"} đã rời nhóm.`;
-
-  // Nếu là trưởng nhóm -> tìm người kế nhiệm
-  if (groupOrder.creatorId === userId) {
-    const [candidate] = await db
-      .select({
-        userId: groupOrderMembers.userId,
-        fullName: users.fullName,
-      })
-      .from(groupOrderMembers)
-      .innerJoin(users, eq(users.id, groupOrderMembers.userId))
-      .where(eq(groupOrderMembers.groupOrderId, groupOrderId))
-      .orderBy(asc(groupOrderMembers.joinedAt))
+  return await db.transaction(async (tx) => {
+    // 1. Check Group
+    const [groupOrder] = await tx
+      .select()
+      .from(groupOrders)
+      .where(eq(groupOrders.id, groupOrderId))
       .limit(1);
 
-    if (candidate) {
-      await db
-        .update(groupOrders)
-        .set({ creatorId: candidate.userId })
-        .where(eq(groupOrders.id, groupOrderId));
-
-      newLeader = candidate;
-      message = `${leaver?.fullName || "Trưởng nhóm"} đã rời nhóm. Quyền trưởng nhóm được chuyển cho ${candidate.fullName}.`;
+    if (!groupOrder) throw new Error("Nhóm không tồn tại");
+    if (groupOrder.status !== "pending") {
+      throw new Error("Chỉ có thể rời nhóm khi trạng thái là pending");
     }
-    const [{ count }] = await db
-      .select({ count: sql`COUNT(*)`.mapWith(Number) })
-      .from(conversationMembers)
-      .where(eq(conversationMembers.conversationId, conversationId));
 
-    if (count === 0) {
-      // Xoá conversation
-      await db
-        .delete(conversations)
-        .where(eq(conversations.id, conversationId));
-      // Xoá groupOrder
-      await db.delete(groupOrders).where(eq(groupOrders.id, groupOrderId));
+    // 2. Check Conversation
+    const [covRow] = await tx
+      .select({
+        conversationId: conversations.id,
+      })
+      .from(conversations)
+      .where(eq(conversations.groupOrderId, groupOrderId))
+      .limit(1);
+
+    const conversationId = covRow?.conversationId;
+    if (!conversationId) throw new Error("Không tìm thấy conversation");
+
+    // 3. Lấy tên người rời
+    const [leaver] = await tx
+      .select({ fullName: users.fullName })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    // 4. Xóa thành viên khỏi các bảng
+    await tx
+      .delete(groupOrderMembers)
+      .where(
+        and(
+          eq(groupOrderMembers.groupOrderId, groupOrderId),
+          eq(groupOrderMembers.userId, userId)
+        )
+      );
+
+    await tx
+      .delete(conversationMembers)
+      .where(
+        and(
+          eq(conversationMembers.conversationId, conversationId),
+          eq(conversationMembers.userId, userId)
+        )
+      );
+
+    // 5. Cập nhật số lượng thành viên (Fix 1: update count)
+    await tx
+      .update(groupOrders)
+      .set({
+        currentMember: sql`${groupOrders.currentMember} - 1`,
+      })
+      .where(eq(groupOrders.id, groupOrderId));
+
+    let newLeader = null;
+    let message = `${leaver?.fullName || "Một thành viên"} đã rời nhóm.`;
+
+    // 6. Xử lý logic chuyển quyền nếu là Creator
+    if (groupOrder.creatorId === userId) {
+      const [candidate] = await tx
+        .select({
+          userId: groupOrderMembers.userId,
+          fullName: users.fullName,
+        })
+        .from(groupOrderMembers)
+        .innerJoin(users, eq(users.id, groupOrderMembers.userId))
+        .where(eq(groupOrderMembers.groupOrderId, groupOrderId))
+        .orderBy(asc(groupOrderMembers.joinedAt)) // Người vào sớm nhất sau Creator
+        .limit(1);
+
+      if (candidate) {
+        // --- [FIX 2]: Update Group Order Creator ---
+        await tx
+          .update(groupOrders)
+          .set({ creatorId: candidate.userId })
+          .where(eq(groupOrders.id, groupOrderId));
+
+        // --- [FIX 3]: Update Conversation Owner ---
+        await tx
+          .update(conversations)
+          .set({ ownerId: candidate.userId })
+          .where(eq(conversations.id, conversationId));
+
+        // --- [FIX 4 - QUAN TRỌNG VỚI FE]: Update Invite Link Creator ---
+        // Để FE nhận diện đúng "isCreator" cho người mới
+        await tx
+          .update(inviteLinks)
+          .set({ creatorId: candidate.userId })
+          .where(eq(inviteLinks.conversationId, conversationId));
+
+        newLeader = candidate;
+        message = `${leaver?.fullName || "Trưởng nhóm"} đã rời nhóm. Quyền trưởng nhóm được chuyển cho ${candidate.fullName}.`;
+      }
+
+      // Check giải tán nhóm nếu không còn ai
+      const [{ count }] = await tx
+        .select({ count: sql`COUNT(*)`.mapWith(Number) })
+        .from(conversationMembers)
+        .where(eq(conversationMembers.conversationId, conversationId));
+
+      if (count === 0) {
+        // Xóa conversation (inviteLinks sẽ tự xóa theo nếu cascade conversationId,
+        // nhưng schema inviteLinks của bạn đang reference conversationId unique, cần check cascade ở schema)
+        // Schema inviteLinks: .references(() => conversations.id) -> Mặc định NO ACTION nếu ko set onDelete
+        // Nên xóa inviteLinks trước cho an toàn nếu schema chưa set cascade
+        await tx
+          .delete(inviteLinks)
+          .where(eq(inviteLinks.conversationId, conversationId));
+
+        await tx
+          .delete(conversations)
+          .where(eq(conversations.id, conversationId));
+        await tx.delete(groupOrders).where(eq(groupOrders.id, groupOrderId));
+
+        return {
+          message: "Nhóm đã giải tán.",
+          isDisbanded: true,
+        };
+      }
     }
 
     return {
@@ -370,7 +408,7 @@ export const leaveGroupOrderService = async ({ userId, groupOrderId }) => {
       conversationId,
       leaverName: leaver?.fullName || "Một thành viên",
     };
-  }
+  });
 };
 
 // cho phép rời nhóm khi nhóm đã hoàn thành

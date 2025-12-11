@@ -389,6 +389,11 @@ const addToCart = async () => {
         quantity: quantity.value,
       },
     });
+
+    // Bắn sự kiện để Header tự reload lại số lượng
+    if (process.client) {
+      window.dispatchEvent(new CustomEvent("cart-updated"));
+    }
     alert("Đã thêm vào giỏ hàng");
   } catch (e) {
     console.error("Lỗi thêm giỏ hàng:", e);

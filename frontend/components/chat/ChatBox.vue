@@ -306,6 +306,7 @@
       :members="groupDetail?.members"
       :inviteToken="groupDetail?.inviteToken"
       @close="showGroupDetail = false"
+      @leave-success="$emit('close')"
     />
     <GroupOrderChooseModal
       v-if="showChooseModal && groupDetail && groupDetail.product"
@@ -600,7 +601,20 @@ async function loadMessagesForConversation(convId) {
 watch(
   () => props.conversationId,
   async (newId) => {
+    // Đóng ngay modal chi tiết nếu đang mở
+    showGroupDetail.value = false;
+
+    // Xóa dữ liệu nhóm cũ ngay lập tức để tránh hiển thị nhầm
+    groupDetail.value = null;
+
+    // Reset các trạng thái khác
+    messages.value = [];
+    showChooseModal.value = false;
+
+    readStatus.value = {};
+
     if (!newId) return;
+
     readStatus.value = {};
     await loadMessagesForConversation(newId);
     $socket.emit("join-conversation", newId);
@@ -790,6 +804,13 @@ onMounted(() => {
 
   $socket.on("user-left", async (payload) => {
     if (payload.conversationId !== props.conversationId) return;
+
+    if (String(payload.userId) === String(props.currentUserId)) {
+      // Nếu đúng là mình vừa rời -> Đóng chatbox
+      emit("close");
+      return;
+    }
+
     scrollToBottom();
 
     // reload member list trong groupDetail
@@ -979,10 +1000,12 @@ onBeforeUnmount(() => {
   $socket.off("user-left");
   $socket.off("group-deleted");
   $socket.off("group-order-cancelled");
+  $socket.off("force-close-chat");
 
   if (supabaseChannel) supabaseChannel.unsubscribe();
 
   messages.value = [];
+  groupDetail.value = null;
   typing.value = false;
   readStatus.value = {};
 });

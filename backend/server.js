@@ -26,7 +26,8 @@ async function startServer() {
     global.io = io; // lưu io vào biến toàn cục để các module khác có thể sử dụng
 
     io.on("connection", (socket) => {
-      const userId = socket.handshake.query.userId; // Lấy userId từ query parameters
+      const userId =
+        socket.handshake.auth.userId || socket.handshake.query.userId;
       if (userId) {
         socket.join(userId); // Tham gia phòng với tên là userId
       }

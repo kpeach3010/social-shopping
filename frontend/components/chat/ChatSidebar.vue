@@ -243,6 +243,21 @@ async function loadSidebarData() {
       }
       $socket.emit("join-conversation", conversationId);
     });
+
+    // Khi mình rời nhóm (hoặc bị kick), Backend gửi 'force-close-chat' cho UserID
+    $socket.on("force-close-chat", ({ conversationId }) => {
+      // Lọc bỏ nhóm vừa rời khỏi danh sách
+      groupConversations.value = groupConversations.value.filter(
+        (g) => g.id !== conversationId
+      );
+    });
+
+    // Khi nhóm bị giải tán (Admin xóa hoặc rời hết)
+    $socket.on("group-deleted", ({ conversationId }) => {
+      groupConversations.value = groupConversations.value.filter(
+        (g) => g.id !== conversationId
+      );
+    });
   } catch (e) {
     console.error("Lỗi load sidebar:", e);
     users.value = [];
@@ -266,6 +281,9 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   $socket.off("group-activated");
+  $socket.off("force-close-chat");
+  $socket.off("group-deleted");
+
   window.removeEventListener("resize", setDefaultPosition);
   window.removeEventListener("mousemove", onDrag);
   window.removeEventListener("mouseup", stopDrag);

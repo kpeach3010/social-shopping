@@ -210,19 +210,19 @@ onMounted(async () => {
 
   $socket.on("new-conversation", async (payload) => {
     const { conversationId, partner } = payload;
-    if (!conversationId) return;
-    try {
-      const res = await $fetch(`/conversations/${conversationId}`, {
-        baseURL: config.public.apiBase,
-        headers: { Authorization: `Bearer ${auth.accessToken}` },
-      });
-      activePartner.value = partner || null;
-      activeConversation.value = res;
-      activeConversationId.value = res.id;
-      chatBoxVisible.value = true;
-    } catch (e) {
-      console.error("Không thể mở chatbox mới:", e);
-    }
+    // if (!conversationId) return;
+    // try {
+    //   const res = await $fetch(`/conversations/${conversationId}`, {
+    //     baseURL: config.public.apiBase,
+    //     headers: { Authorization: `Bearer ${auth.accessToken}` },
+    //   });
+    //   activePartner.value = partner || null;
+    //   activeConversation.value = res;
+    //   activeConversationId.value = res.id;
+    //   chatBoxVisible.value = true;
+    // } catch (e) {
+    //   console.error("Không thể mở chatbox mới:", e);
+    // }
   });
 
   chatStore.loadFromStorage();

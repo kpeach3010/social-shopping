@@ -11,6 +11,7 @@ import {
   sizes,
   coupons,
   groupOrders,
+  conversations,
 } from "../db/schema.js";
 import { sql, eq, and, ne, inArray, desc, ilike } from "drizzle-orm";
 import { getAvailableCouponsForProductsService } from "./coupon.service.js";
@@ -415,6 +416,8 @@ export const getOrdersOverviewForStaffService = async () => {
       status: orders.status,
       createdAt: orders.createdAt,
       total: orders.total,
+
+      groupOrderId: orders.groupOrderId,
     })
     .from(orders)
     .orderBy(desc(orders.createdAt));
@@ -509,6 +512,9 @@ export const updateOrderStatusService = async (orderId, action, staffId) => {
       throw new Error("Không thể duyệt order ở trạng thái hiện tại");
     }
   } else if (action === "reject") {
+    if (order.groupOrderId) {
+      throw new Error("Không thể từ chối đơn hàng thuộc nhóm mua chung");
+    }
     if (order.status === "pending") newStatus = "rejected";
     else throw new Error("Chỉ có thể từ chối đơn khi đang pending");
   } else {
@@ -547,10 +553,34 @@ export const updateOrderStatusService = async (orderId, action, staffId) => {
         }
 
         console.log(`Order ${orderId} auto completed`);
+
+        if (global.io && order.groupOrderId) {
+          // Tìm conversationId của nhóm
+          const [conv] = await db
+            .select({ id: conversations.id })
+            .from(conversations)
+            .where(eq(conversations.groupOrderId, order.groupOrderId))
+            .limit(1);
+
+          // Tìm status mới nhất của nhóm (để UI cập nhật đúng)
+          const [gOrder] = await db
+            .select({ status: groupOrders.status })
+            .from(groupOrders)
+            .where(eq(groupOrders.id, order.groupOrderId))
+            .limit(1);
+
+          if (conv) {
+            global.io.to(conv.id).emit("group-status-updated", {
+              conversationId: conv.id,
+              groupOrderId: order.groupOrderId,
+              status: gOrder?.status || "completed",
+            });
+          }
+        }
       } catch (err) {
         console.error("Auto-complete failed:", err);
       }
-    }, 60 * 1000);
+    }, 30 * 1000);
   }
 
   // 2) Nếu staff bấm duyệt lần 2 (confirmed -> completed)

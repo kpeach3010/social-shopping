@@ -107,46 +107,59 @@ export const getGroupOrderDetailController = async (req, res) => {
 
 export const groupOrderCheckoutController = async (req, res) => {
   try {
-    const creatorId = req.user.id;
-    const groupOrderId = req.params.id;
+    // 1. Lấy ID an toàn (Check cả groupOrderId và id đề phòng route đặt tên khác)
+    const groupOrderId = req.params.groupOrderId || req.params.id;
+    const userId = req.user?.id;
 
-    const result = await groupOrderCheckoutService(creatorId, groupOrderId);
+    if (!groupOrderId) {
+      return res.status(400).json({ error: "Thiếu ID nhóm (groupOrderId)" });
+    }
 
-    console.log("checkout result:", result);
+    // 2. Gọi Service xử lý DB (Update status, tạo đơn hàng)
+    const result = await groupOrderCheckoutService(userId, groupOrderId);
 
+    // 3. Lấy conversationId để bắn Socket
+    // (Vì service không trả về conversationId nên ta query nhẹ ở đây)
     const [conv] = await db
-      .select()
+      .select({ id: conversations.id })
       .from(conversations)
       .where(eq(conversations.groupOrderId, groupOrderId))
       .limit(1);
 
-    if (!conv) {
-      console.warn("Không tìm thấy conversation cho group order");
-    } else {
-      const conversationId = conv.id;
-      const content = `Trưởng nhóm đã đặt đơn nhóm.`;
+    const conversationId = conv?.id;
 
-      const msg = await createSystemMessage(conversationId, content);
+    // 4. Bắn Socket thông báo cho mọi người
+    if (global.io && conversationId) {
+      // a. Cập nhật trạng thái UI (Lock -> Ordering)
+      global.io.to(conversationId).emit("group-status-updated", {
+        conversationId,
+        groupOrderId,
+        status: "ordering",
+      });
 
-      if (global.io) {
+      // b. Gửi tin nhắn hệ thống vào khung chat
+      try {
+        const content = "Trưởng nhóm đã đặt đơn.";
+        const sysMsg = await createSystemMessage(conversationId, content);
+
         global.io.to(conversationId).emit("message", {
-          id: msg.id,
+          id: sysMsg.id,
           conversationId,
           content,
           type: "system",
           senderId: "00000000-0000-0000-0000-000000000000",
-          createdAt: msg.createdAt,
+          senderFullName: "Hệ thống",
+          createdAt: sysMsg.createdAt,
         });
+      } catch (err) {
+        console.error("Lỗi gửi tin nhắn system khi checkout:", err);
       }
     }
 
-    return res.status(200).json({
-      message: "Đặt đơn nhóm thành công",
-      data: result,
-    });
-  } catch (err) {
-    console.error("groupOrderCheckoutController:", err);
-    return res.status(400).json({ error: err.message });
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error("Lỗi checkout:", error);
+    return res.status(400).json({ error: error.message });
   }
 };
 
@@ -194,15 +207,19 @@ export const leaveGroupController = async (req, res) => {
     try {
       const sockets = await global.io.in(conversationId).fetchSockets();
 
-      // Duyệt qua tất cả socket trong phòng này
       for (const socket of sockets) {
-        // Nếu socket này thuộc về userId đang rời
-        if (
-          String(socket.data?.userId || socket.handshake?.query?.userId) ===
-          String(userId)
-        ) {
-          socket.leave(conversationId); // Kick ngay
-          // console.log(`Đã kick socket ${socket.id} của user ${userId} ra khỏi phòng`);
+        // Lấy userId từ tất cả các nguồn có thể (auth, query, data)
+        const socketUserId =
+          socket.handshake.auth?.userId || // <--- THÊM CÁI NÀY
+          socket.handshake.query?.userId ||
+          socket.data?.userId;
+
+        // So sánh
+        if (String(socketUserId) === String(userId)) {
+          socket.leave(conversationId); // Kick thực sự
+          console.log(
+            `Kick socket ${socket.id} của user ${userId} ra khỏi phòng ${conversationId}`
+          );
         }
       }
     } catch (e) {
@@ -210,40 +227,43 @@ export const leaveGroupController = async (req, res) => {
     }
     // -----------------------------------------------------------------------
 
-    // 4. Tạo system message
-    const sysMsg = await createSystemMessage(conversationId, message);
+    if (isDisbanded) {
+      // TRƯỜNG HỢP 1: Nhóm đã giải tán (Đã xóa khỏi DB)
+      // -> KHÔNG ĐƯỢC gọi createSystemMessage (vì sẽ lỗi FK)
 
-    // 5. Emit realtime
-    if (global.io) {
-      // Vì đã kick user ra rồi, nên dòng này chỉ người CÒN LẠI mới nhận được
-      // -> Chatbox của người rời sẽ KHÔNG tự bật lên nữa
-      global.io.to(conversationId).emit("message", {
-        id: sysMsg.id,
-        type: "system",
-        conversationId,
-        content: message,
-        senderId: "00000000-0000-0000-0000-000000000000",
-        createdAt: sysMsg.createdAt,
-      });
-
-      // Emit event user-left cho người còn lại reload danh sách
-      global.io.to(conversationId).emit("user-left", {
-        conversationId,
-        userId,
-        message,
-      });
-
-      // Bắt buộc đóng chat phía client (Lớp bảo vệ thứ 2)
-      global.io.to(userId).emit("force-close-chat", {
-        conversationId,
-      });
-
-      // Nếu nhóm bị xoá
-      if (isDisbanded) {
+      if (global.io) {
+        // Gửi thông báo giải tán cho những người (nếu còn sót lại) đang mở chat
         global.io.to(conversationId).emit("group-deleted", {
           conversationId,
-          message: result.message,
+          message: result.message || "Nhóm đã giải tán.",
         });
+
+        // Gửi riêng cho người vừa rời để đóng chat
+        global.io.to(userId).emit("force-close-chat", { conversationId });
+      }
+    } else {
+      // TRƯỜNG HỢP 2: Nhóm vẫn còn (chỉ là người rời đi)
+      // -> Lưu tin nhắn hệ thống vào DB bình thường
+
+      const sysMsg = await createSystemMessage(conversationId, message);
+
+      if (global.io) {
+        global.io.to(conversationId).emit("message", {
+          id: sysMsg.id,
+          type: "system",
+          conversationId,
+          content: message,
+          senderId: "00000000-0000-0000-0000-000000000000",
+          createdAt: sysMsg.createdAt,
+        });
+
+        global.io.to(conversationId).emit("user-left", {
+          conversationId,
+          userId,
+          message,
+        });
+
+        global.io.to(userId).emit("force-close-chat", { conversationId });
       }
     }
 

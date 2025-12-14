@@ -154,9 +154,10 @@ const formatPrice = (v) =>
     v || 0
   );
 
-const subtotal = computed(() =>
-  cart.value.items.reduce((s, i) => s + Number(i.price) * i.quantity, 0)
-);
+// Tính tổng số lượng items hiện tại trong giỏ
+const totalCartItems = computed(() => {
+  return cart.value.items.reduce((sum, item) => sum + item.quantity, 0);
+});
 
 const totalSelected = computed(() =>
   cart.value.items
@@ -191,6 +192,16 @@ const updateQuantity = async (item, action) => {
       body: { action }, // "increase" | "decrease"
     });
     item.quantity = res.data.quantity;
+    // Cập nhật lại tổng số lượng sau khi thay đổi
+    const newTotal = cart.value.items.reduce((sum, i) => sum + i.quantity, 0);
+    // Gửi sự kiện cart-updated với tổng số lượng mới cho header
+    if (process.client) {
+      window.dispatchEvent(
+        new CustomEvent("cart-updated", {
+          detail: { count: newTotal },
+        })
+      );
+    }
   } catch (e) {
     console.error("Lỗi update số lượng:", e);
   }

@@ -189,6 +189,7 @@ const route = useRoute();
 const router = useRouter();
 const config = useRuntimeConfig();
 const auth = useAuthStore();
+const { $socket } = useNuxtApp();
 
 const loading = ref(true);
 const joining = ref(false);
@@ -200,14 +201,13 @@ const alreadyJoined = ref(false);
 const isCreator = ref(false);
 const info = ref("");
 
-onMounted(async () => {
+const loadInviteData = async () => {
   const token = route.params.token;
   if (!token) {
     error.value = "Link mời không hợp lệ.";
     loading.value = false;
     return;
   }
-
   try {
     const res = await $fetch(`/conversations/invite-links/${token}`, {
       baseURL: config.public.apiBase,
@@ -234,6 +234,11 @@ onMounted(async () => {
     if (auth.user && res?.members?.some((m) => m.id === auth.user.id)) {
       alreadyJoined.value = true;
     }
+
+    if (res.conversation?.id) {
+      // console.log("Joining socket room update:", res.conversation.id);
+      $socket.emit("join-conversation", res.conversation.id);
+    }
   } catch (e) {
     error.value =
       e?.data?.message ||
@@ -242,6 +247,63 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
+};
+
+onMounted(async () => {
+  await loadInviteData();
+
+  // --- LOGIC SOCKET CẬP NHẬT REALTIME ---
+
+  // 1. Hàm xử lý chung khi có người khác ra/vào
+  const handleMemberChange = (payload) => {
+    // Ép kiểu string để so sánh an toàn
+    const currentConvId = String(inviteDetail.value?.conversation?.id || "");
+    const payloadConvId = String(payload.conversationId || "");
+
+    if (currentConvId && currentConvId === payloadConvId) {
+      console.log("Thành viên thay đổi, reload...");
+      loadInviteData();
+    }
+  };
+
+  $socket.on("user-left", handleMemberChange);
+  $socket.on("user-joined", handleMemberChange);
+
+  // 2. [QUAN TRỌNG NHẤT] Xử lý khi CHÍNH MÌNH rời nhóm (hoặc bị kick)
+  // Server gửi event này đích danh cho user ID
+  $socket.on("force-close-chat", async (payload) => {
+    const currentConvId = String(inviteDetail.value?.conversation?.id || "");
+    const payloadConvId = String(payload.conversationId || "");
+
+    if (currentConvId === payloadConvId) {
+      console.log("Bạn đã rời nhóm, cập nhật UI ngay lập tức.");
+
+      // Reset các cờ trạng thái ngay lập tức để UI đổi nút
+      alreadyJoined.value = false;
+      success.value = false;
+      isCreator.value = false; // Đề phòng trường hợp chuyển quyền
+      conversation.value = null;
+
+      // Gọi API lấy lại dữ liệu mới nhất (số lượng thành viên, v.v.)
+      await loadInviteData();
+    }
+  });
+
+  // 3. Xử lý giải tán nhóm
+  $socket.on("group-deleted", (payload) => {
+    const currentConvId = String(inviteDetail.value?.conversation?.id || "");
+    if (currentConvId === String(payload.conversationId)) {
+      alert("Nhóm này đã bị giải tán.");
+      router.push("/");
+    }
+  });
+});
+
+onBeforeUnmount(() => {
+  $socket.off("user-left");
+  $socket.off("user-joined");
+  $socket.off("force-close-chat");
+  $socket.off("group-deleted");
 });
 
 async function joinGroup() {
@@ -265,6 +327,8 @@ async function joinGroup() {
     conversation.value = res;
     success.value = true;
     alreadyJoined.value = true;
+
+    await loadInviteData();
   } catch (e) {
     console.error("Join error:", e);
     alert(
@@ -294,7 +358,7 @@ async function openChatBox() {
 
   const data = {
     id: conversationId,
-    name: conv.name || "Nhóm mua chung",
+    name: conv.name || conv.conversationName || "Nhóm mua chung",
     type: "group",
   };
   window.dispatchEvent(new CustomEvent("open-group-chat", { detail: data }));

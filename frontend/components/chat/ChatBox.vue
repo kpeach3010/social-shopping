@@ -306,7 +306,7 @@
       :members="groupDetail?.members"
       :inviteToken="groupDetail?.inviteToken"
       @close="showGroupDetail = false"
-      @leave-success="$emit('close')"
+      @leave-success="handleLeaveSuccess"
     />
     <GroupOrderChooseModal
       v-if="showChooseModal && groupDetail && groupDetail.product"
@@ -454,6 +454,18 @@ function formatMessage(content) {
   });
 }
 
+function handleLeaveSuccess() {
+  // 1. Reset trạng thái modal về false (để lần sau mở chatbox lên nó không tự hiện nữa)
+  showGroupDetail.value = false;
+
+  // 2. Xóa dữ liệu cũ để tránh nhấp nháy
+  messages.value = [];
+  groupDetail.value = null;
+
+  // 3. Đóng Chatbox
+  emit("close");
+}
+
 async function checkoutGroupOrder() {
   const groupOrder = groupDetail.value?.groupOrder;
   if (!groupOrder?.id) return;
@@ -589,7 +601,9 @@ async function loadMessagesForConversation(convId) {
       headers: { Authorization: `Bearer ${auth.accessToken}` },
     });
     const norm = data.map(normalize);
-    norm.forEach((m) => m.id && deliveredIds.add(m.id));
+    norm.forEach((m) => {
+      if (m.id) deliveredIds.add(String(m.id));
+    });
     messages.value = norm;
     scrollToBottom();
   } catch (e) {
@@ -669,37 +683,104 @@ onMounted(() => {
     $socket.emit("join-conversation", props.conversationId);
   }
 
+  // $socket.on("message", (raw) => {
+  //   console.log(
+  //     "🔥 SOCKET NHẬN TIN:",
+  //     "ID:",
+  //     raw.id,
+  //     "| Content:",
+  //     raw.content
+  //   );
+  //   const msg = normalize({
+  //     ...raw,
+  //     senderFullName:
+  //       raw.senderFullName || raw.sender_full_name || raw.sender_name,
+  //   });
+
+  //   if (msg.conversationId !== props.conversationId) return;
+
+  //   // 1. Chặn trùng tin nhắn cũ (Ép kiểu String)
+  //   if (msg.id && deliveredIds.has(String(msg.id))) return;
+
+  //   // 2. Xử lý cập nhật tin nhắn mình vừa gửi (Optimistic UI)
+  //   if (isMine(msg) && msg.tempId) {
+  //     // Check thêm msg.tempId cho chắc
+
+  //     // tempId thường là string rồi, nhưng thêm String() cũng không sao
+  //     const idx = [...pendingMap.values()].find(
+  //       (i) =>
+  //         messages.value[i]?.status === "sending" &&
+  //         messages.value[i]?.content === msg.content
+  //     );
+
+  //     // Hoặc nếu bạn dùng map key là tempId:
+  //     // const idx = pendingMap.get(msg.tempId);
+
+  //     if (idx !== undefined) {
+  //       messages.value[idx] = { ...msg, status: "sent" };
+
+  //       // --- [QUAN TRỌNG] Lưu ID thật vào deliveredIds (Ép kiểu String) ---
+  //       if (msg.id) deliveredIds.add(String(msg.id));
+  //       // ----------------------------------------------------------------
+
+  //       scrollToBottom();
+  //       return; // Đã update xong, không push thêm dòng mới
+  //     }
+  //   }
+
+  //   // 3. Tin nhắn mới hoàn toàn -> Push vào
+  //   messages.value.push({ ...msg, status: isMine(msg) ? "sent" : undefined });
+
+  //   // Lưu ID thật để chặn trùng sau này
+  //   if (msg.id) deliveredIds.add(String(msg.id));
+
+  //   scrollToBottom();
+
+  //   // reset trạng thái đã đọc
+  //   readStatus.value = {};
+  // });
+
   $socket.on("message", (raw) => {
+    // 1. Chuẩn hóa dữ liệu
     const msg = normalize({
       ...raw,
       senderFullName:
         raw.senderFullName || raw.sender_full_name || raw.sender_name,
     });
 
-    console.log("Raw message:", raw);
-    console.log("senderFullName:", msg.senderFullName);
     if (msg.conversationId !== props.conversationId) return;
-    if (msg.id && deliveredIds.has(msg.id)) return;
 
+    // 2. Chặn trùng lặp nếu ID thật đã tồn tại
+    if (msg.id && deliveredIds.has(String(msg.id))) return;
+
+    // ============================================================
+    // 👇 [FIX LỖI NHÂN ĐÔI]: TÌM VÀ CẬP NHẬT TIN NHẮN TẠM THỜI 👇
+    // ============================================================
     if (isMine(msg)) {
-      const idx = [...pendingMap.values()].find(
-        (i) =>
-          messages.value[i]?.status === "sending" &&
-          messages.value[i]?.content === msg.content
+      // Tìm tin nhắn nào đang ở trạng thái 'sending' VÀ có nội dung giống hệt
+      const pendingIdx = messages.value.findIndex(
+        (m) => m.status === "sending" && m.content === msg.content
       );
-      if (idx !== undefined) {
-        messages.value[idx] = { ...msg, status: "sent" };
-        deliveredIds.add(msg.id);
+
+      if (pendingIdx !== -1) {
+        // A. Tìm thấy! => Đây chính là tin nhắn mình vừa gửi
+        // Cập nhật lại ID thật và đổi trạng thái sang 'sent'
+        messages.value[pendingIdx] = { ...msg, status: "sent" };
+
+        // Lưu ID thật vào danh sách đã nhận để chặn trùng sau này
+        if (msg.id) deliveredIds.add(String(msg.id));
+
         scrollToBottom();
-        return;
+        return; // 🛑 QUAN TRỌNG: Dừng lại ngay, không chạy xuống dòng push bên dưới
       }
     }
+    // ============================================================
 
+    // 3. Nếu không tìm thấy bản nháp (hoặc là tin người khác) => Thêm mới
     messages.value.push({ ...msg, status: isMine(msg) ? "sent" : undefined });
-    msg.id && deliveredIds.add(msg.id);
-    scrollToBottom();
 
-    // reset trạng thái đã đọc
+    if (msg.id) deliveredIds.add(String(msg.id));
+    scrollToBottom();
     readStatus.value = {};
   });
 
@@ -724,14 +805,14 @@ onMounted(() => {
   $socket.on("user-joined", async (payload) => {
     if (payload.conversationId !== props.conversationId) return;
 
-    // tin nhan he thong
-    messages.value.push({
-      id: `sys_${Date.now()}`,
-      content: `${payload.fullName || "Người dùng"} đã tham gia nhóm`,
-      senderFullName: "system",
-      type: "system",
-      createdAt: new Date().toISOString(),
-    });
+    // // tin nhan he thong
+    // messages.value.push({
+    //   id: `sys_${Date.now()}`,
+    //   content: `${payload.fullName || "Người dùng"} đã tham gia nhóm`,
+    //   senderFullName: "system",
+    //   type: "system",
+    //   createdAt: new Date().toISOString(),
+    // });
     scrollToBottom();
 
     if (isGroupChat.value) {
@@ -784,7 +865,9 @@ onMounted(() => {
         groupDetail.value.members[idx] = {
           ...groupDetail.value.members[idx],
           hasChosen: true,
-          quantity: payload.quantity,
+          quantity: payload.totalQty,
+
+          items: payload.items,
         };
       }
       groupDetail.value = JSON.parse(JSON.stringify(groupDetail.value));
@@ -794,16 +877,14 @@ onMounted(() => {
   // lang nghe su kien chuyen trang thai nhom sang cancelled
   $socket.on("group-order-cancelled", (payload) => {
     if (payload.conversationId !== props.conversationId) return;
-
     if (groupDetail.value?.groupOrder) {
       groupDetail.value.groupOrder.status = "cancelled";
     }
-
     scrollToBottom();
   });
 
   $socket.on("user-left", async (payload) => {
-    if (payload.conversationId !== props.conversationId) return;
+    if (String(payload.conversationId) !== String(props.conversationId)) return;
 
     if (String(payload.userId) === String(props.currentUserId)) {
       // Nếu đúng là mình vừa rời -> Đóng chatbox
@@ -829,7 +910,8 @@ onMounted(() => {
   });
 
   $socket.on("force-close-chat", (payload) => {
-    if (payload.conversationId === props.conversationId) {
+    if (String(payload.conversationId) === String(props.conversationId)) {
+      showGroupDetail.value = false;
       emit("close");
     }
   });
@@ -840,8 +922,36 @@ onMounted(() => {
 
     // đóng group box
     groupDetail.value = null;
+    showGroupDetail.value = false;
 
     alert("Nhóm đã giải tán");
+  });
+
+  $socket.on("group-status-updated", async (payload) => {
+    // 1. Kiểm tra đúng phòng chat
+    // Ép kiểu String để so sánh an toàn
+    if (String(payload.conversationId) !== String(props.conversationId)) return;
+
+    console.log("Trạng thái nhóm đã thay đổi:", payload.status);
+
+    // 2. Cập nhật UI ngay lập tức (để người dùng thấy phản hồi nhanh)
+    if (groupDetail.value?.groupOrder) {
+      groupDetail.value.groupOrder.status = payload.status;
+    }
+
+    if (isGroupChat.value) {
+      try {
+        // Thêm timestamp để chống cache
+        const res = await $fetch(`/group-orders/${props.conversationId}`, {
+          method: "GET",
+          baseURL: config.public.apiBase,
+          headers: { Authorization: `Bearer ${auth.accessToken}` },
+        });
+        groupDetail.value = res;
+      } catch (err) {
+        console.error("Lỗi reload status nhóm:", err);
+      }
+    }
   });
 });
 
@@ -1001,6 +1111,7 @@ onBeforeUnmount(() => {
   $socket.off("group-deleted");
   $socket.off("group-order-cancelled");
   $socket.off("force-close-chat");
+  $socket.off("group-status-updated");
 
   if (supabaseChannel) supabaseChannel.unsubscribe();
 

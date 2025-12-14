@@ -320,6 +320,10 @@ async function leaveGroup() {
   } catch (err) {
     console.error("Lỗi rời nhóm:", err);
     alert(err?.data?.error || "Không thể rời nhóm.");
+  } finally {
+    // Luôn đóng modal
+    emit("close");
+    emit("leave-success");
   }
 }
 
@@ -337,7 +341,7 @@ onMounted(() => {
       payload.conversationId === conversation.value?.id
     ) {
       // Đóng chatbox
-      showChat.value = false;
+      // showChat.value = false;
     } else if (payload.conversationId === conversation.value?.id) {
       // Với người khác trong nhóm, hiển thị thông báo trong chat
       messages.value.push({

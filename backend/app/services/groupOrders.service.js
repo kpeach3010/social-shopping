@@ -398,6 +398,7 @@ export const leaveGroupOrderService = async ({ userId, groupOrderId }) => {
         return {
           message: "Nhóm đã giải tán.",
           isDisbanded: true,
+          conversationId,
         };
       }
     }
@@ -424,11 +425,12 @@ export const leaveConversationAfterDoneService = async ({
     .limit(1);
 
   if (!groupOrder) throw new Error("Nhóm không tồn tại");
+
   if (groupOrder.status !== "completed") {
     throw new Error("Chỉ có thể rời cuộc trò chuyện khi nhóm đã hoàn thành.");
   }
 
-  // 2) Lấy conversation của group
+  // 2) Lấy conversation TRƯỚC (Quan trọng: Luôn lấy ID trước khi tác động dữ liệu)
   const [covRow] = await db
     .select({ conversationId: conversations.id })
     .from(conversations)
@@ -438,14 +440,14 @@ export const leaveConversationAfterDoneService = async ({
   const conversationId = covRow?.conversationId;
   if (!conversationId) throw new Error("Không tìm thấy conversation của nhóm");
 
-  // 3) Lấy tên người rời
+  // 3) Lấy tên người rời (để làm message)
   const [leaver] = await db
     .select({ fullName: users.fullName })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
 
-  // 4) Xóa ONLY conversation member
+  // 4) Xóa thành viên khỏi conversation_members
   await db
     .delete(conversationMembers)
     .where(
@@ -455,16 +457,16 @@ export const leaveConversationAfterDoneService = async ({
       )
     );
 
-  // 5) Kiểm tra còn ai trong conversation không
+  // 5) Kiểm tra xem còn ai trong nhóm không
   const [{ count }] = await db
     .select({ count: sql`COUNT(*)`.mapWith(Number) })
     .from(conversationMembers)
     .where(eq(conversationMembers.conversationId, conversationId));
 
-  let archived = false;
+  let isDisbanded = false; // Đổi tên biến 'archived' thành 'isDisbanded' cho khớp Controller
 
   if (count === 0) {
-    // Archive conversation
+    // Nếu không còn ai -> Đánh dấu conversation là đã lưu trữ (Archived)
     await db
       .update(conversations)
       .set({
@@ -473,12 +475,12 @@ export const leaveConversationAfterDoneService = async ({
       })
       .where(eq(conversations.id, conversationId));
 
-    archived = true;
+    isDisbanded = true;
   }
 
   return {
-    conversationId,
-    archived,
+    conversationId, // ID này luôn tồn tại vì ta không xóa bảng conversations
+    isDisbanded, // Trả về true để Controller gửi sự kiện 'group-deleted' (hoặc archived)
     message: `${leaver?.fullName || "Một thành viên"} đã rời cuộc trò chuyện.`,
   };
 };

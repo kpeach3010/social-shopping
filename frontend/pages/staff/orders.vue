@@ -314,7 +314,7 @@ const searchOrders = async () => {
                       <span class="text-sm font-medium">Xác nhận</span>
                     </button>
                     <button
-                      v-if="o.status === 'pending'"
+                      v-if="o.status === 'pending' && !o.groupOrderId"
                       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-red-600 bg-red-600 text-white text-base font-medium hover:bg-red-700 active:bg-red-800 transition"
                       @click.stop="rejectOrder(o.id)"
                     >

@@ -76,7 +76,7 @@
 
           <NuxtLink
             to="/cart"
-            v-if="auth.user?.role !== 'staff' || auth.user?.role !== 'admin'"
+            v-if="auth.user?.role !== 'staff' && auth.user?.role !== 'admin'"
             class="relative flex items-center text-gray-700 hover:text-black focus:outline-none focus-visible:outline-none focus:ring-0 active:outline-none"
             tabindex="-1"
           >

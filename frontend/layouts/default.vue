@@ -122,7 +122,7 @@ onMounted(async () => {
   if (!ready || !auth.isLoggedIn) return;
 
   // bỏ qua nếu đang truy cập link mời nhóm
-  if (route.path.startsWith("/invite/")) return;
+  // if (route.path.startsWith("/invite/")) return;
 
   // window.addEventListener("open-group-chat", (e) => {
   //   const conv = e.detail;
@@ -249,7 +249,7 @@ onMounted(async () => {
     $socket.off("unread-count-updated");
     $socket.off("new-conversation");
     $socket.off("connect");
-    window.removeEventListener("incoming-message", incomingHandler);
+    window.removeEventListener("incoming-message");
     window.removeEventListener("unread-count-updated", unreadHandler);
     window.removeEventListener("typing-message", typingHandler);
   });

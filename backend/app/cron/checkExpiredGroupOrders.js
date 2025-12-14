@@ -36,6 +36,24 @@ export const checkExpiredGroupOrders = async (io) => {
 
     // Coupon hết hạn -> hủy nhóm
     if (endsAt <= now) {
+      // 1. Cập nhật trạng thái TRƯỚC để tránh Race Condition (Cron chạy lần sau sẽ bỏ qua ngay)
+      const [updatedGroup] = await db
+        .update(groupOrders)
+        .set({
+          status: "cancelled",
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(groupOrders.id, g.id),
+            ne(groupOrders.status, "cancelled") // Check lại lần nữa cho chắc
+          )
+        )
+        .returning();
+
+      // Nếu không update được (nghĩa là đã bị hủy bởi luồng khác rồi) thì dừng
+      if (!updatedGroup) continue;
+
       const reason = "Nhóm mua chung đã bị hủy do mã giảm giá đã hết hạn.";
 
       // 1.Tạo system message vào DB (tự làm trong cron)
@@ -51,15 +69,6 @@ export const checkExpiredGroupOrders = async (io) => {
         .returning();
 
       const sysMsg = sysMsgInsert[0];
-
-      // 2. Cập nhật trạng thái group
-      await db
-        .update(groupOrders)
-        .set({
-          status: "cancelled",
-          updatedAt: new Date(),
-        })
-        .where(eq(groupOrders.id, g.id));
 
       // 3. Emit tin nhắn system vào khung chat
       io.to(g.conversationId).emit("message", {

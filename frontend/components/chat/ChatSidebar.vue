@@ -246,16 +246,17 @@ async function loadSidebarData() {
 
     // Khi mình rời nhóm (hoặc bị kick), Backend gửi 'force-close-chat' cho UserID
     $socket.on("force-close-chat", ({ conversationId }) => {
-      // Lọc bỏ nhóm vừa rời khỏi danh sách
+      // Ép kiểu String để so sánh chính xác
       groupConversations.value = groupConversations.value.filter(
-        (g) => g.id !== conversationId
+        (g) => String(g.id) !== String(conversationId)
       );
     });
 
     // Khi nhóm bị giải tán (Admin xóa hoặc rời hết)
     $socket.on("group-deleted", ({ conversationId }) => {
+      // Ép kiểu String
       groupConversations.value = groupConversations.value.filter(
-        (g) => g.id !== conversationId
+        (g) => String(g.id) !== String(conversationId)
       );
     });
   } catch (e) {

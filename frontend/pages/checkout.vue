@@ -389,6 +389,10 @@ const checkout = async () => {
 
     orderInfo.value = res;
 
+    if (fromCart.value && process.client) {
+      window.dispatchEvent(new CustomEvent("cart-updated"));
+    }
+
     // Xóa localStorage sau khi đặt hàng xong
     localStorage.removeItem("checkoutItems");
     localStorage.removeItem("checkoutCoupon");

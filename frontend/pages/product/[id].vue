@@ -187,31 +187,6 @@
           {{ product.description }}
         </p>
       </div>
-
-      <!-- Bình luận -->
-      <div class="mt-10">
-        <h3 class="text-lg font-semibold mb-4">Bình luận</h3>
-
-        <!-- Form nhập bình luận -->
-        <div class="mb-6">
-          <textarea
-            placeholder="Viết bình luận của bạn..."
-            class="w-full border rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-black"
-            rows="3"
-          ></textarea>
-          <button
-            class="mt-2 px-4 py-2 bg-black text-white rounded hover:bg-gray-800"
-          >
-            Gửi bình luận
-          </button>
-        </div>
-
-        <!-- Đánh giá sản phẩm -->
-        <div class="mt-10">
-          <h3 class="text-lg font-semibold mb-4">Đánh giá sản phẩm</h3>
-          <!-- </div> -->
-        </div>
-      </div>
     </main>
   </div>
 </template>

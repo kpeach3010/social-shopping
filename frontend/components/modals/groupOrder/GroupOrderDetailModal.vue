@@ -161,6 +161,13 @@
               Rời nhóm
             </button>
           </div>
+
+          <!-- Thông tin khác -->
+          <div class="mt-4 text-xs text-gray-500 text-right">
+            <p class="italic text-blue-400">
+              Chỉ có thể rời nhóm khi nhóm đang mở hoặc đã hoàn tất
+            </p>
+          </div>
         </template>
 
         <!-- TAB 2: Sản phẩm -->
@@ -192,7 +199,7 @@
               <strong>{{ coupon.code || "Không có" }}</strong>
             </p>
             <p>
-              Loại:
+              Số tiền giảm:
               <strong>
                 {{
                   coupon.type === "percent"
@@ -201,6 +208,12 @@
                 }}
               </strong>
             </p>
+
+            <!-- đơn tối thiểu -->
+            <p v-if="coupon.minOrderTotal" class="text-gray-600">
+              Đơn tối thiểu: {{ formatPrice(coupon.minOrderTotal) }}/người
+            </p>
+
             <p v-if="coupon.endsAt" class="text-gray-600">
               Hết hạn: {{ formatDate(coupon.endsAt) }}
             </p>
@@ -212,6 +225,10 @@
           <!-- Thông tin khác -->
           <div class="mt-4 text-xs text-gray-500 text-right">
             <p>Ngày tạo nhóm: {{ formatDate(groupOrder.createdAt) }}</p>
+            <!-- chữ in nghiêng màu đỏ -->
+            <p class="italic text-red-600">
+              Lưu ý: Hãy đặt hàng trước khi hết hạn mã giảm giá!
+            </p>
           </div>
         </template>
       </div>
@@ -334,7 +351,7 @@ onMounted(() => {
   // );
   // console.log("Modal members:", JSON.parse(JSON.stringify(props.members)));
 
-  $socket.on("member-left", (payload) => {
+  $socket.on("user-left", (payload) => {
     // Nếu chính user hiện tại rời nhóm
     if (
       payload.userId === auth.user?.id &&
@@ -355,7 +372,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   // Tắt lắng nghe khi Modal bị đóng/hủy
-  $socket.off("member-left");
+  $socket.off("user-left");
 });
 </script>
 

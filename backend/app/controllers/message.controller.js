@@ -4,6 +4,7 @@ import {
   markConversationAsReadService,
   getUnreadMessageCountService,
 } from "../services/message.service.js";
+import supabase from "../../services/supbase/client.js";
 
 export const getMessagesController = async (req, res) => {
   try {
@@ -19,30 +20,72 @@ export const sendMessageController = async (req, res) => {
   try {
     const { conversationId } = req.params;
     const { content, type, senderId } = req.body;
-    console.log("sendMessage called:", {
-      conversationId,
-      senderId,
-      content,
-    });
-
+    // console.log("sendMessage called:", {
+    //   conversationId,
+    //   senderId,
+    //   content,
+    // });
     const msg = await sendMessageService(
       conversationId,
       senderId,
       content,
       type
     );
-    console.log("Message saved:", msg);
+    // console.log("Message saved:", msg);
 
-    try {
-      if (global.io) {
-        global.io.to(conversationId).emit("conversation-updated", {
-          conversationId,
-          lastMessage: content,
-          lastMessageAt: new Date(),
-        });
+    // Emit socket event để realtime
+    if (global.io) {
+      // Chuẩn hóa message cho FE
+      const enrichedMsg = {
+        id: msg.id,
+        conversationId: msg.conversationId,
+        senderId: msg.senderId,
+        content: msg.content,
+        type: msg.type || "text",
+        createdAt: msg.createdAt,
+        senderFullName:
+          msg.senderFullName || msg.sender_full_name || "Người dùng",
+        sender_full_name:
+          msg.senderFullName || msg.sender_full_name || "Người dùng",
+        sender_name: msg.senderFullName || msg.sender_full_name || "Người dùng",
+      };
+
+      // Emit cho conversation
+      global.io.to(conversationId).emit("message", enrichedMsg);
+
+      // Gửi thêm cho những thành viên chưa join phòng conversation (fallback)
+      try {
+        const socketsInRoom = await global.io.in(conversationId).fetchSockets();
+
+        const connectedUserIds = new Set(
+          socketsInRoom
+            .map((s) =>
+              String(
+                s.handshake.auth?.userId ||
+                  s.handshake.query?.userId ||
+                  s.data?.userId ||
+                  ""
+              )
+            )
+            .filter(Boolean)
+        );
+
+        const { data: members } = await supabase
+          .from("conversation_members")
+          .select("user_id")
+          .eq("conversation_id", conversationId);
+
+        if (members?.length) {
+          for (const member of members) {
+            const uid = String(member.user_id);
+            if (uid === String(senderId)) continue;
+            if (connectedUserIds.has(uid)) continue; // đã ở phòng, tránh trùng
+            global.io.to(uid).emit("message", enrichedMsg);
+          }
+        }
+      } catch (fanoutErr) {
+        console.warn("Fallback emit to user rooms failed", fanoutErr.message);
       }
-    } catch (socketErr) {
-      console.warn("Socket emit error:", socketErr.message);
     }
 
     return res.json(msg);
@@ -60,7 +103,7 @@ export const markConversationAsReadController = async (req, res) => {
 
     // phat socker event cho cac thanh vien khac
     if (global.io) {
-      global.io.to(conversationId).emit("read-update", {
+      global.io.to(conversationId).emit("read-updated", {
         conversationId,
         userId,
         lastReadAt: result.lastReadAt,

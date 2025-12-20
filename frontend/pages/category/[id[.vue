@@ -104,19 +104,15 @@ const formatPrice = (v) =>
     currency: "VND",
   }).format(Number(v) || 0);
 
-// Lọc theo giá
-const filterByPrice = async (sort) => {
+// Lọc theo giá: sắp xếp lại danh sách hiện tại để không lẫn sản phẩm ngoài danh mục
+const filterByPrice = (sort) => {
   showFilter.value = false;
-
-  try {
-    const res = await $fetch(`/product/products-by-price?sort=${sort}`, {
-      baseURL: config.public.apiBase,
-    });
-
-    products.value = res.data || res;
-  } catch (err) {
-    console.error("Lỗi lọc sản phẩm:", err);
-  }
+  const sorted = [...products.value].sort((a, b) => {
+    const pa = Number(a.price ?? a.price_default ?? 0);
+    const pb = Number(b.price ?? b.price_default ?? 0);
+    return sort === "asc" ? pa - pb : pb - pa;
+  });
+  products.value = sorted;
 };
 
 // Load category & sản phẩm ban đầu

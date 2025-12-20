@@ -736,10 +736,10 @@ export const getLastMessagesService = async (userId) => {
   const readMap = new Map();
   for (const r of reads) readMap.set(r.conversationId, r.lastReadAt);
 
-  console.log("==== PARTNER MAP ====");
-  for (const [cid, p] of partnerMap.entries()) {
-    console.log(cid, p);
-  }
+  // console.log("==== PARTNER MAP ====");
+  // for (const [cid, p] of partnerMap.entries()) {
+  //   console.log(cid, p);
+  // }
 
   // Gộp tất cả dữ liệu
   return result.map((msg) => {

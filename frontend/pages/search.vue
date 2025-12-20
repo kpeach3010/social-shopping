@@ -123,19 +123,15 @@ async function fetchResults() {
   }
 }
 
-// Bộ lọc giá
-const filterByPrice = async (sort) => {
+// Bộ lọc giá: chỉ sắp xếp lại tập kết quả hiện có, không gọi API khác để tránh lẫn sản phẩm ngoài scope
+const filterByPrice = (sort) => {
   showFilter.value = false;
-
-  try {
-    const res = await $fetch(`/product/products-by-price?sort=${sort}`, {
-      baseURL: config.public.apiBase,
-    });
-
-    results.value = res.data || res;
-  } catch (err) {
-    console.error("Lỗi lọc sản phẩm:", err);
-  }
+  const sorted = [...results.value].sort((a, b) => {
+    const pa = Number(a.price_default ?? a.price ?? 0);
+    const pb = Number(b.price_default ?? b.price ?? 0);
+    return sort === "asc" ? pa - pb : pb - pa;
+  });
+  results.value = sorted;
 };
 
 watch(() => route.query.name, fetchResults, { immediate: true });

@@ -30,7 +30,7 @@
 
     <!-- ChatBox -->
     <ChatBox
-      v-show="activePartner || activeConversation"
+      v-show="(activePartner || activeConversation) && chatBoxVisible"
       v-model:conversationId="activeConversationId"
       :partner="activePartner"
       :conversation="activeConversation"

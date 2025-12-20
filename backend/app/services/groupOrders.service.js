@@ -90,6 +90,7 @@ export const getGroupOrderDetailService = async (userId, conversationId) => {
       kind: coupons.kind,
       endsAt: coupons.endsAt,
       maxMember: coupons.maxMember,
+      minOrderTotal: coupons.minOrderTotal,
     })
     .from(coupons)
     .where(eq(coupons.id, groupOrder.couponId));

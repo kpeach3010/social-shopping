@@ -977,9 +977,6 @@ function markAsRead() {
       detail: { conversationId: props.conversationId },
     })
   );
-
-  // Reset badge nếu đây là conversation hiện tại
-  chatStore.clearUnread();
 }
 
 function statusText(status) {

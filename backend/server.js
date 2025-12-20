@@ -9,6 +9,7 @@ import {
   checkUserAdminExists,
 } from "./app/services/user.service.js";
 import supabase from "./services/supbase/client.js";
+import { getUnreadMessageCountService } from "./app/services/message.service.js";
 
 async function startServer() {
   try {
@@ -35,64 +36,17 @@ async function startServer() {
 
       // join room
       socket.on("join-conversation", (conversationId) => {
+        // Kiểm tra đã join chưa
+        const rooms = Array.from(socket.rooms);
+        if (rooms.includes(conversationId)) {
+          // console.log(`Socket ${socket.id} already in conversation ${conversationId}`);
+          return;
+        }
+
         socket.join(conversationId);
         console.log(
           `Socket ${socket.id} joined conversation ${conversationId}`
         );
-      });
-
-      // gửi tin nhắn
-      socket.on("send-message", async (data) => {
-        const { conversationId, senderId, content, type = "text" } = data;
-        // chen vao supabase
-        const { data: inserted, error } = await supabase
-          .from("messages")
-          .insert([
-            {
-              conversation_id: conversationId,
-              sender_id: senderId,
-              content: content,
-              type: type,
-            },
-          ])
-          .select(); // lay ban ghi vua chen de emit ve client
-
-        if (error) {
-          console.error("Error inserting message:", error);
-          return;
-        }
-        // Lấy thông tin người gửi để emit kèm fullName
-        const { data: senderInfo } = await supabase
-          .from("users")
-          .select("id, full_name")
-          .eq("id", senderId)
-          .single();
-
-        const msg = inserted[0];
-        console.log("SenderInfo:", senderInfo, "Error:", error);
-
-        const enrichedMsg = {
-          ...msg,
-          // provide multiple name key variants so FE consumers using different keys work
-          senderFullName: senderInfo?.full_name || "Người dùng",
-          sender_full_name:
-            senderInfo?.full_name || senderInfo?.fullName || "Người dùng",
-          sender_name:
-            senderInfo?.full_name || senderInfo?.fullName || "Người dùng",
-        };
-
-        io.to(conversationId).emit("message", enrichedMsg);
-
-        // lay danh sach thanh vien cua conversation
-        const { data: members } = await supabase
-          .from("conversation_members")
-          .select("user_id")
-          .eq("conversation_id", conversationId);
-        for (const member of members) {
-          if (member.user_id !== senderId) {
-            io.to(member.user_id).emit("message", enrichedMsg);
-          }
-        }
       });
 
       // khi user doc tin nhan
@@ -141,9 +95,18 @@ async function startServer() {
             }
           }
 
-          console.log(
-            `[SOCKET] User ${userId} marked as read in conversation ${conversationId}`
-          );
+          // Tính lại tổng số tin nhắn chưa đọc của user và gửi về
+          const newUnreadCount = await getUnreadMessageCountService(userId);
+
+          // Gửi tổng số unread mới cho chính user này
+          io.to(userId).emit("unread-count-updated", {
+            userId,
+            totalUnread: newUnreadCount,
+          });
+
+          // console.log(
+          //   `[SOCKET] User ${userId} marked as read in conversation ${conversationId}, new unread: ${newUnreadCount}`
+          // );
         } catch (err) {
           console.error("mark-as-read error:", err);
         }
@@ -158,73 +121,6 @@ async function startServer() {
         console.log("Client disconnected:", socket.id);
       });
     });
-
-    // supabase realtime subscription
-    supabase
-      .channel("messages-changes")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages" },
-        async (payload) => {
-          const m = payload.new;
-
-          const { data: senderInfo } = await supabase
-            .from("users")
-            .select("id, full_name")
-            .eq("id", m.sender_id)
-            .single();
-
-          // Chuẩn hóa lại key cho FE
-          const enrichedMsg = {
-            id: m.id,
-            conversationId: m.conversation_id,
-            senderId: m.sender_id,
-            content: m.content,
-            type: m.type,
-            createdAt: m.created_at,
-            // provide name in multiple key formats for backward compatibility
-            senderFullName: senderInfo?.full_name || "Người dùng",
-            sender_full_name: senderInfo?.full_name || "Người dùng",
-            sender_name: senderInfo?.full_name || "Người dùng",
-          };
-
-          io.to(m.conversation_id).emit("message", enrichedMsg);
-        }
-      )
-      .subscribe();
-
-    // theo doi ai vua join conversation
-    supabase
-      .channel("conv-members-changes")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "conversation_members" },
-        async (payload) => {
-          const newMember = payload.new;
-
-          // Lấy danh sách toàn bộ thành viên trong conversation
-          const { data: members } = await supabase
-            .from("conversation_members")
-            .select("user_id")
-            .eq("conversation_id", newMember.conversation_id);
-
-          // Khi có từ 2 người trở lên, phát event group-activated
-          if (members.length >= 2) {
-            const { data: conversation } = await supabase
-              .from("conversations")
-              .select("*")
-              .eq("id", newMember.conversation_id)
-              .single(); // tra ve 1 object
-
-            for (const member of members) {
-              io.to(member.user_id).emit("group-activated", {
-                conversationId: conversation.id,
-              });
-            }
-          }
-        }
-      )
-      .subscribe();
 
     server.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);

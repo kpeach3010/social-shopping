@@ -565,6 +565,7 @@ export const getInviteLinkDetailService = async (token) => {
       maxMember: coupons.maxMember,
       endsAt: coupons.endsAt,
       description: coupons.description,
+      minOrderTotal: coupons.minOrderTotal,
     })
     .from(coupons)
     .where(eq(coupons.id, link.couponId))

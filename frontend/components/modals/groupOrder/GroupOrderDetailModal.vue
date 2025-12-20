@@ -330,9 +330,6 @@ async function leaveGroup() {
     });
 
     alert("Đã rời nhóm thành công.");
-    emit("close");
-
-    // Báo đã rời nhóm thành công
     emit("leave-success");
   } catch (err) {
     console.error("Lỗi rời nhóm:", err);
@@ -340,40 +337,8 @@ async function leaveGroup() {
   } finally {
     // Luôn đóng modal
     emit("close");
-    emit("leave-success");
   }
 }
-
-onMounted(() => {
-  // console.log(
-  //   "Modal groupOrder:",
-  //   JSON.parse(JSON.stringify(props.groupOrder))
-  // );
-  // console.log("Modal members:", JSON.parse(JSON.stringify(props.members)));
-
-  $socket.on("user-left", (payload) => {
-    // Nếu chính user hiện tại rời nhóm
-    if (
-      payload.userId === auth.user?.id &&
-      payload.conversationId === conversation.value?.id
-    ) {
-      // Đóng chatbox
-      // showChat.value = false;
-    } else if (payload.conversationId === conversation.value?.id) {
-      // Với người khác trong nhóm, hiển thị thông báo trong chat
-      messages.value.push({
-        type: "system",
-        content: payload.message,
-        createdAt: new Date(),
-      });
-    }
-  });
-});
-
-onBeforeUnmount(() => {
-  // Tắt lắng nghe khi Modal bị đóng/hủy
-  $socket.off("user-left");
-});
 </script>
 
 <style scoped>

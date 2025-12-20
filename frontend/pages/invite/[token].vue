@@ -73,6 +73,17 @@
               }}
             </strong>
           </p>
+
+          <!-- Đơn tối thiếu -->
+          <p v-if="inviteDetail?.coupon?.minOrderTotal">
+            Đơn tối thiểu:
+            <strong
+              >{{
+                formatPrice(inviteDetail?.coupon?.minOrderTotal)
+              }}/người</strong
+            >
+          </p>
+
           <p>Hạn dùng: {{ formatDate(inviteDetail?.coupon?.endsAt) }}</p>
         </div>
 

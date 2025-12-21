@@ -8,6 +8,8 @@ import {
   getOrderWithUserInfoByIdService,
   searchOrdersByIdService,
 } from "../services/order.service.js";
+import { db } from "../db/client.js";
+import { messages } from "../db/schema.js";
 
 export const checkoutController = async (req, res) => {
   try {
@@ -99,10 +101,51 @@ export const approveOrderController = async (req, res) => {
 
 export const rejectOrderController = async (req, res) => {
   try {
-    const id = req.params.id;
-    const order = await updateOrderStatusService(id, "reject");
-    res.json(order);
+    const { id } = req.params;
+    const updatedOrder = await updateOrderStatusService(id, "reject");
+
+    if (updatedOrder.groupOrderId && updatedOrder.conversationId && global.io) {
+      const conversationId = updatedOrder.conversationId;
+      const reason = `Đơn hàng #${id.slice(0, 8)} bị từ chối. Nhóm mua chung đã bị hủy.`;
+
+      const [sysMsg] = await db
+        .insert(messages)
+        .values({
+          conversationId: conversationId,
+          content: reason,
+          type: "system",
+          senderId: "00000000-0000-0000-0000-000000000000",
+          createdAt: new Date(),
+        })
+        .returning();
+
+      global.io.to(conversationId).emit("message", {
+        id: sysMsg.id,
+        conversationId: conversationId,
+        content: sysMsg.content,
+        type: sysMsg.type,
+        senderId: sysMsg.senderId,
+        createdAt: sysMsg.createdAt,
+      });
+
+      global.io.to(conversationId).emit("group-status-updated", {
+        conversationId: conversationId,
+        groupOrderId: updatedOrder.groupOrderId,
+        status: "cancelled",
+      });
+
+      global.io.to(conversationId).emit("group-order-cancelled", {
+        conversationId: conversationId,
+        reason: reason,
+        message: sysMsg,
+      });
+
+      console.log(`[Socket] Group cancelled via Order Reject: ${id}`);
+    }
+
+    res.json(updatedOrder);
   } catch (err) {
+    console.error("Reject Order Error:", err);
     res.status(400).json({ error: err.message });
   }
 };

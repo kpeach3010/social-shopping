@@ -231,6 +231,7 @@ const searchOrders = async () => {
               <tr>
                 <th class="px-2 py-3 w-20">Ảnh</th>
                 <th class="px-4 py-3">Mã đơn</th>
+                <th class="px-4 py-3">Tên nhóm</th>
                 <th class="px-4 py-3">Ngày tạo</th>
                 <th class="px-4 py-3">Tổng tiền</th>
                 <th class="px-4 py-3">Trạng thái</th>
@@ -271,6 +272,23 @@ const searchOrders = async () => {
 
                 <!-- Mã đơn -->
                 <td class="px-4 py-3 font-mono">{{ o.id }}</td>
+
+                <td class="px-4 py-3">
+                  <div v-if="o.groupOrderId">
+                    <span
+                      class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-200"
+                    >
+                      {{ o.groupName || "Chưa đặt tên" }}
+                    </span>
+                  </div>
+                  <div v-else>
+                    <span
+                      class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600"
+                    >
+                      Đơn cá nhân
+                    </span>
+                  </div>
+                </td>
 
                 <!-- Ngày tạo -->
                 <td class="px-4 py-3">
@@ -314,7 +332,7 @@ const searchOrders = async () => {
                       <span class="text-sm font-medium">Xác nhận</span>
                     </button>
                     <button
-                      v-if="o.status === 'pending' && !o.groupOrderId"
+                      v-if="o.status === 'pending'"
                       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-red-600 bg-red-600 text-white text-base font-medium hover:bg-red-700 active:bg-red-800 transition"
                       @click.stop="rejectOrder(o.id)"
                     >

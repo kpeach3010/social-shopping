@@ -418,8 +418,13 @@ export const getOrdersOverviewForStaffService = async () => {
       total: orders.total,
 
       groupOrderId: orders.groupOrderId,
+      groupName: conversations.name,
     })
     .from(orders)
+    .leftJoin(
+      conversations,
+      eq(conversations.groupOrderId, orders.groupOrderId)
+    )
     .orderBy(desc(orders.createdAt));
 
   // Gắn items cho từng order
@@ -492,8 +497,9 @@ const checkGroupOrderComplete = async (groupOrderId) => {
   console.log(`GroupOrder ${groupOrderId} đã hoàn thành (completed)!`);
 };
 
-// STAFF: duyệt hoặc hủy đơn hàng (auto sang complete sau khi duyệt 1 phút)
+// STAFF: duyệt hoặc hủy đơn hàng (auto sang complete)
 export const updateOrderStatusService = async (orderId, action, staffId) => {
+  // 1. Lấy order hiện tại
   const [order] = await db
     .select()
     .from(orders)
@@ -502,94 +508,106 @@ export const updateOrderStatusService = async (orderId, action, staffId) => {
 
   if (!order) throw new Error("Order không tồn tại");
 
-  let newStatus;
+  // Nếu duyệt đơn
   if (action === "approve") {
-    if (order.status === "pending") {
-      newStatus = "confirmed";
-    } else if (order.status === "confirmed") {
-      newStatus = "completed";
-    } else {
-      throw new Error("Không thể duyệt order ở trạng thái hiện tại");
+    let newStatus;
+    if (order.status === "pending") newStatus = "confirmed";
+    else if (order.status === "confirmed") newStatus = "completed";
+    else throw new Error("Không thể duyệt order ở trạng thái hiện tại");
+
+    // Cập nhật DB
+    const [updated] = await db
+      .update(orders)
+      .set({ status: newStatus, updatedAt: new Date() })
+      .where(eq(orders.id, orderId))
+      .returning();
+
+    // Auto-complete
+    if (newStatus === "confirmed") {
+      setTimeout(async () => {
+        try {
+          const [current] = await db
+            .select({ status: orders.status })
+            .from(orders)
+            .where(eq(orders.id, orderId))
+            .limit(1);
+
+          if (current?.status !== "confirmed") return;
+
+          await db
+            .update(orders)
+            .set({ status: "completed", updatedAt: new Date() })
+            .where(eq(orders.id, orderId));
+
+          if (order.groupOrderId) {
+            await checkGroupOrderComplete(order.groupOrderId);
+          }
+          console.log(`Order ${orderId} auto completed`);
+        } catch (err) {
+          console.error("Auto-complete failed:", err);
+        }
+      }, 600 * 1000);
     }
-  } else if (action === "reject") {
+
+    if (newStatus === "completed" && order.groupOrderId) {
+      await checkGroupOrderComplete(order.groupOrderId);
+    }
+
+    return updated;
+  }
+
+  // Nếu từ chối đơn
+  else if (action === "reject") {
+    if (order.status !== "pending") {
+      throw new Error("Chỉ có thể từ chối đơn khi đang pending");
+    }
+
+    // A. Nếu là ĐƠN NHÓM -> Dùng Transaction hủy cả nhóm
     if (order.groupOrderId) {
-      throw new Error("Không thể từ chối đơn hàng thuộc nhóm mua chung");
+      return await db.transaction(async (tx) => {
+        // 1. Hủy nhóm
+        await tx
+          .update(groupOrders)
+          .set({ status: "cancelled", updatedAt: new Date() })
+          .where(eq(groupOrders.id, order.groupOrderId));
+
+        // 2. Từ chối TẤT CẢ đơn trong nhóm
+        await tx
+          .update(orders)
+          .set({ status: "rejected", updatedAt: new Date() })
+          .where(eq(orders.groupOrderId, order.groupOrderId));
+
+        // 3. Lấy lại đơn hiện tại để trả về
+        const [updatedCurrentOrder] = await tx
+          .select()
+          .from(orders)
+          .where(eq(orders.id, orderId));
+
+        // 4. Gắn thêm conversationId vào order trả về
+
+        const [conv] = await tx
+          .select({ id: conversations.id })
+          .from(conversations)
+          .where(eq(conversations.groupOrderId, order.groupOrderId))
+          .limit(1);
+
+        if (conv) updatedCurrentOrder.conversationId = conv.id;
+
+        return updatedCurrentOrder;
+      });
     }
-    if (order.status === "pending") newStatus = "rejected";
-    else throw new Error("Chỉ có thể từ chối đơn khi đang pending");
+
+    // B. Nếu là ĐƠN LẺ -> Cập nhật bình thường
+    const [updated] = await db
+      .update(orders)
+      .set({ status: "rejected", updatedAt: new Date() })
+      .where(eq(orders.id, orderId))
+      .returning();
+
+    return updated;
   } else {
     throw new Error("Hành động không hợp lệ");
   }
-
-  // Cập nhật vào DB trước
-  const [updated] = await db
-    .update(orders)
-    .set({ status: newStatus, updatedAt: new Date() })
-    .where(eq(orders.id, orderId))
-    .returning();
-
-  // 1) Auto chuyển sang completed sau 1 phút
-  if (newStatus === "confirmed") {
-    setTimeout(async () => {
-      try {
-        // Kiểm tra lại trạng thái (tránh trường hợp bị reject/cancel giữa chừng)
-        const [current] = await db
-          .select({ status: orders.status })
-          .from(orders)
-          .where(eq(orders.id, orderId))
-          .limit(1);
-
-        if (current?.status !== "confirmed") return;
-
-        // Update auto completed
-        await db
-          .update(orders)
-          .set({ status: "completed", updatedAt: new Date() })
-          .where(eq(orders.id, orderId));
-
-        // Nếu là đơn nhóm -> kiểm tra nhóm
-        if (order.groupOrderId) {
-          await checkGroupOrderComplete(order.groupOrderId);
-        }
-
-        console.log(`Order ${orderId} auto completed`);
-
-        if (global.io && order.groupOrderId) {
-          // Tìm conversationId của nhóm
-          const [conv] = await db
-            .select({ id: conversations.id })
-            .from(conversations)
-            .where(eq(conversations.groupOrderId, order.groupOrderId))
-            .limit(1);
-
-          // Tìm status mới nhất của nhóm (để UI cập nhật đúng)
-          const [gOrder] = await db
-            .select({ status: groupOrders.status })
-            .from(groupOrders)
-            .where(eq(groupOrders.id, order.groupOrderId))
-            .limit(1);
-
-          if (conv) {
-            global.io.to(conv.id).emit("group-status-updated", {
-              conversationId: conv.id,
-              groupOrderId: order.groupOrderId,
-              status: gOrder?.status || "completed",
-            });
-          }
-        }
-      } catch (err) {
-        console.error("Auto-complete failed:", err);
-      }
-    }, 30 * 1000);
-  }
-
-  // 2) Nếu staff bấm duyệt lần 2 (confirmed -> completed)
-
-  if (newStatus === "completed" && order.groupOrderId) {
-    await checkGroupOrderComplete(order.groupOrderId);
-  }
-
-  return updated;
 };
 
 // staff có thể xem chi tiết đơn hàng bao gồm thông tin khách hàng

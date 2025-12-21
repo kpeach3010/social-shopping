@@ -4,7 +4,9 @@
     class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-[6px]"
     style="backdrop-filter: blur(6px)"
   >
-    <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-0 relative">
+    <div
+      class="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-0 relative flex flex-col max-h-[90vh]"
+    >
       <div
         class="flex items-center justify-between px-6 py-4 border-b bg-white rounded-t-xl shadow-sm"
       >
@@ -24,7 +26,7 @@
           &times;
         </button>
       </div>
-      <div v-if="order" class="px-6 py-5">
+      <div v-if="order" class="px-6 py-5 overflow-y-auto">
         <div
           class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4"
         >
@@ -84,7 +86,7 @@
           </div>
         </div>
         <div class="mb-4">
-          <span class="font-semibold text-gray-700">Coupon:</span>
+          <span class="font-semibold text-gray-700">Mã giảm giá: </span>
           <span v-if="order.couponCode">
             {{ order.couponCode }}
             <span v-if="order.coupon && order.coupon.discount">
@@ -133,9 +135,40 @@
             </tbody>
           </table>
         </div>
-        <div class="flex justify-end mt-6">
-          <div class="text-lg font-bold text-green-700">
-            Tổng tiền: {{ formatPrice(order.total) }}
+        <div class="flex flex-col items-end gap-2 mt-6 border-t pt-4">
+          <div class="flex justify-between w-full md:w-1/2 text-sm">
+            <span class="text-gray-600">Tổng tiền hàng:</span>
+            <span class="font-medium text-gray-900">{{
+              formatPrice(order.subtotal)
+            }}</span>
+          </div>
+
+          <div class="flex justify-between w-full md:w-1/2 text-sm">
+            <span class="text-gray-600">Phí vận chuyển:</span>
+            <span class="font-medium text-gray-900">{{
+              formatPrice(order.shippingFee)
+            }}</span>
+          </div>
+
+          <div
+            v-if="Number(order.discountTotal) > 0"
+            class="flex justify-between w-full md:w-1/2 text-sm"
+          >
+            <span class="text-gray-600">Voucher giảm giá:</span>
+            <span class="font-medium text-red-600"
+              >- {{ formatPrice(order.discountTotal) }}</span
+            >
+          </div>
+
+          <div
+            class="flex justify-between w-full md:w-1/2 mt-2 pt-2 border-t items-center"
+          >
+            <span class="font-bold text-gray-800 text-base"
+              >Tổng thanh toán:</span
+            >
+            <span class="text-xl font-bold text-green-700">{{
+              formatPrice(order.total)
+            }}</span>
           </div>
         </div>
       </div>

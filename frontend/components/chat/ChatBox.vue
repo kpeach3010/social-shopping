@@ -239,6 +239,18 @@
           >
             Đặt đơn nhóm
           </button>
+
+          <button
+            v-if="
+              isGroupChat &&
+              groupDetail?.groupOrder?.creatorId === currentUserId &&
+              groupDetail?.groupOrder?.status === 'ordering'
+            "
+            @click="cancelGroupOrder"
+            class="bg-red-600 hover:bg-red-700 text-white text-[10px] font-medium px-2.5 py-1 rounded-md transition ml-1"
+          >
+            Hủy đơn
+          </button>
         </div>
       </div>
 
@@ -696,6 +708,39 @@ async function loadMessagesForConversation(convId) {
   $socket.emit("join-conversation", convId);
 }
 
+async function cancelGroupOrder() {
+  const groupOrder = groupDetail.value?.groupOrder;
+  if (!groupOrder?.id) return;
+
+  // 1. Xác nhận hành động
+  const confirmed = confirm(
+    "Cảnh báo: Bạn có chắc chắn muốn hủy nhóm này không?\n\nTất cả đơn hàng của thành viên sẽ bị hủy bỏ."
+  );
+  if (!confirmed) return;
+
+  try {
+    // 2. Gọi API Cancel
+    await $fetch(`/group-orders/${groupOrder.id}/cancel`, {
+      method: "PATCH",
+      baseURL: config.public.apiBase,
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+    });
+
+    // 3. Thông báo thành công
+    alert("Đã hủy nhóm thành công!");
+
+    // Cập nhật UI ngay lập tức trong khi chờ Socket
+    if (groupDetail.value?.groupOrder) {
+      groupDetail.value.groupOrder.status = "cancelled";
+    }
+  } catch (err) {
+    console.error("Lỗi hủy nhóm:", err);
+    // 4. Hiển thị thông báo lỗi từ Backend
+    const errorMsg =
+      err?.data?.error || err?.message || "Không thể hủy nhóm lúc này.";
+    alert(`Lỗi: ${errorMsg}`);
+  }
+}
 watch(
   () => props.conversationId,
   async (newId) => {
@@ -710,6 +755,13 @@ watch(
     showChooseModal.value = false;
 
     readStatus.value = {};
+
+    message.value = "";
+
+    // Xóa file đang chọn (nếu có)
+    selectedFile.value = null;
+    if (fileInput.value) fileInput.value.value = "";
+    if (docInput.value) docInput.value.value = "";
 
     if (!newId) return;
 

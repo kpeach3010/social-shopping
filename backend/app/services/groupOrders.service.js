@@ -13,10 +13,12 @@ import {
   groupOrderMemberItems,
   couponProducts,
   orders,
+  orderItems,
 } from "../db/schema.js";
 import { checkoutService } from "./order.service.js";
 import { groupOrderStatusEnum } from "../enums/groupOrderStatus.enum.js";
-import { and, eq, inArray, lt, gte, lte, isNull, sql, asc } from "drizzle-orm";
+import { restoreStockForItems } from "./order.service.js";
+import { and, eq, inArray, sql, asc, ne } from "drizzle-orm";
 
 // lay thong tin group order theo conversationId
 export const getGroupOrderDetailService = async (userId, conversationId) => {
@@ -673,4 +675,92 @@ export const selectItemsService = async ({ groupOrderId, userId, items }) => {
     couponApplied: coupon ? coupon.code : null,
     isUpdate,
   };
+};
+
+// Trưởng nhóm hủy đơn nhóm khi tất cả đơn chưa được xác nhận
+export const cancelGroupOrderAfterCheckoutService = async (
+  groupOrderId,
+  userId
+) => {
+  // 1. Lấy thông tin nhóm
+  const [group] = await db
+    .select()
+    .from(groupOrders)
+    .where(eq(groupOrders.id, groupOrderId))
+    .limit(1);
+
+  if (!group) throw new Error("Nhóm không tồn tại");
+
+  // 2. Kiểm tra quyền trưởng nhóm
+  if (group.creatorId !== userId) {
+    throw new Error("Chỉ trưởng nhóm mới có quyền hủy đơn nhóm");
+  }
+
+  // 3. Kiểm tra trạng thái nhóm
+  if (group.status !== "ordering") {
+    throw new Error("Trạng thái nhóm không hợp lệ");
+  }
+
+  // 4. Kiểm tra xem có đơn hàng nào đã được xác nhận chưa
+  const processedOrders = await db
+    .select({ id: orders.id, status: orders.status })
+    .from(orders)
+    .where(
+      and(
+        eq(orders.groupOrderId, groupOrderId),
+        ne(orders.status, "pending"),
+        ne(orders.status, "cancelled")
+      )
+    )
+    .limit(1);
+
+  // Nếu tìm thấy dù chỉ 1 đơn đã xử lý  -> Chặn hủy
+  if (processedOrders.length > 0) {
+    throw new Error("Không thể hủy nhóm khi có đơn đã được xác nhận");
+  }
+
+  // 5. Thực hiện Transaction hủy nhóm
+  return await db.transaction(async (tx) => {
+    // 5.1 Cập nhật trạng thái nhóm -> Cancelled
+    await tx
+      .update(groupOrders)
+      .set({ status: "cancelled", updatedAt: new Date() })
+      .where(eq(groupOrders.id, groupOrderId));
+
+    // 5.2 Cập nhật trạng thái TẤT CẢ đơn con -> Cancelled
+
+    await tx
+      .update(orders)
+      .set({ status: "cancelled", updatedAt: new Date() })
+      .where(eq(orders.groupOrderId, groupOrderId));
+
+    // Lấy tất cả items của các đơn trong nhóm để hoàn kho
+    const allGroupItems = await tx
+      .select({
+        variantId: orderItems.variantId,
+        productId: orderItems.productId,
+        quantity: orderItems.quantity,
+      })
+      .from(orderItems)
+      .innerJoin(orders, eq(orders.id, orderItems.orderId))
+      .where(eq(orders.groupOrderId, groupOrderId));
+
+    // gọi hàm hoàn kho với danh sách items vừa lấy
+    if (allGroupItems.length > 0) {
+      await restoreStockForItems(tx, allGroupItems);
+    }
+
+    // 5.3 Lấy thông tin phòng chat để bắn socket
+    const [conv] = await tx
+      .select({ id: conversations.id })
+      .from(conversations)
+      .where(eq(conversations.groupOrderId, groupOrderId))
+      .limit(1);
+
+    return {
+      success: true,
+      groupOrderId,
+      conversationId: conv ? conv.id : null,
+    };
+  });
 };

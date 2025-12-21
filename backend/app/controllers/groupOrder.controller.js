@@ -5,11 +5,12 @@ import {
   leaveGroupOrderService,
   selectItemsService,
   leaveConversationAfterDoneService,
+  cancelGroupOrderAfterCheckoutService,
 } from "../services/groupOrders.service.js";
 
 import { createSystemMessage } from "../services/message.service.js";
 import { db } from "../db/client.js";
-import { users, conversations, groupOrders } from "../db/schema.js";
+import { users, conversations, groupOrders, messages } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 
 export const getGroupOrderDetailController = async (req, res) => {
@@ -25,85 +26,6 @@ export const getGroupOrderDetailController = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
-
-// export const chooseVariantController = async (req, res) => {
-//   try {
-//     const { groupOrderId } = req.params;
-//     const { variantId, quantity } = req.body;
-//     const userId = req.user.id;
-
-//     // 1. Gọi service để cập nhật lựa chọn
-//     const result = await chooseVariantService({
-//       groupOrderId,
-//       userId,
-//       variantId,
-//       quantity,
-//     });
-
-//     const isUpdate = result.data.isUpdate;
-
-//     console.log("chooseVariantController result:", result);
-
-//     // 2. Lấy thông tin user (để hiển thị tên trong hệ thống)
-//     const [u] = await db
-//       .select({ fullName: users.fullName })
-//       .from(users)
-//       .where(eq(users.id, userId))
-//       .limit(1);
-
-//     const fullName = u?.fullName || "Người dùng";
-
-//     // 3. Tìm conversation theo groupOrderId
-//     const [conv] = await db
-//       .select({ id: conversations.id })
-//       .from(conversations)
-//       .where(eq(conversations.groupOrderId, groupOrderId))
-//       .limit(1);
-
-//     if (!conv) {
-//       console.error(
-//         "Không tìm thấy conversation tương ứng groupOrderId:",
-//         groupOrderId
-//       );
-//     }
-
-//     const conversationId = conv?.id;
-
-//     // 4. Tạo SYSTEM MESSAGE vào DB
-//     const content = isUpdate
-//       ? `${fullName} đã cập nhật lựa chọn (${quantity} sản phẩm)`
-//       : `${fullName} đã chọn ${quantity} sản phẩm`;
-
-//     // Lưu vào DB như message hệ thống
-//     const sysMsg = await createSystemMessage(conversationId, content);
-
-//     if (global.io && conversationId) {
-//       global.io.to(conversationId).emit("message", {
-//         id: sysMsg.id,
-//         conversationId,
-//         content,
-//         type: "system",
-//         senderId: "00000000-0000-0000-0000-000000000000",
-//         createdAt: sysMsg.createdAt,
-//       });
-//     }
-//     // 5. Emit socket realtime
-//     if (global.io && conversationId) {
-//       global.io.to(conversationId).emit("group-order-choice", {
-//         userId,
-//         fullName,
-//         quantity,
-//         conversationId,
-//         createdAt: new Date().toISOString(),
-//       });
-//     }
-
-//     return res.status(200).json(result);
-//   } catch (err) {
-//     console.error("ERROR chooseVariantController:", err);
-//     return res.status(400).json({ error: err.message, stack: err.stack });
-//   }
-// };
 
 export const groupOrderCheckoutController = async (req, res) => {
   try {
@@ -357,5 +279,65 @@ export const selectItemsController = async (req, res) => {
   } catch (err) {
     console.error("ERROR selectItemsController:", err);
     res.status(400).json({ error: true, message: err.message });
+  }
+};
+
+export const cancelGroupOrderController = async (req, res) => {
+  try {
+    const { id } = req.params; //  groupOrderId
+    const userId = req.user.id;
+
+    // Gọi Service
+    const result = await cancelGroupOrderAfterCheckoutService(id, userId);
+
+    // Xử lý Socket nếu thành công
+    if (result.success && result.conversationId && global.io) {
+      const conversationId = result.conversationId;
+      const reason =
+        "Trưởng nhóm đã hủy đơn đặt hàng nhóm. Nhóm mua chung sẽ bị hủy.";
+
+      // 1. Lưu tin nhắn hệ thống
+      const [sysMsg] = await db
+        .insert(messages)
+        .values({
+          conversationId: conversationId,
+          content: reason,
+          type: "system",
+          senderId: "00000000-0000-0000-0000-000000000000",
+          createdAt: new Date(),
+        })
+        .returning();
+
+      // 2. Emit tin nhắn vào khung chat
+      global.io.to(conversationId).emit("message", {
+        id: sysMsg.id,
+        conversationId: conversationId,
+        content: sysMsg.content,
+        type: sysMsg.type,
+        senderId: sysMsg.senderId,
+        createdAt: sysMsg.createdAt,
+      });
+
+      // 3. Emit cập nhật trạng thái nhóm (Ordering -> Cancelled)
+      global.io.to(conversationId).emit("group-status-updated", {
+        conversationId: conversationId,
+        groupOrderId: id,
+        status: "cancelled",
+      });
+
+      // 4. Emit Popup thông báo
+      global.io.to(conversationId).emit("group-order-cancelled", {
+        conversationId: conversationId,
+        reason: reason,
+        message: sysMsg,
+      });
+
+      console.log(`[Socket] Group ${id} cancelled by Creator`);
+    }
+
+    res.json(result);
+  } catch (err) {
+    console.error("Cancel Group Error:", err);
+    res.status(400).json({ error: err.message });
   }
 };

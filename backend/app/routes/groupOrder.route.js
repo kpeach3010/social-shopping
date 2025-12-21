@@ -34,4 +34,10 @@ router.post(
   GroupOrderController.selectItemsController
 );
 
+router.patch(
+  "/:id/cancel",
+  authenticate,
+  GroupOrderController.cancelGroupOrderController
+);
+
 export default router;

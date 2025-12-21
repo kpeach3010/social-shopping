@@ -17,6 +17,30 @@ import { sql, eq, and, ne, inArray, desc, ilike } from "drizzle-orm";
 import { getAvailableCouponsForProductsService } from "./coupon.service.js";
 import supabase from "../../services/supbase/client.js";
 
+export const restoreStockForItems = async (tx, items) => {
+  for (const item of items) {
+    // 1. Hoàn kho cho Variant
+    if (item.variantId) {
+      await tx
+        .update(productVariants)
+        .set({
+          stock: sql`${productVariants.stock} + ${item.quantity}`,
+        })
+        .where(eq(productVariants.id, item.variantId));
+    }
+
+    // 2. Hoàn kho cho Product cha
+    if (item.productId) {
+      await tx
+        .update(products)
+        .set({
+          stock: sql`${products.stock} + ${item.quantity}`,
+        })
+        .where(eq(products.id, item.productId));
+    }
+  }
+};
+
 async function copyImageToOrderImages(variant, orderId) {
   if (!variant.imagePath) return { imagePath: null, imageUrl: null };
 
@@ -577,6 +601,20 @@ export const updateOrderStatusService = async (orderId, action, staffId) => {
           .set({ status: "rejected", updatedAt: new Date() })
           .where(eq(orders.groupOrderId, order.groupOrderId));
 
+        // Join bảng orders để lấy items của tất cả đơn thuộc groupOrderId này
+        const allGroupItems = await tx
+          .select({
+            variantId: orderItems.variantId,
+            productId: orderItems.productId,
+            quantity: orderItems.quantity,
+          })
+          .from(orderItems)
+          .innerJoin(orders, eq(orders.id, orderItems.orderId))
+          .where(eq(orders.groupOrderId, order.groupOrderId));
+
+        // Thực hiện hoàn kho
+        await restoreStockForItems(tx, allGroupItems);
+
         // 3. Lấy lại đơn hiện tại để trả về
         const [updatedCurrentOrder] = await tx
           .select()
@@ -603,6 +641,15 @@ export const updateOrderStatusService = async (orderId, action, staffId) => {
       .set({ status: "rejected", updatedAt: new Date() })
       .where(eq(orders.id, orderId))
       .returning();
+
+    //  Lấy items của đơn hàng này
+    const items = await db
+      .select()
+      .from(orderItems)
+      .where(eq(orderItems.orderId, orderId));
+
+    //  Hoàn kho
+    await restoreStockForItems(db, items);
 
     return updated;
   } else {

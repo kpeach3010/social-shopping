@@ -19,7 +19,7 @@ app.use(
     origin: [
       "http://localhost:3000",
       "https://social-shopping-app.vercel.app", // FE deploy Vercel
-      "https://social-shopping-production.up.railway.app", // domain FE gọi API
+      "https://social-shopping.onrender.com", // domain FE gọi API
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],

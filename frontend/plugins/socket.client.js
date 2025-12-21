@@ -13,31 +13,28 @@ export default defineNuxtPlugin((nuxtApp) => {
   const socketServer = String(apiBase).replace(/\/(api.*$)/, "");
 
   // --- [FIX 3: Cấu hình Socket Dynamic Token] ---
-  const socket = io(
-    socketServer || "https://social-shopping-production.up.railway.app",
-    {
-      transports: ["websocket"],
-      withCredentials: true,
-      autoConnect: false, // Tắt tự kết nối để kiểm soát thủ công
-      reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      reconnectionAttempts: Infinity,
-      timeout: 20000,
-      pingInterval: 25000, // Ping server mỗi 25s
-      pingTimeout: 60000, // Timeout sau 60s không nhận pong
+  const socket = io(socketServer || "https://social-shopping.onrender.com", {
+    transports: ["websocket"],
+    withCredentials: true,
+    autoConnect: false, // Tắt tự kết nối để kiểm soát thủ công
+    reconnection: true,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    reconnectionAttempts: Infinity,
+    timeout: 20000,
+    pingInterval: 25000, // Ping server mỗi 25s
+    pingTimeout: 60000, // Timeout sau 60s không nhận pong
 
-      // Quan trọng: Dùng hàm callback để lấy token MỚI NHẤT mỗi lần connect
-      auth: (cb) => {
-        const token = auth.accessToken || localStorage.getItem("accessToken");
-        // Gửi cả token và userId
-        cb({
-          token: token,
-          userId: auth.user?.id,
-        });
-      },
-    }
-  );
+    // Quan trọng: Dùng hàm callback để lấy token MỚI NHẤT mỗi lần connect
+    auth: (cb) => {
+      const token = auth.accessToken || localStorage.getItem("accessToken");
+      // Gửi cả token và userId
+      cb({
+        token: token,
+        userId: auth.user?.id,
+      });
+    },
+  });
 
   // Xử lý reconnect: Join lại các phòng đã join trước đó
   socket.on("connect", () => {

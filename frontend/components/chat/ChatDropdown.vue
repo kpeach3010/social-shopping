@@ -49,7 +49,7 @@
                 </span>
               </div>
               <div class="truncate text-sm text-gray-600">
-                {{ conv.content }}
+                {{ conv.lastMessage }}
               </div>
             </div>
           </div>

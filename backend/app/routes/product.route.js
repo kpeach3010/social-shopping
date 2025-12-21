@@ -1,12 +1,12 @@
 import express from "express";
 import multer from "multer";
-const upload = multer();
+
 import * as ProductController from "../controllers/product.controller.js";
 import { authenticate, hasRoles } from "../middlewares/auth.middleware.js";
 import { Role } from "../enums/role.enum.js";
 
 const router = express.Router();
-
+const upload = multer();
 // Tạo sản phẩm mới (chỉ staff)
 router.post(
   "/create-product",

@@ -19,18 +19,29 @@ export const getMessagesController = async (req, res) => {
 export const sendMessageController = async (req, res) => {
   try {
     const { conversationId } = req.params;
-    const { content, type, senderId } = req.body;
+    const { content, type } = req.body;
+    const senderId = req.user.id;
+    const file = req.file;
     // console.log("sendMessage called:", {
     //   conversationId,
     //   senderId,
     //   content,
     // });
-    const msg = await sendMessageService(
+    if (!conversationId) {
+      return res.status(400).json({ error: "Thiếu conversationId" });
+    }
+
+    if ((type === "image" || type === "file") && !file) {
+      return res.status(400).json({ error: "Vui lòng chọn file đính kèm" });
+    }
+
+    const msg = await sendMessageService({
       conversationId,
       senderId,
-      content,
-      type
-    );
+      content: content || "", // Với ảnh, content ban đầu có thể rỗng
+      type: type || "text",
+      file, // Truyền file sang service
+    });
     // console.log("Message saved:", msg);
 
     // Emit socket event để realtime

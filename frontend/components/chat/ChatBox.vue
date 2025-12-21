@@ -113,11 +113,47 @@
               :class="[
                 'inline-block px-4 py-2 rounded-2xl text-sm whitespace-pre-wrap break-words leading-relaxed',
                 isMine(msg)
-                  ? 'bg-gray-400 text-white rounded-br-none'
-                  : 'bg-gray-200 text-gray-800 rounded-bl-none',
+                  ? 'bg-gray-300 text-gray-800 rounded-br-none'
+                  : 'bg-gray-100 text-gray-800 rounded-bl-none',
               ]"
             >
-              <div v-html="formatMessage(msg.content)"></div>
+              <!-- Nếu là text -->
+              <div
+                v-if="msg.type === 'text'"
+                v-html="formatMessage(msg.content)"
+              ></div>
+
+              <!-- Nếu là ảnh -->
+              <div v-else-if="msg.type === 'image'">
+                <img
+                  v-if="msg.status === 'sending'"
+                  :src="msg.content"
+                  class="max-w-[200px] rounded-lg opacity-70"
+                  alt="Uploading..."
+                />
+                <ChatImage v-else :path="msg.content" />
+              </div>
+
+              <!-- Nếu là tệp -->
+              <div v-else-if="msg.type === 'file'">
+                <div v-if="isVideo(msg.fileName || msg.content)" class="mt-1">
+                  <ChatVideo :path="msg.content" />
+                </div>
+
+                <div v-else class="bg-gray-100 p-2 rounded-lg max-w-[250px]">
+                  <a
+                    v-if="msg.status === 'sending'"
+                    :href="msg.content"
+                    target="_blank"
+                    class="flex items-center gap-2 text-gray-500 italic text-sm"
+                  >
+                    <PaperClipIcon class="w-4 h-4" />
+                    <span>Đang gửi...</span>
+                  </a>
+
+                  <ChatFile v-else :path="msg.content" :name="msg.fileName" />
+                </div>
+              </div>
 
               <!-- Trạng thái gửi -->
               <div
@@ -277,6 +313,39 @@
 
     <!-- Input -->
     <div class="flex items-end p-3 border-t border-gray-200 bg-white">
+      <button
+        @click="triggerFileInput"
+        class="mb-2 mr-2 text-gray-500 hover:text-blue-600 transition"
+        title="Gửi ảnh"
+      >
+        <PhotoIcon class="w-6 h-6" />
+      </button>
+
+      <button
+        @click="triggerDocInput"
+        class="mb-2 mr-2 text-gray-500 hover:text-blue-600 transition"
+        title="Gửi tập tin"
+      >
+        <PaperClipIcon class="w-6 h-6" />
+      </button>
+
+      <!-- có thể gửi video và ảnh -->
+      <input
+        type="file"
+        ref="fileInput"
+        class="hidden"
+        accept="image/*,video/*"
+        @change="handleFileSelect"
+      />
+
+      <input
+        type="file"
+        ref="docInput"
+        class="hidden"
+        accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
+        @change="handleFileSelect"
+      />
+
       <textarea
         v-model="message"
         @focus="markAsRead"
@@ -291,7 +360,7 @@
 
       <button
         @click="sendMessage"
-        :disabled="loading || !message.trim()"
+        :disabled="loading || (!message.trim() && !selectedFile)"
         class="flex items-center justify-center w-10 h-10 rounded-full bg-black text-white hover:bg-gray-800 disabled:bg-gray-400 transition"
       >
         <PaperAirplaneIcon class="w-5 h-5" />
@@ -324,12 +393,16 @@ import {
   UserCircleIcon,
   PaperAirplaneIcon,
   InformationCircleIcon,
+  PhotoIcon,
+  PaperClipIcon,
 } from "@heroicons/vue/24/outline";
-import supabase from "@/plugins/supabase";
 import { useAuthStore } from "@/stores/auth";
 import { useChatStore } from "@/stores/chat";
 import GroupOrderDetailModal from "../modals/groupOrder/GroupOrderDetailModal.vue";
 import GroupOrderChooseModal from "../modals/groupOrder/GroupOrderChooseModal.vue";
+import ChatImage from "@/components/chat/ChatImage.vue";
+import ChatFile from "@/components/chat/ChatFile.vue";
+import ChatVideo from "@/components/chat/ChatVideo.vue";
 
 const chatStore = useChatStore();
 const router = useRouter();
@@ -338,6 +411,11 @@ const showGroupDetail = ref(false);
 const groupDetail = ref(null);
 const showChooseModal = ref(false);
 let supabaseChannel;
+// Thêm biến cho upload
+const fileInput = ref(null);
+const selectedFile = ref(null);
+// Thêm ref cho input file tài liệu
+const docInput = ref(null);
 
 const isGroupChat = computed(
   () => props.conversation?.type === "group" || !!groupDetail.value?.groupOrder
@@ -367,15 +445,6 @@ const showGroupOrderBox = computed(() => {
   return !!groupDetail.value?.groupOrder;
 });
 
-// const groupStatusClass = computed(() => {
-//   const s = groupDetail.value?.groupOrder?.status;
-//   if (s === "pending") return "text-yellow-600";
-//   if (s === "locked") return "text-green-600";
-//   if (s === "ordering") return "text-blue-600";
-//   if (s === "completed") return "text-gray-600";
-//   if (s === "cancelled") return "text-red-500";
-//   return "text-gray-500";
-// });
 function handleChosen(data) {
   console.log("User đã chọn:", data);
 }
@@ -505,6 +574,21 @@ async function checkoutGroupOrder() {
     console.error("Lỗi khi đặt đơn nhóm:", err);
     alert(err?.data?.error || "Đặt đơn thất bại, vui lòng thử lại.");
   }
+}
+
+function triggerFileInput() {
+  fileInput.value?.click();
+}
+
+// Xử lý khi user chọn file từ máy
+async function handleFileSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  selectedFile.value = file;
+
+  // Gửi luôn ngay khi chọn
+  await sendMessage();
 }
 
 const props = defineProps({
@@ -649,6 +733,14 @@ watch(
   { immediate: true }
 );
 
+// Hàm kiểm tra xem đường dẫn/tên file có phải là video không
+const isVideo = (filename) => {
+  if (!filename) return false;
+  // Các đuôi video phổ biến
+  const videoExtensions = [".mp4", ".mov", ".webm", ".ogg", ".mkv"];
+  return videoExtensions.some((ext) => filename.toLowerCase().endsWith(ext));
+};
+
 watch(
   () => props.partner,
   async (partner) => {
@@ -683,63 +775,6 @@ onMounted(() => {
     $socket.emit("join-conversation", props.conversationId);
   }
 
-  // $socket.on("message", (raw) => {
-  //   console.log(
-  //     "🔥 SOCKET NHẬN TIN:",
-  //     "ID:",
-  //     raw.id,
-  //     "| Content:",
-  //     raw.content
-  //   );
-  //   const msg = normalize({
-  //     ...raw,
-  //     senderFullName:
-  //       raw.senderFullName || raw.sender_full_name || raw.sender_name,
-  //   });
-
-  //   if (msg.conversationId !== props.conversationId) return;
-
-  //   // 1. Chặn trùng tin nhắn cũ (Ép kiểu String)
-  //   if (msg.id && deliveredIds.has(String(msg.id))) return;
-
-  //   // 2. Xử lý cập nhật tin nhắn mình vừa gửi (Optimistic UI)
-  //   if (isMine(msg) && msg.tempId) {
-  //     // Check thêm msg.tempId cho chắc
-
-  //     // tempId thường là string rồi, nhưng thêm String() cũng không sao
-  //     const idx = [...pendingMap.values()].find(
-  //       (i) =>
-  //         messages.value[i]?.status === "sending" &&
-  //         messages.value[i]?.content === msg.content
-  //     );
-
-  //     // Hoặc nếu bạn dùng map key là tempId:
-  //     // const idx = pendingMap.get(msg.tempId);
-
-  //     if (idx !== undefined) {
-  //       messages.value[idx] = { ...msg, status: "sent" };
-
-  //       // --- [QUAN TRỌNG] Lưu ID thật vào deliveredIds (Ép kiểu String) ---
-  //       if (msg.id) deliveredIds.add(String(msg.id));
-  //       // ----------------------------------------------------------------
-
-  //       scrollToBottom();
-  //       return; // Đã update xong, không push thêm dòng mới
-  //     }
-  //   }
-
-  //   // 3. Tin nhắn mới hoàn toàn -> Push vào
-  //   messages.value.push({ ...msg, status: isMine(msg) ? "sent" : undefined });
-
-  //   // Lưu ID thật để chặn trùng sau này
-  //   if (msg.id) deliveredIds.add(String(msg.id));
-
-  //   scrollToBottom();
-
-  //   // reset trạng thái đã đọc
-  //   readStatus.value = {};
-  // });
-
   $socket.on("message", (raw) => {
     // 1. Chuẩn hóa dữ liệu
     const msg = normalize({
@@ -753,14 +788,26 @@ onMounted(() => {
     // 2. Chặn trùng lặp nếu ID thật đã tồn tại
     if (msg.id && deliveredIds.has(String(msg.id))) return;
 
-    // ============================================================
-    // 👇 [FIX LỖI NHÂN ĐÔI]: TÌM VÀ CẬP NHẬT TIN NHẮN TẠM THỜI 👇
-    // ============================================================
     if (isMine(msg)) {
       // Tìm tin nhắn nào đang ở trạng thái 'sending' VÀ có nội dung giống hệt
-      const pendingIdx = messages.value.findIndex(
-        (m) => m.status === "sending" && m.content === msg.content
-      );
+      const pendingIdx = messages.value.findIndex((m) => {
+        if (m.status !== "sending") return false;
+
+        // Nếu là TEXT: Phải khớp nội dung
+        if (m.type === "text" && msg.type === "text") {
+          return m.content === msg.content;
+        }
+
+        // Nếu là IMAGE/FILE: Không cần khớp nội dung (vì Blob URL != Path)
+        if (
+          (msg.type === "image" || msg.type === "file") &&
+          m.type === msg.type
+        ) {
+          return true;
+        }
+
+        return false;
+      });
 
       if (pendingIdx !== -1) {
         // A. Tìm thấy! => Đây chính là tin nhắn mình vừa gửi
@@ -771,10 +818,9 @@ onMounted(() => {
         if (msg.id) deliveredIds.add(String(msg.id));
 
         scrollToBottom();
-        return; // 🛑 QUAN TRỌNG: Dừng lại ngay, không chạy xuống dòng push bên dưới
+        return;
       }
     }
-    // ============================================================
 
     // 3. Nếu không tìm thấy bản nháp (hoặc là tin người khác) => Thêm mới
     messages.value.push({ ...msg, status: isMine(msg) ? "sent" : undefined });
@@ -805,14 +851,6 @@ onMounted(() => {
   $socket.on("user-joined", async (payload) => {
     if (payload.conversationId !== props.conversationId) return;
 
-    // // tin nhan he thong
-    // messages.value.push({
-    //   id: `sys_${Date.now()}`,
-    //   content: `${payload.fullName || "Người dùng"} đã tham gia nhóm`,
-    //   senderFullName: "system",
-    //   type: "system",
-    //   createdAt: new Date().toISOString(),
-    // });
     scrollToBottom();
 
     if (isGroupChat.value) {
@@ -929,7 +967,6 @@ onMounted(() => {
 
   $socket.on("group-status-updated", async (payload) => {
     // 1. Kiểm tra đúng phòng chat
-    // Ép kiểu String để so sánh an toàn
     if (String(payload.conversationId) !== String(props.conversationId)) return;
 
     console.log("Trạng thái nhóm đã thay đổi:", payload.status);
@@ -990,9 +1027,15 @@ function statusText(status) {
   return map[status] || "";
 }
 
+// Hàm kích hoạt chọn file (không giới hạn loại file)
+function triggerDocInput() {
+  docInput.value?.click();
+}
+
 async function sendMessage() {
   const text = message.value.trim();
-  if (!text) return;
+  const file = selectedFile.value;
+  if (!text && !file) return;
   loading.value = true;
 
   try {
@@ -1029,12 +1072,22 @@ async function sendMessage() {
     const tempId = `tmp_${Date.now()}_${Math.random()
       .toString(36)
       .slice(2, 8)}`;
+    let optimisticContent = text;
+    let optimisticType = "text";
+
+    if (file) {
+      // Tạo Blob URL để hiển thị ảnh ngay lập tức
+      optimisticContent = URL.createObjectURL(file);
+      optimisticType = file.type.startsWith("image/") ? "image" : "file";
+    }
+
     const optimistic = normalize({
       tempId,
       conversationId: convId,
       senderId: props.currentUserId,
       senderFullName: auth.user?.fullName || "Bạn",
-      content: text,
+      content: optimisticContent, // Text hoặc Blob URL
+      type: optimisticType, // 'text' | 'image' | 'file'
       status: "sending",
       createdAt: new Date().toISOString(),
     });
@@ -1042,15 +1095,27 @@ async function sendMessage() {
     pendingMap.set(tempId, messages.value.length - 1);
     scrollToBottom();
 
+    const formData = new FormData();
+    // formData.append("senderId", props.currentUserId); // Backend đã lấy từ token, không cần gửi
+
+    if (file) {
+      formData.append("file", file);
+      formData.append("type", optimisticType);
+      // content ban đầu để rỗng hoặc tên file, backend sẽ ghi đè bằng path
+      formData.append("content", "");
+    } else {
+      formData.append("content", text);
+      formData.append("type", "text");
+    }
+
     // Gọi API lưu message
     const saved = await $fetch(`/messages/${convId}`, {
       method: "POST",
       baseURL: config.public.apiBase,
       headers: {
         Authorization: `Bearer ${auth.accessToken}`,
-        "Content-Type": "application/json",
       },
-      body: { senderId: props.currentUserId, content: text },
+      body: formData,
     });
     const savedMsg = normalize(saved);
 
@@ -1062,6 +1127,9 @@ async function sendMessage() {
     }
 
     message.value = "";
+    selectedFile.value = null;
+    if (fileInput.value) fileInput.value.value = ""; // Reset input file
+    if (docInput.value) docInput.value.value = ""; // Reset input doc
     scrollToBottom();
   } catch (err) {
     console.error("Lỗi gửi message:", err);

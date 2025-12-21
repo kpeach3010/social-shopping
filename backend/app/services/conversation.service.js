@@ -682,12 +682,13 @@ export const getLastMessagesService = async (userId) => {
   const result = await db
     .select({
       conversationId: messages.conversationId,
-      content: messages.content,
+      // content: messages.content,
       createdAt: messages.createdAt,
       senderId: messages.senderId,
       senderName: users.fullName,
       type: conversations.type,
       convName: conversations.name,
+      lastMessage: conversations.lastMessage,
       lastMessageAt: conversations.lastMessageAt,
     })
     .from(messages)

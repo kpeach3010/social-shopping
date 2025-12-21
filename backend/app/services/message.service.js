@@ -6,8 +6,26 @@ import {
   conversations,
   conversationMembers,
 } from "../db/schema.js";
+import supabase from "../../services/supbase/client.js";
 
 import { eq, asc, and, or, inArray, ne, isNull, gt, count } from "drizzle-orm";
+
+const uploadFileToSupabase = async (file, conversationId) => {
+  const fileExt = file.originalname.split(".").pop();
+  const fileName = `${Date.now()}_${Math.random().toString(36).slice(2)}.${fileExt}`;
+  const filePath = `${conversationId}/${fileName}`;
+
+  const { data, error } = await supabase.storage
+    .from("chat-attachments")
+    .upload(filePath, file.buffer, {
+      contentType: file.mimetype,
+      upsert: false,
+    });
+
+  if (error) throw new Error(`Lỗi upload Supabase: ${error.message}`);
+
+  return filePath; // Trả về đường dẫn để lưu vào DB
+};
 
 export const getMessagesService = async (conversationId) => {
   return await db
@@ -16,6 +34,7 @@ export const getMessagesService = async (conversationId) => {
       content: messages.content,
       senderId: messages.senderId,
       createdAt: messages.createdAt,
+      type: messages.type,
       senderFullName: users.fullName,
       // senderAvatar: users.avatar,
     })
@@ -25,21 +44,42 @@ export const getMessagesService = async (conversationId) => {
     .orderBy(asc(messages.createdAt));
 };
 
-export const sendMessageService = async (conversationId, senderId, content) => {
+export const sendMessageService = async ({
+  conversationId,
+  senderId,
+  content,
+  type = "text",
+  file = null,
+}) => {
+  let finalContent = content;
+
+  // Nếu có file, thực hiện upload trước
+  if (file) {
+    // Nếu type là image hoặc file, ta upload lên bucket
+    if (type === "image" || type === "file") {
+      finalContent = await uploadFileToSupabase(file, conversationId);
+    }
+  }
+
   const [msg] = await db
     .insert(messages)
     .values({
       conversationId,
       senderId,
-      content,
-      type: "text",
+      content: finalContent, // image -> lưu đường dẫn
+      type,
     })
     .returning();
+
+  // Cập nhật lastMessage trong conversation
+  let lastMessagePreview = finalContent;
+  if (type === "image") lastMessagePreview = "[Hình ảnh]";
+  else if (type === "file") lastMessagePreview = "[Tập tin]";
 
   await db
     .update(conversations)
     .set({
-      lastMessage: content,
+      lastMessage: lastMessagePreview,
       lastMessageAt: new Date(),
     })
     .where(eq(conversations.id, conversationId));
@@ -48,7 +88,11 @@ export const sendMessageService = async (conversationId, senderId, content) => {
     .select({ fullName: users.fullName })
     .from(users)
     .where(eq(users.id, senderId));
-  return { ...msg, senderFullName: user.fullName };
+  return {
+    ...msg,
+    senderFullName: user.fullName,
+    lastMessage: lastMessagePreview,
+  };
 };
 
 // Danh dau cuoc tro chuyen la da doc

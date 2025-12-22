@@ -90,10 +90,10 @@
                   class="font-semibold text-pink-700 flex items-center gap-2"
                 >
                   Ví MoMo / QR Code
-                  <span
+                  <!-- <span
                     class="bg-pink-100 text-pink-800 text-xs px-2 py-0.5 rounded"
                     >Khuyên dùng</span
-                  >
+                  > -->
                 </div>
                 <div class="text-xs text-gray-500">
                   Quét mã QR bằng ứng dụng MoMo
@@ -601,7 +601,6 @@ const checkout = async () => {
         });
 
         if (resPayment.paymentUrl) {
-          cleanUpCart();
           window.location.href = resPayment.paymentUrl;
         } else {
           throw new Error("Không nhận được link thanh toán từ VNPay");

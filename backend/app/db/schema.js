@@ -220,7 +220,10 @@ export const orders = pgTable("orders", {
   }),
   status: orderStatusEnum("status").notNull().default("pending"),
   paymentMethod: varchar("payment_method", { length: 10 }).default("COD"),
-
+  // Cờ đánh dấu đã thanh toán tiền hay chưa
+  isPaid: boolean("is_paid").default(false).notNull(),
+  // Thời điểm thanh toán thành công
+  paidAt: timestamp("paid_at", { withTimezone: true }),
   subtotal: decimal("subtotal", { precision: 12, scale: 2 }).notNull(), // Tổng tiền trước giảm giá
   discountTotal: decimal("discount_total", { precision: 12, scale: 2 }).default(
     "0"

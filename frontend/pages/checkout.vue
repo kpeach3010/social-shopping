@@ -31,10 +31,79 @@
             <p>
               <strong>Thanh toán:</strong> {{ orderInfo.order.paymentMethod }}
             </p>
+
             <p>
               <strong>Ngày đặt:</strong>
               {{ new Date(orderInfo.order.createdAt).toLocaleString("vi-VN") }}
             </p>
+          </div>
+        </div>
+        <div
+          v-if="orderInfo.order.isPaid && orderInfo.order.status === 'pending'"
+          class="bg-blue-50 text-blue-700 p-4 rounded"
+        >
+          Chúng tôi đã nhận được thanh toán của bạn.
+        </div>
+
+        <!-- Phương thức thanh toán -->
+        <div>
+          <h2 class="text-lg font-semibold mb-3">Phương thức thanh toán</h2>
+          <div class="space-y-3">
+            <label
+              class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-all"
+              :class="
+                paymentMethod === 'COD'
+                  ? 'border-black bg-gray-50 ring-1 ring-black'
+                  : 'border-gray-200 hover:border-gray-400'
+              "
+            >
+              <input
+                type="radio"
+                value="COD"
+                v-model="paymentMethod"
+                class="w-5 h-5 accent-black"
+              />
+              <div class="flex-1">
+                <div class="font-semibold">Thanh toán khi nhận hàng (COD)</div>
+                <div class="text-xs text-gray-500">
+                  Thanh toán tiền mặt khi shipper giao hàng
+                </div>
+              </div>
+            </label>
+
+            <label
+              class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-all"
+              :class="
+                paymentMethod === 'MOMO'
+                  ? 'border-pink-500 bg-pink-50 ring-1 ring-pink-500'
+                  : 'border-gray-200 hover:border-pink-300'
+              "
+            >
+              <input
+                type="radio"
+                value="MOMO"
+                v-model="paymentMethod"
+                class="w-5 h-5 accent-pink-600"
+              />
+              <div class="flex-1">
+                <div
+                  class="font-semibold text-pink-700 flex items-center gap-2"
+                >
+                  Ví MoMo / QR Code
+                  <span
+                    class="bg-pink-100 text-pink-800 text-xs px-2 py-0.5 rounded"
+                    >Khuyên dùng</span
+                  >
+                </div>
+                <div class="text-xs text-gray-500">
+                  Quét mã QR bằng ứng dụng MoMo
+                </div>
+              </div>
+              <img
+                src="https://upload.wikimedia.org/wikipedia/vi/f/fe/MoMo_Logo.png"
+                class="w-8 h-8 object-contain rounded"
+              />
+            </label>
           </div>
         </div>
 
@@ -170,6 +239,67 @@
           </div>
         </div>
 
+        <div class="mt-6 border-t pt-4">
+          <h2 class="text-lg font-semibold mb-3">Phương thức thanh toán</h2>
+          <div class="space-y-3">
+            <label
+              class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-all"
+              :class="
+                paymentMethod === 'COD'
+                  ? 'border-black bg-gray-50 ring-1 ring-black'
+                  : 'border-gray-200 hover:border-gray-400'
+              "
+            >
+              <input
+                type="radio"
+                value="COD"
+                v-model="paymentMethod"
+                class="w-5 h-5 accent-black"
+              />
+              <div class="flex-1">
+                <div class="font-semibold">Thanh toán khi nhận hàng (COD)</div>
+                <div class="text-xs text-gray-500">
+                  Thanh toán tiền mặt khi shipper giao hàng
+                </div>
+              </div>
+            </label>
+
+            <label
+              class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-all"
+              :class="
+                paymentMethod === 'MOMO'
+                  ? 'border-pink-500 bg-pink-50 ring-1 ring-pink-500'
+                  : 'border-gray-200 hover:border-pink-300'
+              "
+            >
+              <input
+                type="radio"
+                value="MOMO"
+                v-model="paymentMethod"
+                class="w-5 h-5 accent-pink-600"
+              />
+              <div class="flex-1">
+                <div
+                  class="font-semibold text-pink-700 flex items-center gap-2"
+                >
+                  Ví MoMo / QR Code
+                  <span
+                    class="bg-pink-100 text-pink-800 text-xs px-2 py-0.5 rounded"
+                    >Khuyên dùng</span
+                  >
+                </div>
+                <div class="text-xs text-gray-500">
+                  Quét mã QR bằng ứng dụng MoMo
+                </div>
+              </div>
+              <img
+                src="https://upload.wikimedia.org/wikipedia/vi/f/fe/MoMo_Logo.png"
+                class="w-8 h-8 object-contain rounded"
+              />
+            </label>
+          </div>
+        </div>
+
         <!-- Địa chỉ giao hàng -->
         <div>
           <h2 class="text-lg font-semibold mb-2">Địa chỉ giao hàng</h2>
@@ -236,13 +366,21 @@
         </div>
 
         <!-- Nút đặt hàng -->
-        <div class="text-right">
+        <div class="text-right border-t pt-4">
           <button
             @click="checkout"
-            class="px-6 py-2 bg-black text-white rounded hover:bg-gray-800 disabled:opacity-50"
+            class="px-6 py-3 text-white rounded-lg font-bold shadow hover:shadow-lg transition-all disabled:opacity-50 flex items-center gap-2 ml-auto"
+            :class="
+              paymentMethod === 'MOMO'
+                ? 'bg-pink-600 hover:bg-pink-700'
+                : 'bg-black hover:bg-gray-800'
+            "
             :disabled="loading"
           >
-            {{ loading ? "Đang xử lý..." : "Đặt đơn" }}
+            <span v-if="loading" class="animate-spin text-xl">⏳</span>
+            <span v-else>{{
+              paymentMethod === "MOMO" ? "Thanh toán MoMo" : "Đặt đơn ngay"
+            }}</span>
           </button>
         </div>
       </div>
@@ -272,6 +410,7 @@ const selectedCoupon = ref(null);
 const coupons = ref([]);
 const showCouponModal = ref(false);
 const fromCart = ref(false);
+const paymentMethod = ref("COD");
 
 const shippingMode = ref("default");
 const shipping = reactive({
@@ -359,6 +498,8 @@ const checkout = async () => {
 
   loading.value = true;
   try {
+    // 1. Tạo đơn hàng trước (Lưu vào DB với trạng thái Pending)
+    // Dù thanh toán lỗi thì đơn vẫn phải tồn tại trong DB để có ID gửi sang MoMo
     const payload = {
       items: checkoutItems.value.map((i) => ({
         variantId: i.variantId,
@@ -376,36 +517,72 @@ const checkout = async () => {
               ward: auth.user?.ward,
               addressDetail: auth.user?.addressDetail,
             },
-      paymentMethod: "COD",
+      paymentMethod: paymentMethod.value,
       fromCart: fromCart.value,
     };
 
-    const res = await $fetch("/orders/checkout", {
+    const resOrder = await $fetch("/orders/checkout", {
       method: "POST",
       baseURL: config.public.apiBase,
       headers: { Authorization: `Bearer ${auth.accessToken}` },
       body: payload,
     });
 
-    orderInfo.value = res;
+    // 2. Phân chia luồng xử lý
+    if (paymentMethod.value === "MOMO") {
+      // Thanh toán MoMo
+      try {
+        const resPayment = await $fetch("/payment/momo/create", {
+          method: "POST",
+          baseURL: config.public.apiBase,
+          headers: { Authorization: `Bearer ${auth.accessToken}` },
+          body: {
+            orderId: resOrder.order.id,
+            amount: Math.round(resOrder.order.total),
+            redirectUrl: window.location.origin + "/payment/momo-return",
+          },
+        });
 
-    if (fromCart.value && process.client) {
-      window.dispatchEvent(new CustomEvent("cart-updated"));
+        if (resPayment.paymentUrl) {
+          // Chỉ khi có link thanh toán mới xóa giỏ hàng
+          cleanUpCart();
+          // Chuyển hướng ngay, KHÔNG gán orderInfo để không hiện bảng thành công
+          window.location.href = resPayment.paymentUrl;
+        } else {
+          // Trường hợp API không trả về link (Lỗi bên MoMo hoặc Server)
+          throw new Error("Không nhận được link thanh toán từ MoMo");
+        }
+      } catch (errMomo) {
+        console.error("Lỗi tạo link MoMo:", errMomo);
+        alert(
+          "Hệ thống thanh toán MoMo đang gặp sự cố. Vui lòng chọn 'COD' hoặc thử lại sau."
+        );
+      }
+    } else {
+      // Thanh toán COD
+      // Gán orderInfo để hiện thông báo thành công
+      orderInfo.value = resOrder;
+
+      if (fromCart.value && process.client) {
+        window.dispatchEvent(new CustomEvent("cart-updated"));
+      }
+      cleanUpCart();
     }
-
-    // Xóa localStorage sau khi đặt hàng xong
-    localStorage.removeItem("checkoutItems");
-    localStorage.removeItem("checkoutCoupon");
-    localStorage.removeItem("checkoutFromCart");
   } catch (e) {
     console.error("Checkout error:", e);
     if (e.response?._data?.error) {
       alert(e.response._data.error);
     } else {
-      alert("Có lỗi khi đặt đơn, vui lòng thử lại.");
+      alert("Có lỗi khi tạo đơn hàng, vui lòng thử lại.");
     }
   } finally {
     loading.value = false;
   }
+};
+
+const cleanUpCart = () => {
+  localStorage.removeItem("checkoutItems");
+  localStorage.removeItem("checkoutCoupon");
+  localStorage.removeItem("checkoutFromCart");
 };
 </script>

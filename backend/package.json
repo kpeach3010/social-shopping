@@ -2,7 +2,7 @@
   "name": "social-shopping-app-backend",
   "version": "1.0.0",
   "main": "server.js",
-   "type": "module",
+  "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon server.js",
@@ -13,6 +13,7 @@
   "description": "",
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
+    "axios": "^1.13.2",
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",
     "drizzle-kit": "^0.31.4",

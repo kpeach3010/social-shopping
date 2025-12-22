@@ -41,11 +41,7 @@ router.get(
   hasRoles(Role.STAFF),
   OrderController.getOrdersOverviewForStaffController
 );
-router.get(
-  "/:id",
-  hasRoles(Role.STAFF),
-  OrderController.getOrderWithUserInfoByIdController
-);
+router.get("/:id", OrderController.getOrderWithUserInfoByIdController);
 router.patch(
   "/approve/:id",
   hasRoles(Role.STAFF),

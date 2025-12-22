@@ -508,6 +508,7 @@ const formatPrice = (v) =>
 
 // --- Load data từ localStorage ---
 onMounted(async () => {
+  // await new Promise((r) => setTimeout(r, 500));
   // 1. Kiểm tra nếu là VNPay redirect về
   if (route.query.vnp_ResponseCode) {
     await handleVnpayCallback();

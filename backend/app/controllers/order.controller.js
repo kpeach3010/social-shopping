@@ -81,7 +81,6 @@ export const getOrdersOverviewForStaffController = async (req, res) => {
 
 export const getOrderWithUserInfoByIdController = async (req, res) => {
   try {
-    const { id } = req.params;
     const order = await getOrderWithUserInfoByIdService(id);
     res.json(order);
   } catch (err) {

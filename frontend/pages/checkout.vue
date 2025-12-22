@@ -659,7 +659,6 @@ const handleVnpayCallback = async () => {
       // Bước 2: Nếu chữ ký đúng & thanh toán thành công -> Lấy chi tiết đơn hàng để hiện bill
       const orderId = route.query.vnp_TxnRef;
       const orderDetail = await $fetch(`/orders/${orderId}`, {
-        headers: { Authorization: `Bearer ${auth.accessToken}` },
         baseURL: config.public.apiBase,
       });
 

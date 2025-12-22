@@ -2,6 +2,9 @@
 import crypto from "crypto";
 import axios from "axios";
 import { momoConfig } from "../config/momo.js";
+import moment from "moment";
+import qs from "qs";
+import { vnpayConfig } from "../config/vnpay.js";
 
 /**
  * Service tạo yêu cầu thanh toán sang MoMo
@@ -94,4 +97,91 @@ export const verifyMomoSignature = (data) => {
     .digest("hex");
 
   return generatedSignature === signature;
+};
+
+// Hàm sắp xếp object theo thứ tự a-z (Bắt buộc của VNPay)
+function sortObject(obj) {
+  let sorted = {};
+  let str = [];
+  let key;
+  for (key in obj) {
+    if (obj.hasOwnProperty(key)) {
+      str.push(encodeURIComponent(key));
+    }
+  }
+  str.sort();
+  for (key = 0; key < str.length; key++) {
+    sorted[str[key]] = encodeURIComponent(obj[str[key]]).replace(/%20/g, "+");
+  }
+  return sorted;
+}
+
+/**
+ * Tạo URL thanh toán gửi sang VNPay
+ */
+export const createVnpayUrlService = ({
+  orderId,
+  amount,
+  orderInfo,
+  ipAddr,
+  clientReturnUrl,
+}) => {
+  const date = new Date();
+  const createDate = moment(date).format("YYYYMMDDHHmmss");
+
+  const { tmnCode, hashSecret, url, returnUrl } = vnpayConfig;
+
+  // Ưu tiên link từ Frontend gửi lên, nếu không thì dùng trong config
+  const vnpReturnUrl = clientReturnUrl || returnUrl;
+
+  let vnp_Params = {};
+  vnp_Params["vnp_Version"] = "2.1.0";
+  vnp_Params["vnp_Command"] = "pay";
+  vnp_Params["vnp_TmnCode"] = tmnCode;
+  vnp_Params["vnp_Locale"] = "vn";
+  vnp_Params["vnp_CurrCode"] = "VND";
+  vnp_Params["vnp_TxnRef"] = orderId;
+  vnp_Params["vnp_OrderInfo"] = orderInfo || `Thanh toan cho ma GD: ${orderId}`;
+  vnp_Params["vnp_OrderType"] = "other";
+  vnp_Params["vnp_Amount"] = amount * 100; // VNPay tính đơn vị là đồng (nhân 100)
+  vnp_Params["vnp_ReturnUrl"] = vnpReturnUrl;
+  vnp_Params["vnp_IpAddr"] = ipAddr;
+  vnp_Params["vnp_CreateDate"] = createDate;
+
+  // Sắp xếp tham số
+  vnp_Params = sortObject(vnp_Params);
+
+  // Tạo chữ ký bảo mật
+  const signData = qs.stringify(vnp_Params, { encode: false });
+  const hmac = crypto.createHmac("sha512", hashSecret);
+  const signed = hmac.update(Buffer.from(signData, "utf-8")).digest("hex");
+
+  vnp_Params["vnp_SecureHash"] = signed;
+
+  // Trả về link thanh toán đầy đủ
+  return url + "?" + qs.stringify(vnp_Params, { encode: false });
+};
+
+/**
+ * Kiểm tra chữ ký khi VNPay trả về (Verify Return)
+ */
+export const verifyVnpayReturnService = (vnp_Params) => {
+  let secureHash = vnp_Params["vnp_SecureHash"];
+
+  // Xóa 2 trường hash để tính toán lại
+  delete vnp_Params["vnp_SecureHash"];
+  delete vnp_Params["vnp_SecureHashType"];
+
+  vnp_Params = sortObject(vnp_Params);
+
+  const { hashSecret } = vnpayConfig;
+  const signData = qs.stringify(vnp_Params, { encode: false });
+  const hmac = crypto.createHmac("sha512", hashSecret);
+  const signed = hmac.update(Buffer.from(signData, "utf-8")).digest("hex");
+
+  return {
+    isSuccess: secureHash === signed, // True nếu chữ ký đúng
+    responseCode: vnp_Params["vnp_ResponseCode"], // '00' là thành công
+    orderId: vnp_Params["vnp_TxnRef"],
+  };
 };

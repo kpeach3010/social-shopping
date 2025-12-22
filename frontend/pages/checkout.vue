@@ -222,6 +222,12 @@
           >
             <span>Mã giảm giá: {{ selectedCoupon.code }}</span>
             <span>- {{ formatPrice(discountTotal) }}</span>
+            <button
+              @click="removeCoupon"
+              class="text-red-500 hover:text-red-700 text-xs font-semibold px-2 py-1 hover:bg-red-50 rounded"
+            >
+              ✕ Xóa
+            </button>
           </div>
           <div class="flex justify-between mt-2 text-lg font-bold">
             <span>Tổng cộng</span>
@@ -297,6 +303,40 @@
                 class="w-8 h-8 object-contain rounded"
               />
             </label>
+
+            <label
+              class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-all"
+              :class="
+                paymentMethod === 'VNPAY'
+                  ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500'
+                  : 'border-gray-200 hover:border-blue-300'
+              "
+            >
+              <input
+                type="radio"
+                value="VNPAY"
+                v-model="paymentMethod"
+                class="w-5 h-5 accent-blue-600"
+              />
+              <div class="flex-1">
+                <div
+                  class="font-semibold text-blue-700 flex items-center gap-2"
+                >
+                  VNPay / Ngân hàng
+                  <span
+                    class="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded"
+                    >Ổn định</span
+                  >
+                </div>
+                <div class="text-xs text-gray-500">
+                  Thẻ ATM nội địa, Thẻ quốc tế, Internet Banking
+                </div>
+              </div>
+              <img
+                src="https://sandbox.vnpayment.vn/paymentv2/images/logo.png"
+                class="h-6 object-contain"
+              />
+            </label>
           </div>
         </div>
 
@@ -369,18 +409,24 @@
         <div class="text-right border-t pt-4">
           <button
             @click="checkout"
-            class="px-6 py-3 text-white rounded-lg font-bold shadow hover:shadow-lg transition-all disabled:opacity-50 flex items-center gap-2 ml-auto"
-            :class="
-              paymentMethod === 'MOMO'
-                ? 'bg-pink-600 hover:bg-pink-700'
-                : 'bg-black hover:bg-gray-800'
-            "
+            class="px-6 py-3 text-white rounded-lg font-medium shadow hover:shadow-lg transition-all disabled:opacity-50 flex items-center gap-2 ml-auto"
+            :class="{
+              'bg-pink-600 hover:bg-pink-700': paymentMethod === 'MOMO',
+              'bg-blue-600 hover:bg-blue-700': paymentMethod === 'VNPAY',
+              'bg-black hover:bg-gray-800': paymentMethod === 'COD',
+            }"
             :disabled="loading"
           >
             <span v-if="loading" class="animate-spin text-xl">⏳</span>
-            <span v-else>{{
-              paymentMethod === "MOMO" ? "Thanh toán MoMo" : "Đặt đơn ngay"
-            }}</span>
+            <span v-else>
+              {{
+                paymentMethod === "MOMO"
+                  ? "Thanh toán MoMo"
+                  : paymentMethod === "VNPAY"
+                  ? "Thanh toán VNPay"
+                  : "Đặt đơn ngay"
+              }}
+            </span>
           </button>
         </div>
       </div>
@@ -489,6 +535,12 @@ const applyCoupon = (c) => {
   localStorage.setItem("checkoutCoupon", JSON.stringify(c));
 };
 
+// Hàm xóa coupon
+const removeCoupon = () => {
+  selectedCoupon.value = null;
+  localStorage.removeItem("checkoutCoupon");
+};
+
 // --- Checkout ---
 const checkout = async () => {
   if (!checkoutItems.value.length) {
@@ -557,6 +609,30 @@ const checkout = async () => {
         alert(
           "Hệ thống thanh toán MoMo đang gặp sự cố. Vui lòng chọn 'COD' hoặc thử lại sau."
         );
+      }
+    } // --- VNPAY ---
+    else if (paymentMethod.value === "VNPAY") {
+      try {
+        const resPayment = await $fetch("/payment/vnpay/create", {
+          method: "POST",
+          baseURL: config.public.apiBase,
+          headers: { Authorization: `Bearer ${auth.accessToken}` },
+          body: {
+            orderId: resOrder.order.id,
+            amount: Math.round(resOrder.order.total),
+            redirectUrl: window.location.origin + "/payment/vnpay-return",
+          },
+        });
+
+        if (resPayment.paymentUrl) {
+          cleanUpCart();
+          window.location.href = resPayment.paymentUrl;
+        } else {
+          throw new Error("Không nhận được link thanh toán từ VNPay");
+        }
+      } catch (errVnpay) {
+        console.error("Lỗi tạo link VNPay:", errVnpay);
+        alert("Lỗi kết nối VNPay. Vui lòng thử phương thức khác.");
       }
     } else {
       // Thanh toán COD

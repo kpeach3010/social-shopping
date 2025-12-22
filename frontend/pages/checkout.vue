@@ -449,7 +449,7 @@ import { useAuthStore } from "@/stores/auth";
 
 const config = useRuntimeConfig();
 const auth = useAuthStore();
-
+const route = useRoute();
 // state
 const checkoutItems = ref([]);
 const selectedCoupon = ref(null);

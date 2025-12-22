@@ -37,6 +37,25 @@
             </div>
           </div>
           <div>
+            <div class="text-gray-500 text-sm mb-1">Thanh toán:</div>
+            <div class="flex flex-col items-start gap-1">
+              <div class="font-bold text-gray-800 uppercase text-sm">
+                {{ order.paymentMethod }}
+              </div>
+              <span
+                class="text-xs px-2 py-0.5 rounded border font-medium"
+                :class="
+                  order.isPaid
+                    ? 'bg-green-50 border-green-200 text-green-700'
+                    : 'bg-orange-50 border-orange-200 text-orange-700'
+                "
+              >
+                <span v-if="order.isPaid">● Đã thanh toán</span>
+                <span v-else>○ Chưa thanh toán</span>
+              </span>
+            </div>
+          </div>
+          <div>
             <div class="text-gray-500 text-sm">Trạng thái:</div>
             <div
               :class="statusColorClass(order.status)"
@@ -180,6 +199,7 @@
 </template>
 
 <script setup>
+const config = useRuntimeConfig();
 // Trạng thái tiếng Việt và màu sắc
 function statusText(status) {
   switch (status) {
@@ -236,12 +256,10 @@ async function fetchOrderDetail() {
   if (!props.orderId) return;
   loading.value = true;
   try {
-    order.value = await $fetch(
-      `http://localhost:5000/api/orders/${props.orderId}`,
-      {
-        headers: { Authorization: `Bearer ${auth.accessToken}` },
-      }
-    );
+    order.value = await $fetch(`orders/${props.orderId}`, {
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+      baseURL: config.public.apiBase,
+    });
   } catch (err) {
     order.value = null;
   } finally {

@@ -235,6 +235,7 @@ const searchOrders = async () => {
                 <th class="px-4 py-3">Ngày tạo</th>
                 <th class="px-4 py-3">Tổng tiền</th>
                 <th class="px-4 py-3">Trạng thái</th>
+                <th class="px-4 py-3">Thanh toán</th>
                 <th class="px-4 py-3 text-right">Hành động</th>
               </tr>
             </thead>
@@ -318,6 +319,28 @@ const searchOrders = async () => {
                   >
                     {{ statusLabel(o.status) }}
                   </span>
+                </td>
+
+                <!-- Thanh toán -->
+                <td class="px-4 py-3">
+                  <div v-if="o.paymentMethod === 'COD'">
+                    <span class="font-semibold text-gray-700 text-sm">COD</span>
+                  </div>
+
+                  <div v-else class="flex flex-col items-start">
+                    <span
+                      class="font-bold text-gray-800 text-xs uppercase mb-0.5"
+                    >
+                      {{ o.paymentMethod }}
+                    </span>
+
+                    <span
+                      class="text-xs font-medium"
+                      :class="o.isPaid ? 'text-blue-600' : 'text-gray-500'"
+                    >
+                      {{ o.isPaid ? "● Đã thanh toán" : "○ Chưa thanh toán" }}
+                    </span>
+                  </div>
                 </td>
 
                 <!-- Hành động -->

@@ -440,7 +440,8 @@ export const getOrdersOverviewForStaffService = async () => {
       status: orders.status,
       createdAt: orders.createdAt,
       total: orders.total,
-
+      paymentMethod: orders.paymentMethod,
+      isPaid: orders.isPaid,
       groupOrderId: orders.groupOrderId,
       groupName: conversations.name,
     })
@@ -666,6 +667,7 @@ export const getOrderWithUserInfoByIdService = async (orderId) => {
       userId: orders.userId,
       status: orders.status,
       paymentMethod: orders.paymentMethod,
+      isPaid: orders.isPaid,
       subtotal: orders.subtotal,
       discountTotal: orders.discountTotal,
       shippingFee: orders.shippingFee,

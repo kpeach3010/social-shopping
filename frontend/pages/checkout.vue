@@ -50,17 +50,13 @@
           <h2 class="text-lg font-semibold mb-3">Phương thức thanh toán</h2>
           <div class="space-y-3">
             <label
-              class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-all"
-              :class="
-                paymentMethod === 'COD'
-                  ? 'border-black bg-gray-50 ring-1 ring-black'
-                  : 'border-gray-200 hover:border-gray-400'
-              "
+              v-if="orderInfo.order.paymentMethod === 'COD'"
+              class="flex items-center gap-3 p-3 border rounded-lg border-black bg-gray-50 ring-1 ring-black cursor-default"
             >
               <input
                 type="radio"
-                value="COD"
-                v-model="paymentMethod"
+                checked
+                disabled
                 class="w-5 h-5 accent-black"
               />
               <div class="flex-1">
@@ -72,17 +68,13 @@
             </label>
 
             <label
-              class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-all"
-              :class="
-                paymentMethod === 'MOMO'
-                  ? 'border-pink-500 bg-pink-50 ring-1 ring-pink-500'
-                  : 'border-gray-200 hover:border-pink-300'
-              "
+              v-if="orderInfo.order.paymentMethod === 'MOMO'"
+              class="flex items-center gap-3 p-3 border rounded-lg border-pink-500 bg-pink-50 ring-1 ring-pink-500 cursor-default"
             >
               <input
                 type="radio"
-                value="MOMO"
-                v-model="paymentMethod"
+                checked
+                disabled
                 class="w-5 h-5 accent-pink-600"
               />
               <div class="flex-1">
@@ -90,18 +82,38 @@
                   class="font-semibold text-pink-700 flex items-center gap-2"
                 >
                   Ví MoMo / QR Code
-                  <!-- <span
-                    class="bg-pink-100 text-pink-800 text-xs px-2 py-0.5 rounded"
-                    >Khuyên dùng</span
-                  > -->
                 </div>
-                <div class="text-xs text-gray-500">
-                  Quét mã QR bằng ứng dụng MoMo
-                </div>
+                <div class="text-xs text-gray-500">Đã thanh toán qua MoMo</div>
               </div>
               <img
                 src="https://upload.wikimedia.org/wikipedia/vi/f/fe/MoMo_Logo.png"
                 class="w-8 h-8 object-contain rounded"
+              />
+            </label>
+
+            <label
+              v-if="orderInfo.order.paymentMethod === 'VNPAY'"
+              class="flex items-center gap-3 p-3 border rounded-lg border-blue-500 bg-blue-50 ring-1 ring-blue-500 cursor-default"
+            >
+              <input
+                type="radio"
+                checked
+                disabled
+                class="w-5 h-5 accent-blue-600"
+              />
+              <div class="flex-1">
+                <div
+                  class="font-semibold text-blue-700 flex items-center gap-2"
+                >
+                  VNPay / Ngân hàng
+                </div>
+                <div class="text-xs text-gray-500">
+                  Đã thanh toán qua cổng VNPay
+                </div>
+              </div>
+              <img
+                src="https://sandbox.vnpayment.vn/paymentv2/images/logo.png"
+                class="h-6 object-contain"
               />
             </label>
           </div>
@@ -644,8 +656,6 @@ const handleVnpayCallback = async () => {
 
     if (verifyRes.code === "00") {
       // Bước 2: Nếu chữ ký đúng & thanh toán thành công -> Lấy chi tiết đơn hàng để hiện bill
-      // Giả sử bạn có API GET /orders/:id để lấy lại thông tin đơn vừa thanh toán
-      // Nếu không có API này, bạn buộc phải fake object orderInfo (xem chú thích dưới *)
       const orderId = route.query.vnp_TxnRef;
       const orderDetail = await $fetch(`/orders/${orderId}`, {
         headers: { Authorization: `Bearer ${auth.accessToken}` },

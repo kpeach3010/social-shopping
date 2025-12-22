@@ -496,35 +496,12 @@ const formatPrice = (v) =>
 
 // --- Load data từ localStorage ---
 onMounted(async () => {
-  checkoutItems.value = JSON.parse(localStorage.getItem("checkoutItems")) || [];
-  fromCart.value = localStorage.getItem("checkoutFromCart") === "true";
-
-  // Nếu từ giỏ hàng thì giữ coupon đã lưu
-  const couponStr = localStorage.getItem("checkoutCoupon");
-  if (couponStr) {
-    try {
-      selectedCoupon.value = JSON.parse(couponStr);
-    } catch (e) {
-      console.error("Không parse được coupon:", e);
-    }
-  }
-
-  // Nếu mua ngay thì load coupon khả dụng từ API
-  if (!fromCart.value && checkoutItems.value.length) {
-    localStorage.removeItem("checkoutCoupon");
-    try {
-      const variantIds = checkoutItems.value.map((i) => i.variantId).join(",");
-      coupons.value = await $fetch(
-        `/coupons/available?variantIds=${variantIds}`,
-        {
-          method: "GET",
-          baseURL: config.public.apiBase,
-          headers: { Authorization: `Bearer ${auth.accessToken}` },
-        }
-      );
-    } catch (e) {
-      console.error("Lỗi load coupon:", e);
-    }
+  // 1. Kiểm tra nếu là VNPay redirect về
+  if (route.query.vnp_ResponseCode) {
+    await handleVnpayCallback();
+  } else {
+    // 2. Nếu không phải, load giỏ hàng để khách mua
+    initCart();
   }
 });
 
@@ -597,7 +574,7 @@ const checkout = async () => {
 
         if (resPayment.paymentUrl) {
           // Chỉ khi có link thanh toán mới xóa giỏ hàng
-          cleanUpCart();
+          // cleanUpCart();
           // Chuyển hướng ngay, KHÔNG gán orderInfo để không hiện bảng thành công
           window.location.href = resPayment.paymentUrl;
         } else {
@@ -652,6 +629,71 @@ const checkout = async () => {
     }
   } finally {
     loading.value = false;
+  }
+};
+
+// Xử lý khi VNPay trả về
+const handleVnpayCallback = async () => {
+  loading.value = true;
+  try {
+    // Bước 1: Verify chữ ký với Backend
+    const verifyRes = await $fetch("/payment/vnpay/return", {
+      method: "GET",
+      baseURL: config.public.apiBase,
+      params: route.query,
+    });
+
+    if (verifyRes.code === "00") {
+      // Bước 2: Nếu chữ ký đúng & thanh toán thành công -> Lấy chi tiết đơn hàng để hiện bill
+      // Giả sử bạn có API GET /orders/:id để lấy lại thông tin đơn vừa thanh toán
+      // Nếu không có API này, bạn buộc phải fake object orderInfo (xem chú thích dưới *)
+      const orderId = route.query.vnp_TxnRef;
+      const orderDetail = await $fetch(`/orders/${orderId}`, {
+        headers: { Authorization: `Bearer ${auth.accessToken}` },
+        baseURL: config.public.apiBase,
+      });
+
+      orderInfo.value = {
+        message: "Thanh toán VNPay thành công!",
+        ...orderDetail, // Gán dữ liệu vào để hiển thị UI
+      };
+
+      cleanUpCart(); // Xóa giỏ hàng
+    } else {
+      alert(`Thanh toán thất bại: ${verifyRes.message}`);
+      initCart(); // Cho phép thanh toán lại
+    }
+  } catch (e) {
+    console.error(e);
+    alert("Có lỗi khi xác thực thanh toán.");
+    initCart();
+  } finally {
+    loading.value = false;
+  }
+};
+
+// Khởi tạo giỏ hàng
+const initCart = async () => {
+  checkoutItems.value = JSON.parse(localStorage.getItem("checkoutItems")) || [];
+  fromCart.value = localStorage.getItem("checkoutFromCart") === "true";
+
+  // Load coupon nếu có
+  const couponStr = localStorage.getItem("checkoutCoupon");
+  if (couponStr) selectedCoupon.value = JSON.parse(couponStr);
+
+  // Load danh sách coupon khả dụng (nếu mua ngay)
+  if (!fromCart.value && checkoutItems.value.length) {
+    localStorage.removeItem("checkoutCoupon");
+    const variantIds = checkoutItems.value.map((i) => i.variantId).join(",");
+    try {
+      coupons.value = await $fetch(
+        `/coupons/available?variantIds=${variantIds}`,
+        {
+          headers: { Authorization: `Bearer ${auth.accessToken}` },
+          baseURL: config.public.apiBase,
+        }
+      );
+    } catch (e) {}
   }
 };
 

@@ -7,8 +7,8 @@ import { Role } from "../enums/role.enum.js";
 
 const router = express.Router();
 
+router.get("/:id", OrderController.getOrderWithUserInfoByIdController);
 router.use(authenticate);
-
 router.post(
   "/checkout",
   hasRoles(Role.CUSTOMER),
@@ -41,7 +41,7 @@ router.get(
   hasRoles(Role.STAFF),
   OrderController.getOrdersOverviewForStaffController
 );
-router.get("/:id", OrderController.getOrderWithUserInfoByIdController);
+
 router.patch(
   "/approve/:id",
   hasRoles(Role.STAFF),

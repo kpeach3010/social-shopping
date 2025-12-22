@@ -657,7 +657,7 @@ export const updateOrderStatusService = async (orderId, action, staffId) => {
   }
 };
 
-// staff có thể xem chi tiết đơn hàng bao gồm thông tin khách hàng
+// xem chi tiết đơn hàng
 export const getOrderWithUserInfoByIdService = async (orderId) => {
   // Lấy thông tin đơn hàng, user, coupon (chỉ định rõ trường)
   const [order] = await db

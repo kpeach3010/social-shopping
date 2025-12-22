@@ -620,7 +620,6 @@ const checkout = async () => {
           body: {
             orderId: resOrder.order.id,
             amount: Math.round(resOrder.order.total),
-            redirectUrl: window.location.origin + "/payment/vnpay-return",
           },
         });
 

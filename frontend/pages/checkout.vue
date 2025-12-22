@@ -664,7 +664,8 @@ const handleVnpayCallback = async () => {
 
       orderInfo.value = {
         message: "Thanh toán VNPay thành công!",
-        ...orderDetail, // Gán dữ liệu vào để hiển thị UI
+        order: orderDetail,
+        orderItems: orderDetail.items,
       };
 
       cleanUpCart(); // Xóa giỏ hàng

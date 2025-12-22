@@ -165,23 +165,34 @@ export const createVnpayUrlService = ({
 /**
  * Kiểm tra chữ ký khi VNPay trả về (Verify Return)
  */
+// Thay thế hàm cũ bằng hàm này
 export const verifyVnpayReturnService = (vnp_Params) => {
   let secureHash = vnp_Params["vnp_SecureHash"];
 
-  // Xóa 2 trường hash để tính toán lại
+  // 1. Xóa các trường hash
   delete vnp_Params["vnp_SecureHash"];
   delete vnp_Params["vnp_SecureHashType"];
 
-  vnp_Params = sortObject(vnp_Params);
+  // 2. Lọc tham số rác
+  let vnp_Params_Fix = {};
+  Object.keys(vnp_Params).forEach((key) => {
+    if (key.startsWith("vnp_") && vnp_Params[key]) {
+      vnp_Params_Fix[key] = vnp_Params[key];
+    }
+  });
 
+  // 3. Sắp xếp object đã lọc
+  vnp_Params_Fix = sortObject(vnp_Params_Fix);
+
+  // 4. Ký lại
   const { hashSecret } = vnpayConfig;
-  const signData = qs.stringify(vnp_Params, { encode: false });
+  const signData = qs.stringify(vnp_Params_Fix, { encode: false });
   const hmac = crypto.createHmac("sha512", hashSecret);
   const signed = hmac.update(Buffer.from(signData, "utf-8")).digest("hex");
 
   return {
-    isSuccess: secureHash === signed, // True nếu chữ ký đúng
-    responseCode: vnp_Params["vnp_ResponseCode"], // '00' là thành công
+    isSuccess: secureHash === signed,
+    responseCode: vnp_Params["vnp_ResponseCode"],
     orderId: vnp_Params["vnp_TxnRef"],
   };
 };

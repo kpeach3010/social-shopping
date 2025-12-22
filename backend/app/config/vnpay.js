@@ -5,5 +5,5 @@ export const vnpayConfig = {
   ipnUrl: "https://social-shopping-api.onrender.com/api/payment/vnpay/return",
 
   // URL chuyển hướng người dùng sau khi thanh toán xong
-  returnUrl: "https://social-shopping-app.vercel.app/pages/checkout",
+  returnUrl: "https://social-shopping-app.vercel.app/checkout",
 };

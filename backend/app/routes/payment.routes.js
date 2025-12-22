@@ -2,8 +2,6 @@ import { Router } from "express";
 import {
   createMomoPaymentUrl,
   checkMomoReturn,
-} from "../controllers/payment.controller.js";
-import {
   createVnpayPaymentUrl,
   vnpayReturn,
 } from "../controllers/payment.controller.js";

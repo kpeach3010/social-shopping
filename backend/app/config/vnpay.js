@@ -1,6 +1,6 @@
 export const vnpayConfig = {
   tmnCode: "G3EFF7JI", // Thay bằng mã trong email bạn nhận được
-  hashSecret: "G3EFF7JI349QZWOCKEADH4TSMWN0VRUETYHWK4RO", // Thay bằng mã trong email
+  hashSecret: "349QZWOCKEADH4TSMWN0VRUETYHWK4RO", // Thay bằng mã trong email
   url: "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html",
   ipnUrl: "https://social-shopping-api.onrender.com/api/payment/vnpay/return",
 

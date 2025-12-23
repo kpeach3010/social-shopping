@@ -179,24 +179,36 @@
                 <span class="font-medium">{{ o.paymentMethod }}</span>
               </p>
 
+              <p class="text-sm text-gray-600">
+                Loại đơn:
+                <span class="font-medium">{{ orderTypeLabel(o) }}</span>
+              </p>
+
               <!-- Sản phẩm trong đơn -->
-              <div class="mt-4 space-y-3">
-                <div
-                  v-for="item in o.items"
-                  :key="item.productName + item.variantName"
-                  class="flex items-center gap-4"
-                >
-                  <img
-                    :src="item.imageUrl"
-                    class="w-16 h-16 rounded object-cover border"
-                  />
-                  <div class="flex-1">
-                    <p class="font-medium">{{ item.productName }}</p>
-                    <p class="text-sm text-gray-500">
-                      {{ item.variantName }} × {{ item.quantity }}
-                    </p>
-                  </div>
+              <div
+                v-for="item in o.items"
+                :key="item.id"
+                class="flex items-center gap-4"
+              >
+                <img
+                  :src="item.imageUrl"
+                  class="w-16 h-16 rounded object-cover border"
+                />
+                <div class="flex-1">
+                  <p class="font-medium">{{ item.productName }}</p>
+                  <p class="text-sm text-gray-500">
+                    {{ item.variantName }} × {{ item.quantity }}
+                  </p>
+                </div>
+                <div class="flex flex-col items-end gap-2">
                   <p class="font-semibold">{{ formatPrice(item.price) }}</p>
+                  <button
+                    v-if="o.status === 'completed' && !item.hasReview"
+                    @click.stop="openReviewModal(item)"
+                    class="px-3 py-1 bg-white border border-black text-black text-xs hover:bg-black hover:text-white transition rounded-none"
+                  >
+                    Đánh giá
+                  </button>
                 </div>
               </div>
 
@@ -379,11 +391,14 @@
     @close="closeEditProfile"
     @refresh="auth.loadFromStorage()"
   />
+
+  <ReviewModal ref="reviewModalRef" />
 </template>
 
 <script setup>
 import { useAuthStore } from "@/stores/auth";
 import ProfileModal from "@/components/modals/ProfileModal.vue";
+import ReviewModal from "@/components/modals/ReviewModal.vue";
 
 const auth = useAuthStore();
 const config = useRuntimeConfig();
@@ -401,6 +416,9 @@ const orderDetail = ref(null);
 
 // Modal cập nhật thông tin cá nhân
 const showEditProfile = ref(false);
+
+// Modal đánh giá
+const reviewModalRef = ref(null);
 
 // Mở/đóng modal cập nhật
 const openEditProfile = () => {
@@ -505,4 +523,20 @@ const formatPrice = (v) =>
   new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(
     Number(v) || 0
   );
+
+const orderTypeLabel = (order) =>
+  order?.couponKind === "group" ? "Đơn nhóm" : "Đơn cá nhân";
+
+// hàm mở modal đánh giá
+const openReviewModal = (item) => {
+  if (!reviewModalRef.value) return;
+
+  reviewModalRef.value.open({
+    id: item.id, // orderItemId
+    productId: item.productId,
+    productName: item.productName,
+    variantName: item.variantName,
+    imageUrl: item.imageUrl,
+  });
+};
 </script>

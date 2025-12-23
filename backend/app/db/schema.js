@@ -51,6 +51,12 @@ export const messageTypesEnum = pgEnum("message_types", [
   "system",
 ]);
 
+// Enum phân loại media: ảnh hoặc video
+export const reviewMediaTypeEnum = pgEnum("review_media_type", [
+  "image",
+  "video",
+]);
+
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
   email: varchar("email", { length: 255 }).notNull().unique(),
@@ -445,3 +451,44 @@ export const messageReads = pgTable(
     pk: primaryKey({ columns: [table.userId, table.conversationId] }),
   })
 );
+
+// Đánh giá sản phẩm sau khi mua
+export const reviews = pgTable(
+  "reviews",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    orderItemId: uuid("order_item_id")
+      .notNull()
+      .references(() => orderItems.id),
+
+    rating: integer("rating").default(5),
+    comment: text("comment"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    // Ràng buộc: Mỗi order item chỉ được review 1 lần
+    uniqueOrderItem: uniqueIndex("unique_review_per_order_item").on(
+      table.orderItemId
+    ),
+  })
+);
+
+export const reviewMedia = pgTable("review_media", {
+  id: uuid("id").defaultRandom().primaryKey(),
+
+  reviewId: uuid("review_id")
+    .notNull()
+    .references(() => reviews.id, { onDelete: "cascade" }),
+
+  type: reviewMediaTypeEnum("type").notNull().default("image"), // 'image' | 'video'
+  fileUrl: varchar("file_url", { length: 500 }).notNull(),
+  filePath: varchar("file_path", { length: 500 }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});

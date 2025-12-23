@@ -12,6 +12,7 @@ import {
   coupons,
   groupOrders,
   conversations,
+  reviews,
 } from "../db/schema.js";
 import { sql, eq, and, ne, inArray, desc, ilike } from "drizzle-orm";
 import { getAvailableCouponsForProductsService } from "./coupon.service.js";
@@ -382,14 +383,18 @@ export const getOrdersByUserService = async (userId) => {
   const orderIds = ordersData.map((o) => o.id);
   const itemsData = await db
     .select({
+      id: orderItems.id,
       orderId: orderItems.orderId,
+      productId: orderItems.productId,
       productName: orderItems.productName,
       variantName: orderItems.variantName,
       imageUrl: orderItems.imageUrl,
       price: orderItems.price,
       quantity: orderItems.quantity,
+      hasReview: reviews.id,
     })
     .from(orderItems)
+    .leftJoin(reviews, eq(reviews.orderItemId, orderItems.id))
     .where(inArray(orderItems.orderId, orderIds));
 
   // gắn items vào orders
@@ -571,7 +576,7 @@ export const updateOrderStatusService = async (orderId, action, staffId) => {
         } catch (err) {
           console.error("Auto-complete failed:", err);
         }
-      }, 600 * 1000);
+      }, 30 * 1000);
     }
 
     if (newStatus === "completed" && order.groupOrderId) {

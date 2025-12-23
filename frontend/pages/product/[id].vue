@@ -187,6 +187,173 @@
           {{ product.description }}
         </p>
       </div>
+
+      <div class="mt-16 border-t pt-10">
+        <div
+          class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-6"
+        >
+          <div>
+            <h3 class="text-2xl font-bold text-gray-900">
+              Khách hàng đánh giá
+            </h3>
+            <div class="flex items-center mt-2 gap-4">
+              <div class="flex items-center">
+                <span class="text-3xl font-extrabold text-gray-900 mr-2">{{
+                  calculateAverage()
+                }}</span>
+                <div class="flex">
+                  <svg
+                    v-for="i in 5"
+                    :key="i"
+                    class="w-5 h-5"
+                    :class="
+                      i <= Math.round(calculateAverage())
+                        ? 'text-yellow-400'
+                        : 'text-gray-300'
+                    "
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
+                    />
+                  </svg>
+                </div>
+              </div>
+              <p class="text-sm text-gray-500">
+                Dựa trên {{ reviews.length }} nhận xét
+              </p>
+            </div>
+          </div>
+        </div>
+        <div v-if="loadingReviews" class="flex justify-center py-10">
+          <div
+            class="animate-spin rounded-full h-8 w-8 border-b-2 border-black"
+          ></div>
+        </div>
+
+        <div
+          v-else-if="!reviews.length"
+          class="text-center py-12 bg-gray-50 rounded-2xl border-2 border-dashed"
+        >
+          <p class="text-gray-500">
+            Chưa có đánh giá nào. Hãy là người đầu tiên chia sẻ cảm nhận!
+          </p>
+        </div>
+
+        <div v-else class="space-y-4">
+          <div
+            v-for="r in paginatedReviews"
+            :key="r.id"
+            class="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-md hover:shadow-lg transition animate-fade-in"
+          >
+            <div class="flex items-start gap-4">
+              <div
+                class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center font-bold text-gray-600 uppercase flex-shrink-0"
+              >
+                {{ r.fullName.charAt(0) }}
+              </div>
+
+              <div class="flex-1">
+                <div class="flex items-center justify-between">
+                  <h4 class="font-bold text-gray-900">{{ r.fullName }}</h4>
+                  <span class="text-sm text-gray-400">{{
+                    formatDate(r.createdAt)
+                  }}</span>
+                </div>
+
+                <div class="flex items-center gap-2 mt-0.5">
+                  <div class="flex">
+                    <svg
+                      v-for="i in 5"
+                      :key="i"
+                      class="w-3.5 h-3.5"
+                      :class="
+                        i <= r.rating ? 'text-yellow-400' : 'text-gray-200'
+                      "
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
+                      />
+                    </svg>
+                  </div>
+                  <span class="text-gray-300 text-xs">|</span>
+                  <span class="text-xs text-gray-500"
+                    >Phân loại: {{ r.variantName }}</span
+                  >
+                </div>
+
+                <p class="mt-4 text-gray-700 leading-relaxed">
+                  {{ r.comment }}
+                </p>
+
+                <div
+                  v-if="r.media?.length"
+                  class="flex gap-2 mt-4 overflow-x-auto pb-2"
+                >
+                  <template v-for="(m, idx) in r.media" :key="idx">
+                    <div
+                      v-if="m.type === 'image'"
+                      class="relative w-24 h-24 flex-shrink-0 group overflow-hidden rounded-lg border border-gray-100"
+                    >
+                      <img
+                        :src="m.fileUrl"
+                        class="w-full h-full object-cover transition duration-300 group-hover:scale-110 cursor-pointer"
+                        @click="openLightbox(m.fileUrl)"
+                      />
+                    </div>
+
+                    <div
+                      v-else
+                      class="relative w-48 h-24 flex-shrink-0 rounded-lg overflow-hidden border"
+                    >
+                      <video controls class="w-full h-full object-cover">
+                        <source :src="m.fileUrl" type="video/mp4" />
+                      </video>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Phân trang đánh giá -->
+        <div
+          v-if="totalReviewsPages > 1"
+          class="flex justify-center mt-8 gap-2"
+        >
+          <button
+            class="px-3 py-1 rounded border hover:bg-gray-100 disabled:opacity-40"
+            :disabled="currentReviewPage === 1"
+            @click="prevReviewPage"
+          >
+            ‹
+          </button>
+          <button
+            v-for="p in reviewPages"
+            :key="p"
+            class="px-3 py-1 rounded border"
+            :class="
+              currentReviewPage === p
+                ? 'bg-black text-white'
+                : 'hover:bg-gray-100'
+            "
+            @click="goToReviewPage(p)"
+          >
+            {{ p }}
+          </button>
+          <button
+            class="px-3 py-1 rounded border hover:bg-gray-100 disabled:opacity-40"
+            :disabled="currentReviewPage === totalReviewsPages"
+            @click="nextReviewPage"
+          >
+            ›
+          </button>
+        </div>
+      </div>
     </main>
   </div>
 </template>
@@ -206,6 +373,10 @@ const selectedSize = ref(null);
 const quantity = ref(1);
 const coupons = ref([]);
 const groupInviteLinks = ref({});
+const reviews = ref([]);
+const loadingReviews = ref(true);
+const currentReviewPage = ref(1);
+const reviewsPerPage = 3;
 
 const createInviteLink = async (couponId) => {
   if (!auth.accessToken) {
@@ -279,6 +450,20 @@ const decQty = () => {
   if (quantity.value > 1) quantity.value--;
 };
 
+// api hiển thị đánh giá
+const fetchReviews = async () => {
+  try {
+    const res = await $fetch(`/reviews/product/${route.params.id}`, {
+      baseURL: config.public.apiBase,
+    });
+    reviews.value = res;
+  } catch (e) {
+    console.error("Lỗi load reviews:", e);
+  } finally {
+    loadingReviews.value = false;
+  }
+};
+
 onMounted(async () => {
   try {
     const res = await $fetch(`/product/get-product/${route.params.id}`, {
@@ -300,6 +485,7 @@ onMounted(async () => {
         coupons.value = couponRes;
       }
     }
+    await fetchReviews();
   } catch (e) {
     console.error("Lỗi load sản phẩm:", e);
   } finally {
@@ -399,5 +585,37 @@ const buyNow = () => {
   localStorage.setItem("checkoutItems", JSON.stringify(items));
   localStorage.setItem("checkoutFromCart", "false");
   navigateTo("/checkout");
+};
+
+// Tính điểm trung bình cộng của các review
+const calculateAverage = () => {
+  if (!reviews.value.length) return 0;
+  const total = reviews.value.reduce((sum, r) => sum + r.rating, 0);
+  return (total / reviews.value.length).toFixed(1);
+};
+
+const totalReviewsPages = computed(() =>
+  Math.ceil(reviews.value.length / reviewsPerPage)
+);
+
+const paginatedReviews = computed(() => {
+  const start = (currentReviewPage.value - 1) * reviewsPerPage;
+  return reviews.value.slice(start, start + reviewsPerPage);
+});
+
+const reviewPages = computed(() =>
+  Array.from({ length: totalReviewsPages.value }, (_, i) => i + 1)
+);
+
+const goToReviewPage = (p) => {
+  if (p >= 1 && p <= totalReviewsPages.value) currentReviewPage.value = p;
+};
+const prevReviewPage = () => goToReviewPage(currentReviewPage.value - 1);
+const nextReviewPage = () => goToReviewPage(currentReviewPage.value + 1);
+
+// Logic để mở ảnh to (Nếu bạn muốn làm lightbox)
+const openLightbox = (url) => {
+  // Logic hiển thị modal ảnh
+  window.open(url, "_blank");
 };
 </script>

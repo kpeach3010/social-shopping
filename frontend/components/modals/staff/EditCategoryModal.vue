@@ -18,6 +18,7 @@ const props = defineProps({
 const emit = defineEmits(["close", "refresh"]);
 const auth = useAuthStore();
 const loading = ref(false);
+const config = useRuntimeConfig();
 
 // State form category
 const form = ref({
@@ -67,17 +68,15 @@ const submitCategory = async () => {
     };
 
     // Gọi API PUT
-    await $fetch(
-      `http://localhost:5000/api/category/update-category/${form.value.id}`,
-      {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${auth.accessToken}`,
-        },
-        body: JSON.stringify(payload),
-      }
-    );
+    await $fetch(`category/update-category/${form.value.id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${auth.accessToken}`,
+      },
+      body: JSON.stringify(payload),
+      baseURL: config.public.apiBase,
+    });
 
     alert("Cập nhật danh mục thành công!");
     emit("refresh"); // Reload lại danh sách bên ngoài

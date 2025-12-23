@@ -8,6 +8,7 @@ const categories = ref([]);
 const selectedCategory = ref(null);
 const config = useRuntimeConfig();
 const auth = useAuthStore();
+
 // Tạo biến state loading
 const isLoading = ref(false);
 
@@ -129,16 +130,14 @@ const submitProduct = async () => {
       console.log(key, val);
     }
 
-    const res = await $fetch(
-      "http://localhost:5000/api/product/create-product",
-      {
-        method: "POST",
-        body: formData,
-        headers: {
-          Authorization: `Bearer ${auth.accessToken}`,
-        },
-      }
-    );
+    const res = await $fetch(`product/create-product`, {
+      method: "POST",
+      body: formData,
+      headers: {
+        Authorization: `Bearer ${auth.accessToken}`,
+      },
+      baseURL: config.public.apiBase,
+    });
 
     console.log("API response:", res);
     alert("Thêm sản phẩm thành công!");

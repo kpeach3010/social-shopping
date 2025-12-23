@@ -112,9 +112,10 @@ const removeColor = async (colorIdx) => {
   deletingColorIndices.value.add(colorIdx);
 
   try {
-    await $fetch(`http://localhost:5000/api/product/delete-color/${colorId}`, {
+    await $fetch(`product/delete-color/${colorId}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${auth.accessToken}` },
+      baseURL: config.public.apiBase,
     });
 
     // Cập nhật UI
@@ -176,13 +177,11 @@ const removeSize = async (colorIdx, sizeIdx) => {
   deletingSizeKeys.value.add(key);
 
   try {
-    await $fetch(
-      `http://localhost:5000/api/product/delete-variant/${size.variantId}`,
-      {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${auth.accessToken}` },
-      }
-    );
+    await $fetch(`product/delete-variant/${size.variantId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+      baseURL: config.public.apiBase,
+    });
 
     // Cập nhật UI
     product.value.colors[colorIdx].sizes.splice(sizeIdx, 1);
@@ -260,14 +259,12 @@ const submitProduct = async () => {
 
     // 5. Gọi API Update
     // Lưu ý: Đảm bảo props.productData.id có giá trị
-    await $fetch(
-      `http://localhost:5000/api/product/update-product/${props.productData.id}`,
-      {
-        method: "PUT",
-        body: formData,
-        headers: { Authorization: `Bearer ${auth.accessToken}` },
-      }
-    );
+    await $fetch(`product/update-product/${props.productData.id}`, {
+      method: "PUT",
+      body: formData,
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+      baseURL: config.public.apiBase,
+    });
 
     alert("Cập nhật thành công!");
     await emit("refresh");

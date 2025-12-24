@@ -413,6 +413,7 @@ const showModal = ref(false);
 const posts = ref([]);
 const products = ref([]);
 const loading = ref(true);
+const userProfile = ref(null);
 const showMediaGallery = ref(false);
 const currentGalleryMedia = ref([]);
 const currentMediaIndex = ref(null);
@@ -452,6 +453,11 @@ const displayName = computed(() => {
   if (isOwnProfile.value && auth.user) {
     return auth.user.fullName || auth.user.email || "Người dùng";
   }
+  if (userProfile.value) {
+    return (
+      userProfile.value.fullName || userProfile.value.email || "Người dùng"
+    );
+  }
   return posts.value[0]?.authorName || "Người dùng";
 });
 
@@ -467,6 +473,7 @@ onMounted(async () => {
     fetchProducts(),
     fetchFriendCount(targetId),
     fetchFriendshipStatus(targetId),
+    fetchUserProfile(targetId),
   ]);
 
   loading.value = false;
@@ -485,6 +492,27 @@ const fetchUserPosts = async (userId) => {
   } catch (err) {
     console.error("Error fetching posts:", err);
     posts.value = [];
+  }
+};
+
+// Lấy thông tin user để hiển thị tên khi chưa có bài viết
+const fetchUserProfile = async (userId) => {
+  if (!auth.accessToken) return;
+
+  try {
+    const res = await api("/users", {
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+    });
+    const list = Array.isArray(res?.data)
+      ? res.data
+      : Array.isArray(res)
+      ? res
+      : [];
+    const found = list.find((u) => String(u.id) === String(userId));
+    userProfile.value = found || null;
+  } catch (err) {
+    console.error("Error fetching user profile:", err);
+    userProfile.value = null;
   }
 };
 

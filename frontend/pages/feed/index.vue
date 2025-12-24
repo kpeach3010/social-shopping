@@ -96,8 +96,8 @@
               <div ref="discoverWrap" class="overflow-x-auto whitespace-nowrap">
                 <div class="inline-flex gap-3">
                   <div
-                    v-for="u in discoverUsers"
-                    :key="u.id"
+                    v-for="u in discoverUsers || []"
+                    :key="u.id || u.email"
                     class="w-56 flex-shrink-0 border border-gray-200 rounded-md p-3 bg-white"
                   >
                     <div class="flex flex-col items-center text-center gap-3">
@@ -106,7 +106,15 @@
                       >
                         {{ initial(u.fullName || u.email) }}
                       </div>
+                      <NuxtLink
+                        v-if="u.id"
+                        :to="`/feed/${u.id}`"
+                        class="text-sm font-semibold text-gray-900 truncate w-full hover:text-gray-700"
+                      >
+                        {{ u.fullName || u.email || "Người dùng" }}
+                      </NuxtLink>
                       <p
+                        v-else
                         class="text-sm font-semibold text-gray-900 truncate w-full"
                       >
                         {{ u.fullName || u.email || "Người dùng" }}
@@ -123,7 +131,7 @@
                         <div
                           class="w-full py-2 rounded-md bg-gray-100 text-gray-700 border border-gray-200 text-sm font-semibold text-center"
                         >
-                          Đã gửi yêu cầu
+                          Đã gửi lời mời
                         </div>
                         <button
                           @click="cancelRequest(u)"
@@ -532,6 +540,18 @@ const openMediaGallery = (mediaList, index) => {
 // Helpers for avatar letter
 const initial = (name = "?") => (name?.trim()?.charAt(0) || "?").toUpperCase();
 
+// Normalize user object and ensure we keep an id for profile linking
+const normalizeUserRecord = (u = {}) => {
+  const id = u?.id || u?.userId || u?.user_id || u?.user?.id || null;
+  return {
+    ...u,
+    id,
+    fullName: u?.fullName || u?.name || u?.user?.fullName || u?.email || "",
+    email: u?.email || u?.user?.email || null,
+    role: u?.role || u?.user?.role || "",
+  };
+};
+
 // Fetch discover users from existing /users API, then filter client-side
 const fetchDiscover = async () => {
   if (!auth.accessToken) return;
@@ -541,10 +561,19 @@ const fetchDiscover = async () => {
       baseURL: config.public.apiBase,
       headers: { Authorization: `Bearer ${auth.accessToken}` },
     });
-    const all = (res?.data || res || []).filter((u) => {
+    const rawList = Array.isArray(res?.data)
+      ? res.data
+      : Array.isArray(res)
+      ? res
+      : [];
+    const normalized = rawList
+      .map((u) => normalizeUserRecord(u))
+      .filter((u) => u.id);
+
+    const all = normalized.filter((u) => {
       // Chỉ hiện role customer, loại bỏ chính mình
       if (String(u.id) === String(auth.user?.id)) return false;
-      return String(u.role).toLowerCase() === "customer";
+      return String(u.role || "").toLowerCase() === "customer";
     });
 
     // Lấy trạng thái kết bạn cho từng user, loại bỏ đã là bạn

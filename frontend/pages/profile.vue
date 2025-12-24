@@ -440,7 +440,7 @@ const statuses = [
 
 // Pagination
 const currentPage = ref(1);
-const perPage = 3;
+const perPage = 5;
 
 onMounted(async () => {
   try {

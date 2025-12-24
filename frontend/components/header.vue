@@ -147,10 +147,9 @@
               <div class="py-1">
                 <NuxtLink
                   :to="`/feed/${auth.user?.id}`"
-                  class="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-black transition"
+                  class="block px-4 py-2 text-sm hover:bg-gray-100"
                 >
-                  <i class="bx bx-news text-lg text-gray-400"></i>
-                  <span>Trang cá nhân</span>
+                  Trang cá nhân
                 </NuxtLink>
                 <NuxtLink
                   to="/profile"

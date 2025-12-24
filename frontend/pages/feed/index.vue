@@ -152,7 +152,7 @@
               <!-- Post Content -->
               <div class="px-4 py-3 bg-white">
                 <p
-                  class="text-gray-900 leading-relaxed whitespace-pre-wrap text-sm"
+                  class="text-gray-900 leading-relaxed whitespace-pre-wrap text-sm break-words"
                 >
                   {{ post.content }}
                 </p>

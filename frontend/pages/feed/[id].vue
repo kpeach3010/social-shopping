@@ -12,8 +12,9 @@
       <div v-else class="grid grid-cols-12 gap-6">
         <!-- LEFT SIDEBAR - User Info -->
         <aside class="col-span-12 md:col-span-4 lg:col-span-4">
+          <div class="sticky top-6 space-y-6">
           <div
-            class="bg-white rounded-xl shadow-md overflow-hidden sticky top-6 border border-gray-200"
+            class="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200"
           >
             <!-- User Avatar -->
             <div class="bg-linear-to-br from-gray-800 to-gray-900 h-24"></div>
@@ -111,6 +112,56 @@
                 Tạo bài viết mới
               </button>
             </div>
+          </div>
+
+          <!-- Friends List -->
+          <div
+            v-if="isOwnProfile && auth.user"
+            class="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200"
+          >
+            <div class="px-4 py-3 border-b border-gray-200 bg-gray-50">
+              <h3 class="font-bold text-sm text-gray-900">
+                Bạn bè ({{ friendCount }})
+              </h3>
+            </div>
+            <div class="px-4 py-3 max-h-96 overflow-y-auto">
+              <div v-if="loadingFriends" class="text-center py-4">
+                <div
+                  class="animate-spin rounded-full h-6 w-6 border-b-2 border-black mx-auto"
+                ></div>
+              </div>
+              <div
+                v-else-if="friendsList.length === 0"
+                class="text-center py-6 text-gray-500 text-sm"
+              >
+                Chưa có bạn bè nào
+              </div>
+              <div v-else class="space-y-2">
+                <NuxtLink
+                  v-for="friend in friendsList"
+                  :key="friend.id"
+                  :to="`/feed/${friend.id}`"
+                  class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 transition"
+                >
+                  <div
+                    class="w-10 h-10 rounded-full bg-linear-to-br from-gray-700 to-gray-900 flex items-center justify-center shrink-0"
+                  >
+                    <span class="text-white text-sm font-bold">{{
+                      (friend.fullName || friend.email || "?").charAt(0).toUpperCase()
+                    }}</span>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm font-semibold text-gray-900 truncate">
+                      {{ friend.fullName || friend.email || "Người dùng" }}
+                    </p>
+                    <p v-if="friend.email" class="text-xs text-gray-500 truncate">
+                      {{ friend.email }}
+                    </p>
+                  </div>
+                </NuxtLink>
+              </div>
+            </div>
+          </div>
           </div>
         </aside>
 
@@ -425,6 +476,8 @@ const friendshipStatus = ref(null);
 const pendingRequestId = ref(null);
 const friendActionLoading = ref(false);
 const expandedPostIds = ref(new Set()); // Theo dõi bài nào đang expand
+const friendsList = ref([]);
+const loadingFriends = ref(false);
 
 // Kiểm tra content có quá dài không (>300 ký tự)
 const isContentLong = (content) => content?.length > 300;
@@ -474,6 +527,7 @@ onMounted(async () => {
     fetchFriendCount(targetId),
     fetchFriendshipStatus(targetId),
     fetchUserProfile(targetId),
+    fetchFriends(targetId),
   ]);
 
   loading.value = false;
@@ -513,6 +567,32 @@ const fetchUserProfile = async (userId) => {
   } catch (err) {
     console.error("Error fetching user profile:", err);
     userProfile.value = null;
+  }
+};
+
+// Lấy danh sách bạn bè
+const fetchFriends = async (userId) => {
+  if (!auth.accessToken) return;
+
+  loadingFriends.value = true;
+  try {
+    // Nếu xem profile của người khác, lấy danh sách bạn bè của họ bằng cách duyệt tất cả user và filter
+    // Nếu xem profile của mình, gọi API /friends
+    if (isOwnProfile.value) {
+      const res = await api("/friends", {
+        headers: { Authorization: `Bearer ${auth.accessToken}` },
+      });
+      friendsList.value = res?.data || res || [];
+    } else {
+      // Với profile người khác, ta cần gọi API riêng hoặc dùng workaround
+      // Tạm thời để trống vì API chưa hỗ trợ lấy friends của user khác
+      friendsList.value = [];
+    }
+  } catch (err) {
+    console.error("Error fetching friends:", err);
+    friendsList.value = [];
+  } finally {
+    loadingFriends.value = false;
   }
 };
 

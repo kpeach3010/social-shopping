@@ -67,8 +67,12 @@
 
         <!-- DISCOVER USERS -->
         <div class="mb-8" v-if="auth.isLoggedIn">
-          <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
-            <div class="flex items-center justify-between px-3 py-2 border-b border-gray-200">
+          <div
+            class="bg-white rounded-lg border border-gray-200 overflow-hidden"
+          >
+            <div
+              class="flex items-center justify-between px-3 py-2 border-b border-gray-200"
+            >
               <h3 class="text-sm font-semibold text-gray-900">Gợi ý kết bạn</h3>
               <div class="flex items-center gap-2">
                 <button
@@ -102,7 +106,9 @@
                       >
                         {{ initial(u.fullName || u.email) }}
                       </div>
-                      <p class="text-sm font-semibold text-gray-900 truncate w-full">
+                      <p
+                        class="text-sm font-semibold text-gray-900 truncate w-full"
+                      >
                         {{ u.fullName || u.email || "Người dùng" }}
                       </p>
                       <button
@@ -113,11 +119,10 @@
                       >
                         {{ requesting.has(u.id) ? "Đang gửi..." : "Kết bạn" }}
                       </button>
-                      <div
-                        v-else
-                        class="w-full flex flex-col gap-2"
-                      >
-                        <div class="w-full py-2 rounded-md bg-gray-100 text-gray-700 border border-gray-200 text-sm font-semibold text-center">
+                      <div v-else class="w-full flex flex-col gap-2">
+                        <div
+                          class="w-full py-2 rounded-md bg-gray-100 text-gray-700 border border-gray-200 text-sm font-semibold text-center"
+                        >
                           Đã gửi yêu cầu
                         </div>
                         <button
@@ -125,7 +130,9 @@
                           :disabled="requesting.has(u.id) || !u.requestId"
                           class="w-full py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-60 text-sm font-semibold"
                         >
-                          {{ requesting.has(u.id) ? "Đang hủy..." : "Hủy lời mời" }}
+                          {{
+                            requesting.has(u.id) ? "Đang hủy..." : "Hủy lời mời"
+                          }}
                         </button>
                       </div>
                     </div>

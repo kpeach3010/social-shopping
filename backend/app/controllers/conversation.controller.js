@@ -67,15 +67,20 @@ export const getUserGroupConversationsController = async (req, res) => {
   }
 };
 
+import { default as config } from "../config/index.js";
+
 export const createInviteLinkController = async (req, res) => {
   try {
     const { productId, couponId } = req.body;
+
+    // Lấy FE URL từ config (Vercel hoặc localhost)
+    const frontendBase = config.frontendUrl;
 
     const result = await createInviteLinkService({
       creatorId: req.user.id,
       productId,
       couponId,
-      frontendId: process.env.FRONTEND_URL || "http://localhost:3000",
+      frontendId: frontendBase,
     });
 
     return res.status(200).json(result);

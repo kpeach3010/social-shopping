@@ -387,6 +387,7 @@ import MediaGalleryModal from "@/components/MediaGalleryModal.vue";
 const route = useRoute();
 const config = useRuntimeConfig();
 const auth = useAuthStore();
+const requestURL = useRequestURL();
 
 const product = ref(null);
 const loading = ref(true);
@@ -418,7 +419,8 @@ const createInviteLink = async (couponId) => {
       body: {
         productId: product.value.id,
         couponId,
-        frontendUrl: window.location.origin,
+
+        frontendUrl: `${requestURL.origin}${config.app?.baseURL || "/"}`,
       },
     });
 

@@ -20,6 +20,22 @@ import {
 } from "drizzle-orm";
 import supabase from "../../services/supbase/client.js";
 
+// Sanitize tên file: xóa ký tự đặc biệt, dấu accent
+function sanitizeFileName(originalName) {
+  // Xóa dấu accent (à, é, ï, etc.)
+  let normalized = originalName
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  // Giữ lại chỉ: chữ, số, dấu gạch ngang, dấu gạch dưới, dấu chấm
+  normalized = normalized.replace(/[^a-zA-Z0-9.\-_]/g, "-");
+
+  // Xóa dấu gạch dưới/ngang liên tiếp
+  normalized = normalized.replace(/[-_]+/g, "-");
+
+  return normalized.toLowerCase();
+}
+
 // Upload file đính kèm bài post
 export async function uploadPostAttachment(
   fileBuffer,
@@ -27,7 +43,8 @@ export async function uploadPostAttachment(
   postId,
   mimeType
 ) {
-  const safeName = `${Date.now()}-${originalName}`;
+  const cleanName = sanitizeFileName(originalName);
+  const safeName = `${Date.now()}-${cleanName}`;
   const path = `posts/${postId}/${safeName}`;
 
   console.log(">>> Uploading post attachment:", path);

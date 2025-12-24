@@ -96,10 +96,11 @@
             </div>
           </NuxtLink>
 
-          <!-- Chat -->
-          <div class="relative flex items-center space-x-2">
+          <!-- Chat, Notifications, Friends -->
+          <div class="relative flex items-center space-x-4">
             <ChatDropdown />
-            <BellIcon class="w-6 h-6 text-gray-700 hover:text-black" />
+            <FriendsDropdown />
+            <NotificationsDropdown />
           </div>
 
           <!-- Dropdown user -->
@@ -145,7 +146,7 @@
             >
               <div class="py-1">
                 <NuxtLink
-                  to="/my-feed"
+                  :to="`/feed/${auth.user?.id}`"
                   class="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-black transition"
                 >
                   <i class="bx bx-news text-lg text-gray-400"></i>
@@ -182,11 +183,9 @@
 <script setup>
 import ProductSearchBox from "~/components/ProductSearchBox.vue";
 import ChatDropdown from "~/components/chat/ChatDropdown.vue";
-import {
-  ShoppingCartIcon,
-  BellIcon,
-  FireIcon,
-} from "@heroicons/vue/24/outline";
+import NotificationsDropdown from "~/components/NotificationsDropdown.vue";
+import FriendsDropdown from "~/components/FriendsDropdown.vue";
+import { ShoppingCartIcon, FireIcon } from "@heroicons/vue/24/outline";
 import { useAuthStore } from "~/stores/auth";
 import { useChatStore } from "~/stores/chat";
 import { ref, computed, onMounted, watch, onBeforeUnmount } from "vue";

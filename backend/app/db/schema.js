@@ -71,6 +71,12 @@ export const postMediaTypeEnum = pgEnum("post_media_type", [
   "file",
 ]);
 
+// Trạng thái kết bạn
+export const friendStatusEnum = pgEnum("friend_status", [
+  "pending", // đã gửi lời mời, chờ phản hồi
+  "accepted", // đã chấp nhận
+]);
+
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
   email: varchar("email", { length: 255 }).notNull().unique(),
@@ -559,5 +565,58 @@ export const postProducts = pgTable(
   },
   (t) => ({
     pk: primaryKey({ columns: [t.postId, t.productId] }),
+  })
+);
+
+// Kết bạn giữa các user
+// Lời moi kết bạn, trạng thái kết bạn
+export const friendRequests = pgTable(
+  "friend_requests",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    senderId: uuid("sender_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+
+    receiverId: uuid("receiver_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+
+    status: friendStatusEnum("status").notNull().default("pending"),
+
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+
+    respondedAt: timestamp("responded_at", { withTimezone: true }),
+  },
+  (t) => ({
+    // Không cho gửi trùng request
+    uqFriendRequest: uniqueIndex("uq_friend_request").on(
+      t.senderId,
+      t.receiverId
+    ),
+  })
+);
+
+// Danh sách bạn bè
+export const friendships = pgTable(
+  "friendships",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+
+    friendId: uuid("friend_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.userId, t.friendId] }),
   })
 );

@@ -1,6 +1,23 @@
 import { db } from "../db/client.js";
-import { posts, postMedia, products, postProducts } from "../db/schema.js";
-import { sql, eq, and, ne, asc, desc, notInArray, inArray } from "drizzle-orm";
+import {
+  posts,
+  postMedia,
+  products,
+  postProducts,
+  friendships,
+  users,
+} from "../db/schema.js";
+import {
+  sql,
+  eq,
+  and,
+  or,
+  ne,
+  asc,
+  desc,
+  notInArray,
+  inArray,
+} from "drizzle-orm";
 import supabase from "../../services/supbase/client.js";
 
 // Upload file đính kèm bài post
@@ -295,6 +312,180 @@ export const getMyPostsService = async (authorId) => {
     media: mediaList.filter((m) => m.postId === post.id),
     products: productList.filter((p) => p.postId === post.id),
   }));
+};
+
+// New Feed: hiển thị bài viết công khai + của bạn bè + của chính bạn
+export const getNewFeedService = async (userId) => {
+  if (!userId) {
+    throw new Error("userId is required");
+  }
+
+  // 1) Lấy danh sách bạn bè
+  const friendsRows = await db
+    .select({ friendId: friendships.friendId })
+    .from(friendships)
+    .where(eq(friendships.userId, userId));
+
+  const friendIds = friendsRows.map((r) => r.friendId);
+
+  // 2) Điều kiện lọc bài viết (public | friends của bạn | của chính bạn)
+  const whereClauses = [
+    eq(posts.visibility, "public"),
+    eq(posts.authorId, userId),
+  ];
+  if (friendIds.length > 0) {
+    whereClauses.push(
+      and(eq(posts.visibility, "friends"), inArray(posts.authorId, friendIds))
+    );
+  }
+
+  const feedPosts = await db
+    .select()
+    .from(posts)
+    .innerJoin(users, eq(posts.authorId, users.id))
+    .where(or(...whereClauses))
+    .orderBy(desc(posts.createdAt));
+  if (!feedPosts.length) return [];
+
+  const postIds = feedPosts.map((p) => p.posts.id);
+
+  // 4) Lấy media
+  const mediaList = await db
+    .select()
+    .from(postMedia)
+    .where(inArray(postMedia.postId, postIds));
+
+  // 5) Lấy product gắn với post
+  const productList = await db
+    .select({
+      postId: postProducts.postId,
+      id: products.id,
+      name: products.name,
+      price: products.price_default,
+      thumbnailUrl: products.thumbnailUrl,
+    })
+    .from(postProducts)
+    .leftJoin(products, eq(postProducts.productId, products.id))
+    .where(inArray(postProducts.postId, postIds));
+
+  // 6) Gom dữ liệu
+  return feedPosts.map(({ posts: post, users: author }) => ({
+    ...post,
+    authorName: author.fullName || author.email,
+    media: mediaList.filter((m) => m.postId === post.id),
+    products: productList.filter((p) => p.postId === post.id),
+  }));
+};
+
+// Public Feed: chỉ lấy bài viết công khai
+export const getPublicFeedService = async () => {
+  // 1) Lấy bài viết visibility = public
+  const publicPosts = await db
+    .select()
+    .from(posts)
+    .innerJoin(users, eq(posts.authorId, users.id))
+    .where(eq(posts.visibility, "public"))
+    .orderBy(desc(posts.createdAt));
+
+  if (!publicPosts.length) return [];
+
+  const postIds = publicPosts.map((p) => p.posts.id);
+
+  // 2) Lấy media
+  const mediaList = await db
+    .select()
+    .from(postMedia)
+    .where(inArray(postMedia.postId, postIds));
+
+  // 3) Lấy product gắn với post
+  const productList = await db
+    .select({
+      postId: postProducts.postId,
+      id: products.id,
+      name: products.name,
+      price: products.price_default,
+      thumbnailUrl: products.thumbnailUrl,
+    })
+    .from(postProducts)
+    .leftJoin(products, eq(postProducts.productId, products.id))
+    .where(inArray(postProducts.postId, postIds));
+
+  // 4) Gom dữ liệu
+  return publicPosts.map(({ posts: post, users: author }) => ({
+    ...post,
+    authorName: author.fullName || author.email,
+    media: mediaList.filter((m) => m.postId === post.id),
+    products: productList.filter((p) => p.postId === post.id),
+  }));
+};
+
+// Lấy posts của user khác (public + friends nếu đã kết bạn)
+export const getUserPostsService = async (userId, currentUserId = null) => {
+  try {
+    // 1) Build query điều kiện visibility
+    let visibilityConditions = [eq(posts.visibility, "public")];
+
+    // Nếu auth user là bạn của target user → thêm "friends" visibility
+    if (currentUserId && currentUserId !== userId) {
+      const isFriend = await db
+        .select()
+        .from(friendships)
+        .where(
+          and(
+            eq(friendships.userId, currentUserId),
+            eq(friendships.friendId, userId)
+          )
+        )
+        .limit(1);
+
+      if (isFriend.length) {
+        visibilityConditions.push(eq(posts.visibility, "friends"));
+      }
+    }
+
+    // 2) Lấy bài viết
+    const userPosts = await db
+      .select()
+      .from(posts)
+      .innerJoin(users, eq(posts.authorId, users.id))
+      .where(and(eq(posts.authorId, userId), or(...visibilityConditions)))
+      .orderBy(desc(posts.createdAt));
+
+    if (!userPosts.length) return [];
+
+    const postIds = userPosts.map((p) => p.posts.id);
+
+    // 3) Lấy media
+    const mediaList = await db
+      .select()
+      .from(postMedia)
+      .where(inArray(postMedia.postId, postIds));
+
+    // 4) Lấy product gắn với post
+    const productList = await db
+      .select({
+        postId: postProducts.postId,
+        id: products.id,
+        name: products.name,
+        price: products.price_default,
+        thumbnailUrl: products.thumbnailUrl,
+      })
+      .from(postProducts)
+      .leftJoin(products, eq(postProducts.productId, products.id))
+      .where(inArray(postProducts.postId, postIds));
+
+    // 5) Gom dữ liệu
+    return userPosts.map(({ posts: post, users: author }) => ({
+      ...post,
+      authorName: author.fullName || author.email,
+      authorId: author.id,
+      media: mediaList.filter((m) => m.postId === post.id),
+      products: productList.filter((p) => p.postId === post.id),
+    }));
+  } catch (error) {
+    console.error("Error getting user posts:", error);
+    throw error;
+  }
 };
 
 // Xóa bài post

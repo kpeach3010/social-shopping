@@ -288,6 +288,20 @@
       "when": 1766553220362,
       "tag": "0040_perfect_shocker",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1766554446509,
+      "tag": "0041_unusual_the_anarchist",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1766561476446,
+      "tag": "0042_ordinary_thundra",
+      "breakpoints": true
     }
   ]
 }

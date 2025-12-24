@@ -10,7 +10,7 @@
 
       <!-- Main Content -->
       <div v-else class="grid grid-cols-12 gap-6">
-        <!-- LEFT SIDEBAR -->
+        <!-- LEFT SIDEBAR - User Info -->
         <aside class="col-span-12 md:col-span-4 lg:col-span-4">
           <div
             class="bg-white rounded-xl shadow-md overflow-hidden sticky top-6 border border-gray-200"
@@ -27,13 +27,84 @@
               </div>
 
               <h2 class="text-center font-bold text-lg text-gray-900">
-                {{ auth.user?.fullName || "Người dùng" }}
+                {{ displayName }}
               </h2>
               <p class="text-center text-xs text-gray-600 mt-1 font-medium">
-                {{ posts.length }} bài viết
+                <span class="font-semibold">{{ posts.length }}</span> bài viết
+                <span class="mx-2 text-gray-400">•</span>
+                <span class="font-semibold">{{ friendCount }}</span> bạn bè
               </p>
 
+              <div v-if="!isOwnProfile && auth.user" class="mt-3 space-y-2">
+                <button
+                  v-if="friendshipStatus === 'not_friends' || !friendshipStatus"
+                  @click="sendFriendRequest"
+                  :disabled="friendActionLoading"
+                  class="w-full py-2 rounded-lg bg-black text-white hover:bg-gray-800 disabled:opacity-60 transition-all duration-200 font-semibold text-sm shadow-lg hover:shadow-xl"
+                >
+                  {{ friendActionLoading ? "Đang gửi..." : "Kết bạn" }}
+                </button>
+
+                <div
+                  v-else-if="friendshipStatus === 'request_sent'"
+                  class="w-full flex items-center gap-2"
+                >
+                  <div
+                    class="flex-1 py-2 rounded-lg bg-gray-100 text-gray-700 border border-gray-200 text-sm font-semibold text-center"
+                  >
+                    Đã gửi lời mời
+                  </div>
+                  <button
+                    @click="cancelSentFriendRequest"
+                    :disabled="friendActionLoading || !pendingRequestId"
+                    class="px-3 py-2 rounded-lg bg-white text-gray-700 border border-gray-200 hover:bg-gray-100 disabled:opacity-60 text-sm font-semibold"
+                  >
+                    {{ friendActionLoading ? "Đang hủy..." : "Hủy lời mời" }}
+                  </button>
+                </div>
+
+                <div
+                  v-else-if="friendshipStatus === 'friends'"
+                  class="w-full flex items-center gap-2"
+                >
+                  <div
+                    class="flex-1 py-2 rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-200 text-sm font-semibold text-center"
+                  >
+                    Đã là bạn bè
+                  </div>
+                  <button
+                    @click="removeFriend"
+                    :disabled="friendActionLoading"
+                    class="px-3 py-2 rounded-lg bg-white text-gray-700 border border-gray-200 hover:bg-gray-100 disabled:opacity-60 text-sm font-semibold"
+                  >
+                    {{ friendActionLoading ? "Đang hủy..." : "Hủy kết bạn" }}
+                  </button>
+                </div>
+
+                <div
+                  v-else-if="friendshipStatus === 'request_received'"
+                  class="flex gap-2"
+                >
+                  <button
+                    @click="acceptFriendRequest"
+                    :disabled="friendActionLoading"
+                    class="flex-1 py-2 rounded-lg bg-black text-white hover:bg-gray-800 disabled:opacity-60 transition-all duration-200 text-sm font-semibold shadow-lg hover:shadow-xl"
+                  >
+                    {{ friendActionLoading ? "Đang xử lý..." : "Chấp nhận" }}
+                  </button>
+                  <button
+                    @click="rejectFriendRequest"
+                    :disabled="friendActionLoading"
+                    class="flex-1 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200 disabled:opacity-60 transition-all duration-200 text-sm font-semibold"
+                  >
+                    Từ chối
+                  </button>
+                </div>
+              </div>
+
+              <!-- Nút tạo bài viết chỉ hiển thị nếu xem profile của chính mình -->
               <button
+                v-if="isOwnProfile"
                 @click="showModal = true"
                 class="mt-4 w-full py-2 rounded-lg bg-black text-white hover:bg-gray-800 transition-all duration-200 font-semibold text-sm shadow-lg hover:shadow-xl"
               >
@@ -68,12 +139,21 @@
               </svg>
             </div>
             <h3 class="text-lg font-semibold text-gray-900 mb-2">
-              Chưa có bài viết nào
+              {{
+                isOwnProfile
+                  ? "Chưa có bài viết nào"
+                  : "Người dùng này chưa có bài viết công khai"
+              }}
             </h3>
             <p class="text-gray-500 mb-6">
-              Hãy tạo bài viết đầu tiên của bạn để chia sẻ với mọi người!
+              {{
+                isOwnProfile
+                  ? "Hãy tạo bài viết đầu tiên của bạn để chia sẻ với mọi người!"
+                  : "Bài viết của người dùng này hiện chưa được công khai"
+              }}
             </p>
             <button
+              v-if="isOwnProfile"
               @click="showModal = true"
               class="px-6 py-2.5 rounded-lg bg-black text-white hover:bg-gray-800 transition"
             >
@@ -86,7 +166,7 @@
             <div
               v-for="post in posts"
               :key="post.id"
-              class="bg-white rounded-lg shadow hover:shadow-md transition-shadow duration-200 border border-gray-200 relative"
+              class="bg-white rounded-lg shadow hover:shadow-md transition-shadow duration-200 border border-gray-200 overflow-visible"
             >
               <!-- Post Header -->
               <div class="px-3 py-2 border-b border-gray-200 bg-gray-50">
@@ -97,12 +177,9 @@
                     <UserCircleIcon class="w-6 h-6 text-white" />
                   </div>
                   <div class="flex-1 min-w-0">
-                    <NuxtLink
-                      :to="`/feed/${auth.user?.id}`"
-                      class="font-semibold text-xs text-gray-900 hover:text-gray-700 truncate block"
-                    >
-                      {{ auth.user?.fullName || "Người dùng" }}
-                    </NuxtLink>
+                    <p class="font-semibold text-xs text-gray-900 truncate">
+                      {{ post.authorName || displayName }}
+                    </p>
                     <div
                       class="flex items-center gap-1 text-[10px] text-gray-500"
                     >
@@ -115,8 +192,8 @@
                       </template>
                     </div>
                   </div>
-                  <!-- Menu Button -->
-                  <div class="relative">
+                  <!-- Menu Button - chỉ hiển thị nếu là bài viết của chính mình -->
+                  <div v-if="isOwnProfile" class="relative">
                     <button
                       @click="
                         activeMenuPostId =
@@ -129,7 +206,7 @@
                     <!-- Dropdown Menu -->
                     <div
                       v-if="activeMenuPostId === post.id"
-                      class="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg z-10 w-48"
+                      class="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-40"
                     >
                       <button
                         @click="
@@ -138,7 +215,7 @@
                         "
                         class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 border-b border-gray-200 font-medium"
                       >
-                        Chỉnh sửa bài viết
+                        Chỉnh sửa
                       </button>
                       <button
                         @click="
@@ -147,7 +224,7 @@
                         "
                         class="w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50 font-medium"
                       >
-                        Xóa bài viết
+                        Xóa
                       </button>
                     </div>
                   </div>
@@ -292,7 +369,7 @@
 
     <!-- Create Post Modal -->
     <CreatePostModal
-      v-if="showModal"
+      v-if="showModal && isOwnProfile"
       :products="products"
       :mode="editMode"
       :post="editingPost"
@@ -316,12 +393,13 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useAuthStore } from "@/stores/auth";
 import { UserCircleIcon, EllipsisVerticalIcon } from "@heroicons/vue/24/solid";
 import CreatePostModal from "@/components/modals/feed/CreatePostModal.vue";
 import MediaGalleryModal from "@/components/MediaGalleryModal.vue";
 
+const route = useRoute();
 const config = useRuntimeConfig();
 const auth = useAuthStore();
 
@@ -335,22 +413,49 @@ const currentMediaIndex = ref(null);
 const activeMenuPostId = ref(null);
 const editMode = ref("create");
 const editingPost = ref(null);
+const friendCount = ref(0);
+const friendshipStatus = ref(null);
+const pendingRequestId = ref(null);
+const friendActionLoading = ref(false);
+
+const isOwnProfile = computed(
+  () => String(route.params.id) === String(auth.user?.id || "")
+);
+
+// Hiển thị tên gọn gàng: ưu tiên tên của chính mình, fallback tên bài viết đầu tiên
+const displayName = computed(() => {
+  if (isOwnProfile.value && auth.user) {
+    return auth.user.fullName || auth.user.email || "Người dùng";
+  }
+  return posts.value[0]?.authorName || "Người dùng";
+});
+
+// Helper gọi API gọn
+const api = (url, options = {}) =>
+  $fetch(url, { baseURL: config.public.apiBase, ...options });
 
 onMounted(async () => {
-  await Promise.all([fetchMyPosts(), fetchProducts()]);
+  const targetId = route.params.id;
+
+  await Promise.all([
+    fetchUserPosts(targetId),
+    fetchProducts(),
+    fetchFriendCount(targetId),
+    fetchFriendshipStatus(targetId),
+  ]);
+
   loading.value = false;
 });
 
-const fetchMyPosts = async () => {
+// Lấy posts theo user ID
+const fetchUserPosts = async (userId) => {
   try {
-    const response = await $fetch("/posts/me", {
-      baseURL: config.public.apiBase,
-      headers: {
-        Authorization: `Bearer ${auth.accessToken}`,
-      },
-    });
+    const response = isOwnProfile.value
+      ? await api("/posts/me", {
+          headers: { Authorization: `Bearer ${auth.accessToken}` },
+        })
+      : await api(`/posts/user/${userId}`);
 
-    console.log("Posts response:", response);
     posts.value = response?.data || response || [];
   } catch (err) {
     console.error("Error fetching posts:", err);
@@ -358,158 +463,262 @@ const fetchMyPosts = async () => {
   }
 };
 
+// Lấy số bạn bè của user
+const fetchFriendCount = async (userId) => {
+  if (!auth.accessToken) {
+    friendCount.value = 0;
+    return;
+  }
+
+  try {
+    const response = await api(`/friends/count/${userId}`, {
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+    });
+
+    friendCount.value = response?.data?.count ?? response?.count ?? 0;
+  } catch (err) {
+    console.error("Error fetching friend count:", err);
+    friendCount.value = 0;
+  }
+};
+
+// Kiểm tra trạng thái kết bạn
+const fetchFriendshipStatus = async (userId) => {
+  if (!auth.accessToken || isOwnProfile.value) {
+    friendshipStatus.value = null;
+    pendingRequestId.value = null;
+    return;
+  }
+
+  try {
+    const response = await api(`/friends/status/${userId}`, {
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+    });
+
+    friendshipStatus.value =
+      response?.data?.status || response?.status || "not_friends";
+    pendingRequestId.value =
+      response?.data?.requestId || response?.requestId || null;
+  } catch (err) {
+    console.error("Error fetching friendship status:", err);
+    friendshipStatus.value = null;
+    pendingRequestId.value = null;
+  }
+};
+
+// Lấy danh sách sản phẩm
 const fetchProducts = async () => {
   try {
-    const response = await $fetch("/product/all-products", {
-      baseURL: config.public.apiBase,
-    });
-    console.log("Products response:", response);
+    const response = await api("/product/all-products");
     products.value = response?.data || response || [];
   } catch (err) {
     console.error("Error fetching products:", err);
-    products.value = [];
+  }
+};
+
+// Gửi lời mời kết bạn
+const sendFriendRequest = async () => {
+  if (!auth.accessToken) {
+    alert("Vui lòng đăng nhập để kết bạn.");
+    return;
+  }
+
+  friendActionLoading.value = true;
+
+  try {
+    const response = await api("/friends/request", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+      body: { receiverId: route.params.id },
+    });
+
+    friendshipStatus.value = "request_sent";
+    pendingRequestId.value = response?.data?.id || response?.id || null;
+  } catch (err) {
+    console.error("Error sending friend request:", err);
+    const message =
+      err?.data?.message ||
+      err?.message ||
+      "Không gửi được lời mời. Vui lòng thử lại.";
+    alert(message);
+    await fetchFriendshipStatus(route.params.id);
+  } finally {
+    friendActionLoading.value = false;
+  }
+};
+
+// Chấp nhận lời mời kết bạn
+const acceptFriendRequest = async () => {
+  if (!pendingRequestId.value || !auth.accessToken) return;
+
+  friendActionLoading.value = true;
+
+  try {
+    await api(`/friends/request/${pendingRequestId.value}/accept`, {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+    });
+
+    friendshipStatus.value = "friends";
+    await fetchFriendCount(route.params.id);
+  } catch (err) {
+    console.error("Error accepting friend request:", err);
+    alert("Không thể chấp nhận lời mời. Vui lòng thử lại.");
+  } finally {
+    friendActionLoading.value = false;
+  }
+};
+
+// Từ chối lời mời kết bạn
+const rejectFriendRequest = async () => {
+  if (!pendingRequestId.value || !auth.accessToken) return;
+
+  friendActionLoading.value = true;
+
+  try {
+    await api(`/friends/request/${pendingRequestId.value}/reject`, {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+    });
+
+    friendshipStatus.value = "not_friends";
+    pendingRequestId.value = null;
+  } catch (err) {
+    console.error("Error rejecting friend request:", err);
+    alert("Không thể từ chối lời mời. Vui lòng thử lại.");
+  } finally {
+    friendActionLoading.value = false;
+  }
+};
+
+// Hủy lời mời đã gửi
+const cancelSentFriendRequest = async () => {
+  if (!pendingRequestId.value || !auth.accessToken) return;
+
+  friendActionLoading.value = true;
+
+  try {
+    await api(`/friends/request/${pendingRequestId.value}/cancel`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+    });
+
+    friendshipStatus.value = "not_friends";
+    pendingRequestId.value = null;
+  } catch (err) {
+    console.error("Error canceling friend request:", err);
+    alert("Không thể hủy lời mời. Vui lòng thử lại.");
+  } finally {
+    friendActionLoading.value = false;
+  }
+};
+
+// Hủy kết bạn
+const removeFriend = async () => {
+  if (!auth.accessToken) return;
+
+  friendActionLoading.value = true;
+
+  try {
+    await api(`/friends/${route.params.id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+    });
+
+    friendshipStatus.value = "not_friends";
+    pendingRequestId.value = null;
+    await fetchFriendCount(route.params.id);
+  } catch (err) {
+    console.error("Error removing friend:", err);
+    alert("Không thể hủy kết bạn. Vui lòng thử lại.");
+  } finally {
+    friendActionLoading.value = false;
   }
 };
 
 const handlePostCreated = (response) => {
-  // 1. Lấy dữ liệu từ response
-  const responseData = response.data || response;
-
-  // 2. Cấu trúc lại dữ liệu
-  const newPostFormatted = {
-    ...responseData.post,
-    media: responseData.media || [],
-    products: responseData.products || [],
-    author: auth.user || null,
-  };
-
-  // 3. Đẩy vào đầu danh sách
-  posts.value.unshift(newPostFormatted);
+  const post = response.data?.post || response.post;
+  posts.value.unshift({
+    ...post,
+    media: response.data?.media || response.media || [],
+    products: response.data?.products || response.products || [],
+    authorName: auth.user?.fullName || auth.user?.email,
+  });
   showModal.value = false;
   editMode.value = "create";
   editingPost.value = null;
 };
 
 const handlePostUpdated = (response) => {
-  const responseData = response.data || response;
-
-  const updatedPostFormatted = {
-    ...responseData.post,
-    media: responseData.media || [],
-    products: responseData.products || [],
-    author: auth.user || null,
-  };
-
-  const idx = posts.value.findIndex((p) => p.id === updatedPostFormatted.id);
+  const post = response.data?.post || response.post;
+  const idx = posts.value.findIndex((p) => p.id === post.id);
   if (idx > -1) {
-    posts.value[idx] = updatedPostFormatted;
+    posts.value[idx] = {
+      ...post,
+      media: response.data?.media || response.media || [],
+      products: response.data?.products || response.products || [],
+    };
   }
-
   showModal.value = false;
   editMode.value = "create";
   editingPost.value = null;
 };
 
 // Check if file is video
-const isVideo = (url) => {
-  if (!url) return false;
-  const videoExtensions = [".mp4", ".webm", ".ogg", ".mov", ".avi", ".mkv"];
-  return videoExtensions.some((ext) => url.toLowerCase().includes(ext));
-};
+const isVideo = (url) => /\.(mp4|webm|ogg|mov|avi|mkv)$/i.test(url);
 
 // Open media gallery
-const openMediaGallery = (mediaList, startIndex) => {
-  currentGalleryMedia.value = mediaList;
-  currentMediaIndex.value = startIndex;
+const openMediaGallery = (list, idx) => {
+  currentGalleryMedia.value = list;
+  currentMediaIndex.value = idx;
   showMediaGallery.value = true;
 };
 
-// Helpers for files/media
-const mediaVisual = (post) =>
-  post.media?.filter((m) => m.type !== "file") || [];
-
-const fileNameFromUrl = (url) => {
-  if (!url) return "Tệp đính kèm";
-  const last = url.split("/").pop();
-  if (!last) return "Tệp đính kèm";
-  const parts = last.split("-");
-  if (parts.length > 1 && /^\d{6,}$/.test(parts[0])) {
-    parts.shift();
-    return parts.join("-");
-  }
-  return last;
+// Media & file helpers
+const mediaVisual = (p) => p.media?.filter((m) => m.type !== "file") || [];
+const fileNameFromUrl = (u) => {
+  const name = u?.split("/").pop()?.split("?")[0] || "Tệp đính kèm";
+  const parts = name.split("-");
+  return parts.length > 1 && /^\d{6,}$/.test(parts[0])
+    ? parts.slice(1).join("-")
+    : name;
 };
-
-const fileExtension = (url) => {
-  if (!url) return "";
-  const last = url.split("/").pop() || "";
-  const dot = last.lastIndexOf(".");
-  if (dot === -1) return "";
-  return last
-    .slice(dot + 1)
-    .slice(0, 4)
-    .toUpperCase();
+const fileExtension = (u) => {
+  const match = u?.match(/\.([a-z0-9]+)$/i);
+  return match ? match[1].toUpperCase().slice(0, 3) : "FILE";
 };
-
-// Helper functions
-const mapPrivacy = (v) => {
-  const map = {
-    public: "Công khai",
-    friends: "Bạn bè",
-    private: "Chỉ mình tôi",
-  };
-  return map[v] || "Công khai";
-};
-
-const formatDate = (dateString) => {
-  if (!dateString) return "";
-
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffInSeconds = Math.floor((now - date) / 1000);
-
-  if (diffInSeconds < 60) return "Vừa xong";
-  if (diffInSeconds < 3600)
-    return `${Math.floor(diffInSeconds / 60)} phút trước`;
-  if (diffInSeconds < 86400)
-    return `${Math.floor(diffInSeconds / 3600)} giờ trước`;
-  if (diffInSeconds < 604800)
-    return `${Math.floor(diffInSeconds / 86400)} ngày trước`;
-
-  return date.toLocaleDateString("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+const mapPrivacy = (v) =>
+  ({ public: "Công khai", friends: "Bạn bè", private: "Chỉ mình tôi" }[v] || v);
+const formatDate = (iso) => {
+  const date = new Date(iso);
+  const sec = Math.floor((new Date() - date) / 1000);
+  if (sec < 60) return "Vừa xong";
+  if (sec < 3600) return `${Math.floor(sec / 60)} phút trước`;
+  if (sec < 86400) return `${Math.floor(sec / 3600)} giờ trước`;
+  if (sec < 604800) return `${Math.floor(sec / 86400)} ngày trước`;
+  return date.toLocaleDateString("vi-VN");
 };
 
 const handleEditPost = (post) => {
-  editMode.value = "edit";
   editingPost.value = post;
+  editMode.value = "edit";
   showModal.value = true;
 };
 
 const handleDeletePost = async (postId) => {
-  if (!confirm("Bạn có chắc chắn muốn xóa bài viết này?")) {
-    return;
-  }
+  if (!confirm("Xóa bài viết này?")) return;
 
   try {
-    const response = await $fetch(`/posts/${postId}`, {
+    const res = await api(`/posts/${postId}`, {
       method: "DELETE",
-      baseURL: config.public.apiBase,
-      headers: {
-        Authorization: `Bearer ${auth.accessToken}`,
-      },
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
     });
 
-    if (response.success) {
+    if (res.success) {
       posts.value = posts.value.filter((p) => p.id !== postId);
-      console.log("Delete post success");
     }
   } catch (err) {
-    console.error("Error deleting post:", err);
-    alert("Lỗi khi xóa bài viết: " + (err.message || "Không rõ nguyên nhân"));
+    alert("Lỗi xóa bài: " + (err.message || ""));
   }
 };
 </script>

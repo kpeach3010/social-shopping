@@ -3,6 +3,9 @@ import {
   getMyPostsService,
   updatePostService,
   deletePostService,
+  getNewFeedService,
+  getPublicFeedService,
+  getUserPostsService,
 } from "../services/post.service.js";
 import { db } from "../db/client.js";
 
@@ -57,6 +60,35 @@ export const getMyPostsController = async (req, res) => {
       success: false,
       message: error.message,
     });
+  }
+};
+
+export const getNewFeedController = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const posts = userId
+      ? await getNewFeedService(userId)
+      : await getPublicFeedService();
+
+    res.json({ success: true, data: posts });
+  } catch (error) {
+    console.error("Get new feed error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Lấy posts công khai của user khác
+export const getUserPostsController = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const currentUserId = req.user?.id;
+
+    const posts = await getUserPostsService(userId, currentUserId);
+
+    res.json({ success: true, data: posts });
+  } catch (error) {
+    console.error("Get user posts error:", error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 

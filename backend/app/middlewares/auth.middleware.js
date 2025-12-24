@@ -49,3 +49,29 @@ export const hasRoles = (...roles) => {
     next();
   };
 };
+
+// Optional authenticate: không chặn nếu thiếu/invalid token, chỉ gán req.user nếu hợp lệ
+export const optionalAuthenticate = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      // Không có token → cho qua như anonymous
+      return next();
+    }
+
+    const token = authHeader.split(" ")[1];
+    const { data, error } = await supabase.auth.getUser(token);
+
+    if (error || !data?.user) {
+      // Token không hợp lệ → xử lý như anonymous
+      return next();
+    }
+
+    req.user = data.user;
+    next();
+  } catch (err) {
+    // Bất kỳ lỗi nào cũng không chặn request, tiếp tục như anonymous
+    console.error("Optional Auth Error:", err);
+    next();
+  }
+};

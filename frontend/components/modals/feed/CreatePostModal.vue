@@ -26,7 +26,7 @@
           <label class="block text-xs font-medium mb-1">Nội dung</label>
           <textarea
             v-model="form.content"
-            rows="3"
+            rows="7"
             class="w-full border rounded-lg p-2 text-sm resize-none"
             placeholder="Bạn đang nghĩ gì?"
           />
@@ -233,17 +233,20 @@ const handleFiles = (e) => {
   }
 
   newFiles.forEach((file) => {
+    // Lưu index trước khi push để tránh lỗi async
+    const fileIndex = form.files.length;
     form.files.push(file);
 
     // Preview cho ảnh
     if (file.type.startsWith("image/")) {
       const reader = new FileReader();
       reader.onload = (ev) => {
-        filePreviews.value[form.files.length - 1] = ev.target.result;
+        // Dùng index đã lưu, không dùng form.files.length
+        filePreviews.value[fileIndex] = ev.target.result;
       };
       reader.readAsDataURL(file);
     } else {
-      filePreviews.value[form.files.length - 1] = null;
+      filePreviews.value[fileIndex] = null;
     }
   });
 };

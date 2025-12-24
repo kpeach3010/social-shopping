@@ -150,12 +150,18 @@
               </div>
 
               <!-- Post Content -->
-              <div class="px-4 py-3 bg-white">
+              <div class="px-4 py-3 bg-gray-50">
                 <p
+                  v-html="renderContent(post)"
                   class="text-gray-900 leading-relaxed whitespace-pre-wrap text-sm break-words"
+                ></p>
+                <button
+                  v-if="isContentLong(post.content)"
+                  @click="toggleExpand(post.id)"
+                  class="mt-2 text-sm font-semibold text-blue-700 hover:text-blue-800 transition"
                 >
-                  {{ post.content }}
-                </p>
+                  {{ isExpanded(post.id) ? "Thu gọn" : "Xem thêm" }}
+                </button>
               </div>
 
               <!-- Post Media -->
@@ -176,7 +182,7 @@
                     v-for="(m, index) in mediaVisual(post).slice(0, 4)"
                     :key="m.id"
                     class="relative bg-white group cursor-pointer overflow-hidden"
-                    :class="[mediaVisual(post).length === 1 ? 'h-64' : 'h-40']"
+                    :class="[mediaVisual(post).length === 1 ? 'h-96' : 'h-56']"
                     @click="openMediaGallery(mediaVisual(post), index)"
                   >
                     <!-- Video -->
@@ -315,6 +321,25 @@ const openCreate = ref(false);
 const showMediaGallery = ref(false);
 const currentGalleryMedia = ref([]);
 const currentMediaIndex = ref(null);
+const expandedPostIds = ref(new Set()); // Theo dõi bài nào đang expand
+
+// Kiểm tra content có quá dài không (>300 ký tự)
+const isContentLong = (content) => content?.length > 300;
+
+// Lấy content preview (300 ký tự đầu)
+const getContentPreview = (content) => content?.slice(0, 300) + "...";
+
+// Toggle expand
+const toggleExpand = (postId) => {
+  if (expandedPostIds.value.has(postId)) {
+    expandedPostIds.value.delete(postId);
+  } else {
+    expandedPostIds.value.add(postId);
+  }
+};
+
+// Kiểm tra bài có đang expand không
+const isExpanded = (postId) => expandedPostIds.value.has(postId);
 
 // Lấy feed bài viết từ API
 const {
@@ -409,6 +434,28 @@ const openMediaGallery = (mediaList, index) => {
   currentMediaIndex.value = index;
   showMediaGallery.value = true;
 };
+
+// Linkify like ChatBox: short and direct
+function formatMessage(content) {
+  if (!content) return "";
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  return content.replace(urlRegex, (url) => {
+    if (url.includes("/invite/")) {
+      const token = url.split("/invite/")[1];
+      return `<a href="/invite/${token}" data-token="${token}" class="underline text-blue-700 break-all">${url}</a>`;
+    }
+    return `<a href="${url}" target="_blank" rel="noopener" class="underline text-blue-700 break-all">${url}</a>`;
+  });
+}
+
+// Render expanded/preview text then linkify
+function renderContent(post) {
+  const text =
+    isExpanded(post.id) || !isContentLong(post.content)
+      ? post.content || ""
+      : getContentPreview(post.content || "");
+  return formatMessage(text);
+}
 
 // Lấy phần mở rộng file
 const fileExtension = (url) => {

@@ -215,7 +215,7 @@
                         "
                         class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 border-b border-gray-200 font-medium"
                       >
-                        Chỉnh sửa
+                        Chỉnh sửa bài viết
                       </button>
                       <button
                         @click="
@@ -232,12 +232,18 @@
               </div>
 
               <!-- Post Content -->
-              <div class="px-3 py-2 bg-white">
+              <div class="px-3 py-2 bg-gray-50">
                 <p
+                  v-html="renderContent(post)"
                   class="text-gray-900 leading-snug whitespace-pre-wrap text-xs break-words"
+                ></p>
+                <button
+                  v-if="isContentLong(post.content)"
+                  @click="toggleExpand(post.id)"
+                  class="mt-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 transition"
                 >
-                  {{ post.content }}
-                </p>
+                  {{ isExpanded(post.id) ? "Thu gọn" : "Xem thêm" }}
+                </button>
               </div>
 
               <!-- Post Media -->
@@ -258,7 +264,7 @@
                     v-for="(m, index) in mediaVisual(post).slice(0, 4)"
                     :key="m.id"
                     class="relative bg-white group cursor-pointer overflow-hidden"
-                    :class="[mediaVisual(post).length === 1 ? 'h-56' : 'h-36']"
+                    :class="[mediaVisual(post).length === 1 ? 'h-80' : 'h-48']"
                     @click="openMediaGallery(mediaVisual(post), index)"
                   >
                     <!-- Video -->
@@ -417,6 +423,25 @@ const friendCount = ref(0);
 const friendshipStatus = ref(null);
 const pendingRequestId = ref(null);
 const friendActionLoading = ref(false);
+const expandedPostIds = ref(new Set()); // Theo dõi bài nào đang expand
+
+// Kiểm tra content có quá dài không (>300 ký tự)
+const isContentLong = (content) => content?.length > 300;
+
+// Lấy content preview (300 ký tự đầu)
+const getContentPreview = (content) => content?.slice(0, 300) + "...";
+
+// Toggle expand
+const toggleExpand = (postId) => {
+  if (expandedPostIds.value.has(postId)) {
+    expandedPostIds.value.delete(postId);
+  } else {
+    expandedPostIds.value.add(postId);
+  }
+};
+
+// Kiểm tra bài có đang expand không
+const isExpanded = (postId) => expandedPostIds.value.has(postId);
 
 const isOwnProfile = computed(
   () => String(route.params.id) === String(auth.user?.id || "")
@@ -673,6 +698,28 @@ const openMediaGallery = (list, idx) => {
   currentMediaIndex.value = idx;
   showMediaGallery.value = true;
 };
+
+// Linkify like ChatBox: short and direct
+function formatMessage(content) {
+  if (!content) return "";
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  return content.replace(urlRegex, (url) => {
+    if (url.includes("/invite/")) {
+      const token = url.split("/invite/")[1];
+      return `<a href="/invite/${token}" data-token="${token}" class="underline text-blue-700 break-all">${url}</a>`;
+    }
+    return `<a href="${url}" target="_blank" rel="noopener" class="underline text-blue-700 break-all">${url}</a>`;
+  });
+}
+
+// Render expanded/preview text then linkify
+function renderContent(post) {
+  const text =
+    isExpanded(post.id) || !isContentLong(post.content)
+      ? post.content || ""
+      : getContentPreview(post.content || "");
+  return formatMessage(text);
+}
 
 // Media & file helpers
 const mediaVisual = (p) => p.media?.filter((m) => m.type !== "file") || [];

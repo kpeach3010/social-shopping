@@ -1,0 +1,1 @@
+ALTER TABLE "posts" ADD COLUMN "is_edited" boolean DEFAULT false NOT NULL;

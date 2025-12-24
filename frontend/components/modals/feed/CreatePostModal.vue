@@ -8,7 +8,7 @@
       <!-- Header -->
       <div class="p-4 border-b shrink-0">
         <div class="flex items-center justify-between">
-          <h3 class="text-base font-semibold">Tạo bài viết</h3>
+          <h3 class="text-base font-semibold">{{ mode === 'edit' ? 'Chỉnh sửa bài viết' : 'Tạo bài viết' }}</h3>
           <button
             @click="$emit('close')"
             class="text-gray-500 hover:text-gray-700 text-xl"
@@ -67,11 +67,42 @@
           </div>
         </div>
 
-        <div v-if="form.files.length > 0">
+        <div v-if="form.existingMedia.length > 0 || form.files.length > 0">
           <div class="grid grid-cols-5 gap-1">
+            <!-- Existing Media -->
+            <div
+              v-for="media in form.existingMedia"
+              :key="'media-' + media.id"
+              class="relative bg-gray-100 rounded overflow-hidden aspect-square"
+            >
+              <img
+                v-if="media.type === 'image'"
+                :src="media.postFileUrl"
+                class="w-full h-full object-cover"
+              />
+              <video
+                v-else-if="media.type === 'video'"
+                :src="media.postFileUrl"
+                class="w-full h-full object-cover"
+              ></video>
+              <div
+                v-else
+                class="w-full h-full bg-white border border-gray-200 flex flex-col items-center justify-center text-[10px] px-1 text-gray-600"
+              >
+                <span class="text-xs font-semibold">FILE</span>
+              </div>
+              <button
+                type="button"
+                @click="removeExistingMedia(media.id)"
+                class="absolute top-0 right-0 bg-red-500 text-white w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600"
+              >
+                ×
+              </button>
+            </div>
+            <!-- New Files -->
             <div
               v-for="(file, idx) in form.files"
-              :key="idx"
+              :key="'file-' + idx"
               class="relative bg-gray-100 rounded overflow-hidden aspect-square"
             >
               <img
@@ -169,8 +200,12 @@
 <script setup>
 import { useAuthStore } from "@/stores/auth";
 
-const props = defineProps({ products: Array });
-const emit = defineEmits(["close", "created"]);
+const props = defineProps({ 
+  products: Array,
+  mode: { type: String, default: 'create' },
+  post: { type: Object, default: null }
+});
+const emit = defineEmits(["close", "created", "updated"]);
 
 const auth = useAuthStore();
 const config = useRuntimeConfig();
@@ -179,10 +214,13 @@ const fileInput = ref(null);
 const filePreviews = ref({});
 
 const form = reactive({
-  content: "",
-  visibility: "public",
-  productIds: [],
+  content: props.post?.content || "",
+  visibility: props.post?.visibility || "public",
+  productIds: props.post?.products?.map(p => p.id) || [],
   files: [],
+  existingMedia: props.post?.media || [],
+  deleteMediaIds: [],
+  deleteProductIds: [],
 });
 
 const handleFiles = (e) => {
@@ -228,10 +266,23 @@ const removeFile = (idx) => {
   filePreviews.value = newPreviews;
 };
 
+const removeExistingMedia = (mediaId) => {
+  form.existingMedia = form.existingMedia.filter(m => m.id !== mediaId);
+  form.deleteMediaIds.push(mediaId);
+};
+
 const toggleProduct = (productId) => {
   const idx = form.productIds.indexOf(productId);
-  if (idx > -1) form.productIds.splice(idx, 1);
-  else form.productIds.push(productId);
+  if (idx > -1) {
+    form.productIds.splice(idx, 1);
+    if (props.mode === 'edit' && props.post?.products?.some(p => p.id === productId)) {
+      form.deleteProductIds.push(productId);
+    }
+  } else {
+    form.productIds.push(productId);
+    const deleteIdx = form.deleteProductIds.indexOf(productId);
+    if (deleteIdx > -1) form.deleteProductIds.splice(deleteIdx, 1);
+  }
 };
 
 const getFileLabel = (file) => {
@@ -255,20 +306,40 @@ const submit = async () => {
     const fd = new FormData();
     fd.append("content", form.content);
     fd.append("visibility", form.visibility);
-    fd.append("productIds", JSON.stringify(form.productIds));
+    
+    if (props.mode === 'edit') {
+      // Chỉ gửi productIds mới thêm
+      const newProductIds = form.productIds.filter(id => 
+        !props.post?.products?.some(p => p.id === id)
+      );
+      fd.append("productIds", JSON.stringify(newProductIds));
+      fd.append("deleteMediaIds", JSON.stringify(form.deleteMediaIds));
+      fd.append("deleteProductIds", JSON.stringify(form.deleteProductIds));
+    } else {
+      fd.append("productIds", JSON.stringify(form.productIds));
+    }
+    
     form.files.forEach((f) => fd.append("files", f));
 
-    const res = await $fetch("/posts", {
-      method: "POST",
+    const url = props.mode === 'edit' ? `/posts/${props.post.id}` : '/posts';
+    const method = props.mode === 'edit' ? 'PATCH' : 'POST';
+
+    const res = await $fetch(url, {
+      method,
       body: fd,
       baseURL: config.public.apiBase,
       headers: { Authorization: `Bearer ${auth.accessToken}` },
     });
-    emit("created", res.data);
+    
+    if (props.mode === 'edit') {
+      emit("updated", res.data);
+    } else {
+      emit("created", res.data);
+    }
     emit("close");
   } catch (error) {
-    console.error("Error creating post:", error);
-    alert("Không thể tạo bài viết: " + (error.data?.message || error.message));
+    console.error("Error submitting post:", error);
+    alert((props.mode === 'edit' ? "Không thể cập nhật" : "Không thể tạo") + " bài viết: " + (error.data?.message || error.message));
   } finally {
     isLoading.value = false;
   }

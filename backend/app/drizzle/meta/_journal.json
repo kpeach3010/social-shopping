@@ -281,6 +281,13 @@
       "when": 1766465868284,
       "tag": "0039_chubby_spacker_dave",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1766553220362,
+      "tag": "0040_perfect_shocker",
+      "breakpoints": true
     }
   ]
 }

@@ -106,6 +106,46 @@
                       <span>{{ mapPrivacy(post.visibility) }}</span>
                       <span>•</span>
                       <span>{{ formatDate(post.createdAt) }}</span>
+                      <template v-if="post.isEdited">
+                        <span>•</span>
+                        <span class="text-gray-400 italic">Đã chỉnh sửa</span>
+                      </template>
+                    </div>
+                  </div>
+                  <!-- Menu Button -->
+                  <div class="relative">
+                    <button
+                      @click="
+                        activeMenuPostId =
+                          activeMenuPostId === post.id ? null : post.id
+                      "
+                      class="p-1 hover:bg-gray-200 rounded transition"
+                    >
+                      <EllipsisVerticalIcon class="w-5 h-5 text-gray-600" />
+                    </button>
+                    <!-- Dropdown Menu -->
+                    <div
+                      v-if="activeMenuPostId === post.id"
+                      class="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg z-10 w-48"
+                    >
+                      <button
+                        @click="
+                          handleEditPost(post);
+                          activeMenuPostId = null;
+                        "
+                        class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 border-b border-gray-200 font-medium"
+                      >
+                        Chỉnh sửa bài viết
+                      </button>
+                      <button
+                        @click="
+                          handleDeletePost(post.id);
+                          activeMenuPostId = null;
+                        "
+                        class="w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50 font-medium"
+                      >
+                        Xóa bài viết
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -251,8 +291,11 @@
     <CreatePostModal
       v-if="showModal"
       :products="products"
-      @close="showModal = false"
+      :mode="editMode"
+      :post="editingPost"
+      @close="showModal = false; editMode = 'create'; editingPost = null"
       @created="handlePostCreated"
+      @updated="handlePostUpdated"
     />
 
     <!-- Media Gallery Modal -->
@@ -268,7 +311,7 @@
 <script setup>
 import { ref, onMounted } from "vue";
 import { useAuthStore } from "@/stores/auth";
-import { UserCircleIcon } from "@heroicons/vue/24/solid";
+import { UserCircleIcon, EllipsisVerticalIcon } from "@heroicons/vue/24/solid";
 import CreatePostModal from "@/components/modals/feed/CreatePostModal.vue";
 import MediaGalleryModal from "@/components/MediaGalleryModal.vue";
 
@@ -282,6 +325,9 @@ const loading = ref(true);
 const showMediaGallery = ref(false);
 const currentGalleryMedia = ref([]);
 const currentMediaIndex = ref(null);
+const activeMenuPostId = ref(null);
+const editMode = ref('create');
+const editingPost = ref(null);
 
 onMounted(async () => {
   await Promise.all([fetchMyPosts(), fetchProducts()]);
@@ -333,6 +379,28 @@ const handlePostCreated = (response) => {
   // 3. Đẩy vào đầu danh sách
   posts.value.unshift(newPostFormatted);
   showModal.value = false;
+  editMode.value = 'create';
+  editingPost.value = null;
+};
+
+const handlePostUpdated = (response) => {
+  const responseData = response.data || response;
+  
+  const updatedPostFormatted = {
+    ...responseData.post,
+    media: responseData.media || [],
+    products: responseData.products || [],
+    author: auth.user || null,
+  };
+  
+  const idx = posts.value.findIndex(p => p.id === updatedPostFormatted.id);
+  if (idx > -1) {
+    posts.value[idx] = updatedPostFormatted;
+  }
+  
+  showModal.value = false;
+  editMode.value = 'create';
+  editingPost.value = null;
 };
 
 // Check if file is video
@@ -406,5 +474,35 @@ const formatDate = (dateString) => {
     month: "2-digit",
     year: "numeric",
   });
+};
+
+const handleEditPost = (post) => {
+  editMode.value = 'edit';
+  editingPost.value = post;
+  showModal.value = true;
+};
+
+const handleDeletePost = async (postId) => {
+  if (!confirm("Bạn có chắc chắn muốn xóa bài viết này?")) {
+    return;
+  }
+
+  try {
+    const response = await $fetch(`/posts/${postId}`, {
+      method: "DELETE",
+      baseURL: config.public.apiBase,
+      headers: {
+        Authorization: `Bearer ${auth.accessToken}`,
+      },
+    });
+
+    if (response.success) {
+      posts.value = posts.value.filter((p) => p.id !== postId);
+      console.log("Delete post success");
+    }
+  } catch (err) {
+    console.error("Error deleting post:", err);
+    alert("Lỗi khi xóa bài viết: " + (err.message || "Không rõ nguyên nhân"));
+  }
 };
 </script>

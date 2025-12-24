@@ -1,6 +1,8 @@
 import {
   createPostService,
   getMyPostsService,
+  updatePostService,
+  deletePostService,
 } from "../services/post.service.js";
 import { db } from "../db/client.js";
 
@@ -52,6 +54,62 @@ export const getMyPostsController = async (req, res) => {
   } catch (error) {
     console.error("Get my posts error:", error);
     res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const updatePostController = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const {
+      content,
+      visibility,
+      productIds,
+      deleteMediaIds,
+      deleteProductIds,
+    } = req.body;
+
+    const authorId = req.user.id;
+    const files = req.files || [];
+
+    const result = await updatePostService(postId, authorId, {
+      content,
+      visibility,
+      productIds: productIds ? JSON.parse(productIds) : [],
+      deleteMediaIds: deleteMediaIds ? JSON.parse(deleteMediaIds) : [],
+      deleteProductIds: deleteProductIds ? JSON.parse(deleteProductIds) : [],
+      files,
+    });
+
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    console.error("Update post error:", error);
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const deletePostController = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const authorId = req.user.id;
+
+    const result = await deletePostService(postId, authorId);
+
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    console.error("Delete post error:", error);
+    res.status(400).json({
       success: false,
       message: error.message,
     });

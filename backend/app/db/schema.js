@@ -519,6 +519,8 @@ export const posts = pgTable("posts", {
 
   visibility: postVisibilityEnum("visibility").default("public").notNull(),
 
+  isEdited: boolean("is_edited").default(false).notNull(),
+
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

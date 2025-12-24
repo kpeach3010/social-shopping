@@ -11,6 +11,16 @@ router.post(
   uploadPostFiles,
   PostController.createPostController
 );
+
 router.get("/me", authenticate, PostController.getMyPostsController);
+
+router.delete("/:postId", authenticate, PostController.deletePostController);
+
+router.patch(
+  "/:postId",
+  authenticate,
+  uploadPostFiles,
+  PostController.updatePostController
+);
 
 export default router;

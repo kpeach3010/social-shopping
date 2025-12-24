@@ -620,26 +620,3 @@ export const friendships = pgTable(
     pk: primaryKey({ columns: [t.userId, t.friendId] }),
   })
 );
-
-// Thông báo cho người dùng
-export const notifications = pgTable("notifications", {
-  id: uuid("id").defaultRandom().primaryKey(),
-
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-
-  senderId: uuid("sender_id").references(() => users.id, {
-    onDelete: "set null",
-  }),
-
-  type: varchar("type", { length: 50 }),
-  title: varchar("title", { length: 200 }),
-  content: text("content"),
-  link: varchar("link", { length: 500 }),
-  isRead: boolean("is_read").default(false).notNull(),
-
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-});

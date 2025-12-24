@@ -65,6 +65,85 @@
           </div>
         </div>
 
+        <!-- DISCOVER USERS -->
+        <div class="mb-8" v-if="auth.isLoggedIn">
+          <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <div class="flex items-center justify-between px-3 py-2 border-b border-gray-200">
+              <h3 class="text-sm font-semibold text-gray-900">Gợi ý kết bạn</h3>
+              <div class="flex items-center gap-2">
+                <button
+                  @click="scrollDiscover(-1)"
+                  class="p-1.5 rounded-full text-gray-600 hover:text-gray-800 hover:bg-gray-100 transition"
+                  aria-label="Cuộn trái"
+                >
+                  <ChevronLeftIcon class="w-5 h-5" />
+                </button>
+                <button
+                  @click="scrollDiscover(1)"
+                  class="p-1.5 rounded-full text-gray-600 hover:text-gray-800 hover:bg-gray-100 transition"
+                  aria-label="Cuộn phải"
+                >
+                  <ChevronRightIcon class="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div class="px-3 py-3">
+              <div ref="discoverWrap" class="overflow-x-auto whitespace-nowrap">
+                <div class="inline-flex gap-3">
+                  <div
+                    v-for="u in discoverUsers"
+                    :key="u.id"
+                    class="w-56 flex-shrink-0 border border-gray-200 rounded-md p-3 bg-white"
+                  >
+                    <div class="flex flex-col items-center text-center gap-3">
+                      <div
+                        class="w-16 h-16 rounded-md bg-gray-100 text-gray-700 flex items-center justify-center text-xl font-bold"
+                      >
+                        {{ initial(u.fullName || u.email) }}
+                      </div>
+                      <p class="text-sm font-semibold text-gray-900 truncate w-full">
+                        {{ u.fullName || u.email || "Người dùng" }}
+                      </p>
+                      <button
+                        v-if="!u.requestSent"
+                        @click="sendFriend(u)"
+                        :disabled="requesting.has(u.id)"
+                        class="w-full py-2 rounded-md bg-black text-white hover:bg-gray-800 disabled:opacity-60 text-sm font-semibold"
+                      >
+                        {{ requesting.has(u.id) ? "Đang gửi..." : "Kết bạn" }}
+                      </button>
+                      <div
+                        v-else
+                        class="w-full flex flex-col gap-2"
+                      >
+                        <div class="w-full py-2 rounded-md bg-gray-100 text-gray-700 border border-gray-200 text-sm font-semibold text-center">
+                          Đã gửi yêu cầu
+                        </div>
+                        <button
+                          @click="cancelRequest(u)"
+                          :disabled="requesting.has(u.id) || !u.requestId"
+                          class="w-full py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-60 text-sm font-semibold"
+                        >
+                          {{ requesting.has(u.id) ? "Đang hủy..." : "Hủy lời mời" }}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Loading placeholder -->
+                  <div
+                    v-if="loadingDiscover && !discoverUsers.length"
+                    class="text-sm text-gray-500 px-3 py-2"
+                  >
+                    Đang tải người dùng…
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- POSTS GRID -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <!-- Empty State -->
@@ -315,13 +394,21 @@ import CreatePostModal from "@/components/modals/feed/CreatePostModal.vue";
 import MediaGalleryModal from "@/components/MediaGalleryModal.vue";
 import { useAuthStore } from "@/stores/auth";
 import { UserCircleIcon } from "@heroicons/vue/24/solid";
+import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/vue/24/outline";
 
 const auth = useAuthStore();
+const config = useRuntimeConfig();
 const openCreate = ref(false);
 const showMediaGallery = ref(false);
 const currentGalleryMedia = ref([]);
 const currentMediaIndex = ref(null);
 const expandedPostIds = ref(new Set()); // Theo dõi bài nào đang expand
+
+// Discover users (customers not friends)
+const discoverUsers = ref([]);
+const loadingDiscover = ref(false);
+const discoverWrap = ref(null);
+const requesting = ref(new Set());
 
 // Kiểm tra content có quá dài không (>300 ký tự)
 const isContentLong = (content) => content?.length > 300;
@@ -433,6 +520,127 @@ const openMediaGallery = (mediaList, index) => {
   currentGalleryMedia.value = mediaList;
   currentMediaIndex.value = index;
   showMediaGallery.value = true;
+};
+
+// Helpers for avatar letter
+const initial = (name = "?") => (name?.trim()?.charAt(0) || "?").toUpperCase();
+
+// Fetch discover users from existing /users API, then filter client-side
+const fetchDiscover = async () => {
+  if (!auth.accessToken) return;
+  loadingDiscover.value = true;
+  try {
+    const res = await $fetch("/users", {
+      baseURL: config.public.apiBase,
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+    });
+    const all = (res?.data || res || []).filter((u) => {
+      // Chỉ hiện role customer, loại bỏ chính mình
+      if (String(u.id) === String(auth.user?.id)) return false;
+      return String(u.role).toLowerCase() === "customer";
+    });
+
+    // Lấy trạng thái kết bạn cho từng user, loại bỏ đã là bạn
+    const enriched = await Promise.all(
+      all.slice(0, 40).map(async (u) => {
+        try {
+          const st = await $fetch(`/friends/status/${u.id}`, {
+            baseURL: config.public.apiBase,
+            headers: { Authorization: `Bearer ${auth.accessToken}` },
+          });
+          const status = st?.data?.status || st?.status || "not_friends";
+          const requestId = st?.data?.requestId || st?.requestId || null;
+          return {
+            ...u,
+            friendshipStatus: status,
+            requestSent: status === "request_sent",
+            requestId,
+          };
+        } catch {
+          return {
+            ...u,
+            friendshipStatus: "not_friends",
+            requestSent: false,
+            requestId: null,
+          };
+        }
+      })
+    );
+
+    discoverUsers.value = enriched.filter(
+      (u) => u.friendshipStatus !== "friends"
+    );
+  } catch (err) {
+    console.error("Không thể tải danh sách người dùng:", err);
+    discoverUsers.value = [];
+  } finally {
+    loadingDiscover.value = false;
+  }
+};
+
+onMounted(() => {
+  fetchDiscover();
+});
+
+// Send friend request
+const sendFriend = async (u) => {
+  if (!auth.accessToken) {
+    alert("Vui lòng đăng nhập để kết bạn.");
+    return;
+  }
+  requesting.value.add(u.id);
+  try {
+    const res = await $fetch("/friends/request", {
+      method: "POST",
+      baseURL: config.public.apiBase,
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+      body: { receiverId: u.id },
+    });
+    const requestId = res?.data?.id || res?.data?.requestId || res?.requestId;
+    u.requestSent = true;
+    if (requestId) u.requestId = requestId;
+  } catch (err) {
+    console.error("Lỗi gửi kết bạn:", err);
+    alert(err?.data?.message || "Không thể gửi lời mời kết bạn.");
+  } finally {
+    requesting.value.delete(u.id);
+  }
+};
+
+// Cancel friend request
+const cancelRequest = async (u) => {
+  if (!auth.accessToken) {
+    alert("Vui lòng đăng nhập.");
+    return;
+  }
+  if (!u.requestId) {
+    alert("Không tìm thấy requestId để hủy.");
+    return;
+  }
+  requesting.value.add(u.id);
+  try {
+    await $fetch(`/friends/request/${u.requestId}/cancel`, {
+      method: "DELETE",
+      baseURL: config.public.apiBase,
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+    });
+    u.requestSent = false;
+    u.requestId = null;
+    u.friendshipStatus = "not_friends";
+  } catch (err) {
+    console.error("Lỗi hủy lời mời:", err);
+    alert(err?.data?.message || "Không thể hủy lời mời kết bạn.");
+  } finally {
+    requesting.value.delete(u.id);
+  }
+};
+
+// Horizontal scroll controls
+const scrollDiscover = (dir) => {
+  const el = discoverWrap.value;
+  if (!el) return;
+  const amount = Math.max(300, el.clientWidth * 0.8);
+  el.scrollBy({ left: dir * amount, behavior: "smooth" });
 };
 
 // Linkify like ChatBox: short and direct

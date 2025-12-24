@@ -1,7 +1,9 @@
 import multer from "multer";
 
+const storage = multer.memoryStorage();
+
 export const uploadReviewMedia = multer({
-  storage: multer.memoryStorage(),
+  storage,
   limits: {
     fileSize: 50 * 1024 * 1024, // 50MB
   },
@@ -19,3 +21,10 @@ export const uploadReviewMedia = multer({
     cb(null, true);
   },
 });
+
+export const uploadPostFiles = multer({
+  storage,
+  limits: {
+    fileSize: 50 * 1024 * 1024,
+  },
+}).array("files", 8);

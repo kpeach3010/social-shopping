@@ -57,6 +57,20 @@ export const reviewMediaTypeEnum = pgEnum("review_media_type", [
   "video",
 ]);
 
+// Enum quyền riêng tư bài đăng
+export const postVisibilityEnum = pgEnum("post_visibility", [
+  "public",
+  "friends",
+  "private",
+]);
+
+// Enum loại media trong bài đăng
+export const postMediaTypeEnum = pgEnum("post_media_type", [
+  "image",
+  "video",
+  "file",
+]);
+
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
   email: varchar("email", { length: 255 }).notNull().unique(),
@@ -492,3 +506,56 @@ export const reviewMedia = pgTable("review_media", {
     .defaultNow()
     .notNull(),
 });
+
+// Bài đăng
+export const posts = pgTable("posts", {
+  id: uuid("id").defaultRandom().primaryKey(),
+
+  authorId: uuid("author_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+
+  content: text("content"), // caption / mô tả
+
+  visibility: postVisibilityEnum("visibility").default("public").notNull(),
+
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+export const postMedia = pgTable("post_media", {
+  id: uuid("id").defaultRandom().primaryKey(),
+
+  postId: uuid("post_id")
+    .notNull()
+    .references(() => posts.id, { onDelete: "cascade" }),
+
+  type: postMediaTypeEnum("type").notNull().default("image"), // image | video | file
+  postFilePath: varchar("post_file_path", { length: 500 }),
+  postFileUrl: varchar("post_file_url", { length: 500 }),
+
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+export const postProducts = pgTable(
+  "post_products",
+  {
+    postId: uuid("post_id")
+      .notNull()
+      .references(() => posts.id, { onDelete: "cascade" }),
+
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.postId, t.productId] }),
+  })
+);

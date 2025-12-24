@@ -9,6 +9,11 @@
         <NuxtLink to="/" class="text-gray-700 hover:text-black"
           >Trang chủ</NuxtLink
         >
+        <NuxtLink
+          to="/feed"
+          class="flex items-center gap-1 text-gray-700 hover:text-black"
+          ><FireIcon class="w-5 h-5" />NEW FEED</NuxtLink
+        >
 
         <!-- Danh mục -->
         <div class="relative group">
@@ -92,7 +97,10 @@
           </NuxtLink>
 
           <!-- Chat -->
-          <ChatDropdown />
+          <div class="relative flex items-center space-x-2">
+            <ChatDropdown />
+            <BellIcon class="w-6 h-6 text-gray-700 hover:text-black" />
+          </div>
 
           <!-- Dropdown user -->
           <div class="relative group">
@@ -135,25 +143,34 @@
             <div
               class="absolute right-0 top-full mt-0 w-40 bg-white border rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition duration-200 delay-100 z-50"
             >
-              <NuxtLink
-                to="/profile"
-                class="block px-4 py-2 text-sm hover:bg-gray-100"
-              >
-                Tài khoản của tôi
-              </NuxtLink>
-              <NuxtLink
-                v-if="auth.user?.role === 'staff'"
-                to="/staff/products"
-                class="block px-4 py-2 text-sm text-blue-600 font-medium hover:bg-gray-100"
-              >
-                Quản lý cửa hàng
-              </NuxtLink>
-              <button
-                @click="handleLogout"
-                class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
-              >
-                Đăng xuất
-              </button>
+              <div class="py-1">
+                <NuxtLink
+                  to="/my-feed"
+                  class="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-black transition"
+                >
+                  <i class="bx bx-news text-lg text-gray-400"></i>
+                  <span>Trang cá nhân</span>
+                </NuxtLink>
+                <NuxtLink
+                  to="/profile"
+                  class="block px-4 py-2 text-sm hover:bg-gray-100"
+                >
+                  Tài khoản của tôi
+                </NuxtLink>
+                <NuxtLink
+                  v-if="auth.user?.role === 'staff'"
+                  to="/staff/products"
+                  class="block px-4 py-2 text-sm text-blue-600 font-medium hover:bg-gray-100"
+                >
+                  Quản lý cửa hàng
+                </NuxtLink>
+                <button
+                  @click="handleLogout"
+                  class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+                >
+                  Đăng xuất
+                </button>
+              </div>
             </div>
           </div>
         </template>
@@ -165,7 +182,11 @@
 <script setup>
 import ProductSearchBox from "~/components/ProductSearchBox.vue";
 import ChatDropdown from "~/components/chat/ChatDropdown.vue";
-import { ShoppingCartIcon } from "@heroicons/vue/24/outline";
+import {
+  ShoppingCartIcon,
+  BellIcon,
+  FireIcon,
+} from "@heroicons/vue/24/outline";
 import { useAuthStore } from "~/stores/auth";
 import { useChatStore } from "~/stores/chat";
 import { ref, computed, onMounted, watch, onBeforeUnmount } from "vue";

@@ -296,22 +296,36 @@
                   <template v-for="(m, idx) in r.media" :key="idx">
                     <div
                       v-if="m.type === 'image'"
-                      class="relative w-24 h-24 flex-shrink-0 group overflow-hidden rounded-lg border border-gray-100"
+                      class="relative w-24 h-24 flex-shrink-0 group overflow-hidden rounded-lg border border-gray-100 cursor-pointer"
+                      @click="openMediaGallery(r.media, idx)"
                     >
                       <img
                         :src="m.fileUrl"
-                        class="w-full h-full object-cover transition duration-300 group-hover:scale-110 cursor-pointer"
-                        @click="openLightbox(m.fileUrl)"
+                        class="w-full h-full object-cover transition duration-300 group-hover:scale-110"
                       />
                     </div>
 
                     <div
                       v-else
-                      class="relative w-48 h-24 flex-shrink-0 rounded-lg overflow-hidden border"
+                      class="relative w-48 h-24 flex-shrink-0 rounded-lg overflow-hidden border cursor-pointer group"
+                      @click="openMediaGallery(r.media, idx)"
                     >
-                      <video controls class="w-full h-full object-cover">
+                      <video class="w-full h-full object-cover">
                         <source :src="m.fileUrl" type="video/mp4" />
                       </video>
+                      <div
+                        class="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition"
+                      >
+                        <svg
+                          class="w-8 h-8 text-white"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"
+                          ></path>
+                        </svg>
+                      </div>
                     </div>
                   </template>
                 </div>
@@ -355,11 +369,20 @@
         </div>
       </div>
     </main>
+
+    <!-- Media Gallery Modal -->
+    <MediaGalleryModal
+      :is-open="showMediaGallery"
+      :media-list="currentGalleryMedia"
+      :start-index="currentMediaIndex || 0"
+      @close="showMediaGallery = false"
+    />
   </div>
 </template>
 
 <script setup>
 import { useAuthStore } from "@/stores/auth";
+import MediaGalleryModal from "@/components/MediaGalleryModal.vue";
 
 const route = useRoute();
 const config = useRuntimeConfig();
@@ -377,6 +400,9 @@ const reviews = ref([]);
 const loadingReviews = ref(true);
 const currentReviewPage = ref(1);
 const reviewsPerPage = 3;
+const showMediaGallery = ref(false);
+const currentGalleryMedia = ref([]);
+const currentMediaIndex = ref(null);
 
 const createInviteLink = async (couponId) => {
   if (!auth.accessToken) {
@@ -613,9 +639,10 @@ const goToReviewPage = (p) => {
 const prevReviewPage = () => goToReviewPage(currentReviewPage.value - 1);
 const nextReviewPage = () => goToReviewPage(currentReviewPage.value + 1);
 
-// Logic để mở ảnh to (Nếu bạn muốn làm lightbox)
-const openLightbox = (url) => {
-  // Logic hiển thị modal ảnh
-  window.open(url, "_blank");
+// Media Gallery Logic
+const openMediaGallery = (mediaList, startIndex) => {
+  currentGalleryMedia.value = mediaList;
+  currentMediaIndex.value = startIndex;
+  showMediaGallery.value = true;
 };
 </script>

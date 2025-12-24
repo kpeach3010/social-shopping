@@ -293,7 +293,11 @@
       :products="products"
       :mode="editMode"
       :post="editingPost"
-      @close="showModal = false; editMode = 'create'; editingPost = null"
+      @close="
+        showModal = false;
+        editMode = 'create';
+        editingPost = null;
+      "
       @created="handlePostCreated"
       @updated="handlePostUpdated"
     />
@@ -326,7 +330,7 @@ const showMediaGallery = ref(false);
 const currentGalleryMedia = ref([]);
 const currentMediaIndex = ref(null);
 const activeMenuPostId = ref(null);
-const editMode = ref('create');
+const editMode = ref("create");
 const editingPost = ref(null);
 
 onMounted(async () => {
@@ -379,27 +383,27 @@ const handlePostCreated = (response) => {
   // 3. Đẩy vào đầu danh sách
   posts.value.unshift(newPostFormatted);
   showModal.value = false;
-  editMode.value = 'create';
+  editMode.value = "create";
   editingPost.value = null;
 };
 
 const handlePostUpdated = (response) => {
   const responseData = response.data || response;
-  
+
   const updatedPostFormatted = {
     ...responseData.post,
     media: responseData.media || [],
     products: responseData.products || [],
     author: auth.user || null,
   };
-  
-  const idx = posts.value.findIndex(p => p.id === updatedPostFormatted.id);
+
+  const idx = posts.value.findIndex((p) => p.id === updatedPostFormatted.id);
   if (idx > -1) {
     posts.value[idx] = updatedPostFormatted;
   }
-  
+
   showModal.value = false;
-  editMode.value = 'create';
+  editMode.value = "create";
   editingPost.value = null;
 };
 
@@ -477,7 +481,7 @@ const formatDate = (dateString) => {
 };
 
 const handleEditPost = (post) => {
-  editMode.value = 'edit';
+  editMode.value = "edit";
   editingPost.value = post;
   showModal.value = true;
 };

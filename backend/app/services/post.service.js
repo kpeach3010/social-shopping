@@ -139,7 +139,7 @@ export const updatePostService = async (postId, authorId, data) => {
     // 1) Cập nhật content/visibility
     const updates = {};
     let hasContentChange = false;
-    
+
     if (data.content !== undefined) {
       updates.content = data.content;
       hasContentChange = true;
@@ -149,10 +149,13 @@ export const updatePostService = async (postId, authorId, data) => {
     }
 
     // Kiểm tra xem có thay đổi gì ngoài visibility không
-    const hasMediaChange = (Array.isArray(data.deleteMediaIds) && data.deleteMediaIds.length > 0) ||
-                           (Array.isArray(data.files) && data.files.length > 0);
-    const hasProductChange = (Array.isArray(data.deleteProductIds) && data.deleteProductIds.length > 0) ||
-                             (Array.isArray(data.productIds) && data.productIds.length > 0);
+    const hasMediaChange =
+      (Array.isArray(data.deleteMediaIds) && data.deleteMediaIds.length > 0) ||
+      (Array.isArray(data.files) && data.files.length > 0);
+    const hasProductChange =
+      (Array.isArray(data.deleteProductIds) &&
+        data.deleteProductIds.length > 0) ||
+      (Array.isArray(data.productIds) && data.productIds.length > 0);
 
     // Nếu có thay đổi ngoài visibility thì đánh dấu đã chỉnh sửa
     if (hasContentChange || hasMediaChange || hasProductChange) {

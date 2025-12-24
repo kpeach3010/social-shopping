@@ -8,7 +8,9 @@
       <!-- Header -->
       <div class="p-4 border-b shrink-0">
         <div class="flex items-center justify-between">
-          <h3 class="text-base font-semibold">{{ mode === 'edit' ? 'Chỉnh sửa bài viết' : 'Tạo bài viết' }}</h3>
+          <h3 class="text-base font-semibold">
+            {{ mode === "edit" ? "Chỉnh sửa bài viết" : "Tạo bài viết" }}
+          </h3>
           <button
             @click="$emit('close')"
             class="text-gray-500 hover:text-gray-700 text-xl"
@@ -200,10 +202,10 @@
 <script setup>
 import { useAuthStore } from "@/stores/auth";
 
-const props = defineProps({ 
+const props = defineProps({
   products: Array,
-  mode: { type: String, default: 'create' },
-  post: { type: Object, default: null }
+  mode: { type: String, default: "create" },
+  post: { type: Object, default: null },
 });
 const emit = defineEmits(["close", "created", "updated"]);
 
@@ -216,7 +218,7 @@ const filePreviews = ref({});
 const form = reactive({
   content: props.post?.content || "",
   visibility: props.post?.visibility || "public",
-  productIds: props.post?.products?.map(p => p.id) || [],
+  productIds: props.post?.products?.map((p) => p.id) || [],
   files: [],
   existingMedia: props.post?.media || [],
   deleteMediaIds: [],
@@ -267,7 +269,7 @@ const removeFile = (idx) => {
 };
 
 const removeExistingMedia = (mediaId) => {
-  form.existingMedia = form.existingMedia.filter(m => m.id !== mediaId);
+  form.existingMedia = form.existingMedia.filter((m) => m.id !== mediaId);
   form.deleteMediaIds.push(mediaId);
 };
 
@@ -275,7 +277,10 @@ const toggleProduct = (productId) => {
   const idx = form.productIds.indexOf(productId);
   if (idx > -1) {
     form.productIds.splice(idx, 1);
-    if (props.mode === 'edit' && props.post?.products?.some(p => p.id === productId)) {
+    if (
+      props.mode === "edit" &&
+      props.post?.products?.some((p) => p.id === productId)
+    ) {
       form.deleteProductIds.push(productId);
     }
   } else {
@@ -306,11 +311,11 @@ const submit = async () => {
     const fd = new FormData();
     fd.append("content", form.content);
     fd.append("visibility", form.visibility);
-    
-    if (props.mode === 'edit') {
+
+    if (props.mode === "edit") {
       // Chỉ gửi productIds mới thêm
-      const newProductIds = form.productIds.filter(id => 
-        !props.post?.products?.some(p => p.id === id)
+      const newProductIds = form.productIds.filter(
+        (id) => !props.post?.products?.some((p) => p.id === id)
       );
       fd.append("productIds", JSON.stringify(newProductIds));
       fd.append("deleteMediaIds", JSON.stringify(form.deleteMediaIds));
@@ -318,11 +323,11 @@ const submit = async () => {
     } else {
       fd.append("productIds", JSON.stringify(form.productIds));
     }
-    
+
     form.files.forEach((f) => fd.append("files", f));
 
-    const url = props.mode === 'edit' ? `/posts/${props.post.id}` : '/posts';
-    const method = props.mode === 'edit' ? 'PATCH' : 'POST';
+    const url = props.mode === "edit" ? `/posts/${props.post.id}` : "/posts";
+    const method = props.mode === "edit" ? "PATCH" : "POST";
 
     const res = await $fetch(url, {
       method,
@@ -330,8 +335,8 @@ const submit = async () => {
       baseURL: config.public.apiBase,
       headers: { Authorization: `Bearer ${auth.accessToken}` },
     });
-    
-    if (props.mode === 'edit') {
+
+    if (props.mode === "edit") {
       emit("updated", res.data);
     } else {
       emit("created", res.data);
@@ -339,7 +344,11 @@ const submit = async () => {
     emit("close");
   } catch (error) {
     console.error("Error submitting post:", error);
-    alert((props.mode === 'edit' ? "Không thể cập nhật" : "Không thể tạo") + " bài viết: " + (error.data?.message || error.message));
+    alert(
+      (props.mode === "edit" ? "Không thể cập nhật" : "Không thể tạo") +
+        " bài viết: " +
+        (error.data?.message || error.message)
+    );
   } finally {
     isLoading.value = false;
   }

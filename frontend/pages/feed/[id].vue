@@ -13,155 +13,162 @@
         <!-- LEFT SIDEBAR - User Info -->
         <aside class="col-span-12 md:col-span-4 lg:col-span-4">
           <div class="sticky top-6 space-y-6">
-          <div
-            class="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200"
-          >
-            <!-- User Avatar -->
-            <div class="bg-linear-to-br from-gray-800 to-gray-900 h-24"></div>
-            <div class="px-6 pb-6">
-              <div class="-mt-12 mb-4">
-                <div
-                  class="w-24 h-24 mx-auto rounded-full bg-white shadow-lg flex items-center justify-center border-4 border-white"
-                >
-                  <UserCircleIcon class="w-20 h-20 text-gray-500" />
+            <div
+              class="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200"
+            >
+              <!-- User Avatar -->
+              <div class="bg-linear-to-br from-gray-800 to-gray-900 h-24"></div>
+              <div class="px-6 pb-6">
+                <div class="-mt-12 mb-4">
+                  <div
+                    class="w-24 h-24 mx-auto rounded-full bg-white shadow-lg flex items-center justify-center border-4 border-white"
+                  >
+                    <UserCircleIcon class="w-20 h-20 text-gray-500" />
+                  </div>
                 </div>
-              </div>
 
-              <h2 class="text-center font-bold text-lg text-gray-900">
-                {{ displayName }}
-              </h2>
-              <p class="text-center text-xs text-gray-600 mt-1 font-medium">
-                <span class="font-semibold">{{ posts.length }}</span> bài viết
-                <span class="mx-2 text-gray-400">•</span>
-                <span class="font-semibold">{{ friendCount }}</span> bạn bè
-              </p>
+                <h2 class="text-center font-bold text-lg text-gray-900">
+                  {{ displayName }}
+                </h2>
+                <p class="text-center text-xs text-gray-600 mt-1 font-medium">
+                  <span class="font-semibold">{{ posts.length }}</span> bài viết
+                  <span class="mx-2 text-gray-400">•</span>
+                  <span class="font-semibold">{{ friendCount }}</span> bạn bè
+                </p>
 
-              <div v-if="!isOwnProfile && auth.user" class="mt-3 space-y-2">
+                <div v-if="!isOwnProfile && auth.user" class="mt-3 space-y-2">
+                  <button
+                    v-if="
+                      friendshipStatus === 'not_friends' || !friendshipStatus
+                    "
+                    @click="sendFriendRequest"
+                    :disabled="friendActionLoading"
+                    class="w-full py-2 rounded-lg bg-black text-white hover:bg-gray-800 disabled:opacity-60 transition-all duration-200 font-semibold text-sm shadow-lg hover:shadow-xl"
+                  >
+                    {{ friendActionLoading ? "Đang gửi..." : "Kết bạn" }}
+                  </button>
+
+                  <div
+                    v-else-if="friendshipStatus === 'request_sent'"
+                    class="w-full flex items-center gap-2"
+                  >
+                    <div
+                      class="flex-1 py-2 rounded-lg bg-gray-100 text-gray-700 border border-gray-200 text-sm font-semibold text-center"
+                    >
+                      Đã gửi lời mời
+                    </div>
+                    <button
+                      @click="cancelSentFriendRequest"
+                      :disabled="friendActionLoading || !pendingRequestId"
+                      class="px-3 py-2 rounded-lg bg-white text-gray-700 border border-gray-200 hover:bg-gray-100 disabled:opacity-60 text-sm font-semibold"
+                    >
+                      {{ friendActionLoading ? "Đang hủy..." : "Hủy lời mời" }}
+                    </button>
+                  </div>
+
+                  <div
+                    v-else-if="friendshipStatus === 'friends'"
+                    class="w-full flex items-center gap-2"
+                  >
+                    <div
+                      class="flex-1 py-2 rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-200 text-sm font-semibold text-center"
+                    >
+                      Đã là bạn bè
+                    </div>
+                    <button
+                      @click="removeFriend"
+                      :disabled="friendActionLoading"
+                      class="px-3 py-2 rounded-lg bg-white text-gray-700 border border-gray-200 hover:bg-gray-100 disabled:opacity-60 text-sm font-semibold"
+                    >
+                      {{ friendActionLoading ? "Đang hủy..." : "Hủy kết bạn" }}
+                    </button>
+                  </div>
+
+                  <div
+                    v-else-if="friendshipStatus === 'request_received'"
+                    class="flex gap-2"
+                  >
+                    <button
+                      @click="acceptFriendRequest"
+                      :disabled="friendActionLoading"
+                      class="flex-1 py-2 rounded-lg bg-black text-white hover:bg-gray-800 disabled:opacity-60 transition-all duration-200 text-sm font-semibold shadow-lg hover:shadow-xl"
+                    >
+                      {{ friendActionLoading ? "Đang xử lý..." : "Chấp nhận" }}
+                    </button>
+                    <button
+                      @click="rejectFriendRequest"
+                      :disabled="friendActionLoading"
+                      class="flex-1 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200 disabled:opacity-60 transition-all duration-200 text-sm font-semibold"
+                    >
+                      Từ chối
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Nút tạo bài viết chỉ hiển thị nếu xem profile của chính mình -->
                 <button
-                  v-if="friendshipStatus === 'not_friends' || !friendshipStatus"
-                  @click="sendFriendRequest"
-                  :disabled="friendActionLoading"
-                  class="w-full py-2 rounded-lg bg-black text-white hover:bg-gray-800 disabled:opacity-60 transition-all duration-200 font-semibold text-sm shadow-lg hover:shadow-xl"
+                  v-if="isOwnProfile"
+                  @click="showModal = true"
+                  class="mt-4 w-full py-2 rounded-lg bg-black text-white hover:bg-gray-800 transition-all duration-200 font-semibold text-sm shadow-lg hover:shadow-xl"
                 >
-                  {{ friendActionLoading ? "Đang gửi..." : "Kết bạn" }}
+                  Tạo bài viết mới
                 </button>
-
-                <div
-                  v-else-if="friendshipStatus === 'request_sent'"
-                  class="w-full flex items-center gap-2"
-                >
-                  <div
-                    class="flex-1 py-2 rounded-lg bg-gray-100 text-gray-700 border border-gray-200 text-sm font-semibold text-center"
-                  >
-                    Đã gửi lời mời
-                  </div>
-                  <button
-                    @click="cancelSentFriendRequest"
-                    :disabled="friendActionLoading || !pendingRequestId"
-                    class="px-3 py-2 rounded-lg bg-white text-gray-700 border border-gray-200 hover:bg-gray-100 disabled:opacity-60 text-sm font-semibold"
-                  >
-                    {{ friendActionLoading ? "Đang hủy..." : "Hủy lời mời" }}
-                  </button>
-                </div>
-
-                <div
-                  v-else-if="friendshipStatus === 'friends'"
-                  class="w-full flex items-center gap-2"
-                >
-                  <div
-                    class="flex-1 py-2 rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-200 text-sm font-semibold text-center"
-                  >
-                    Đã là bạn bè
-                  </div>
-                  <button
-                    @click="removeFriend"
-                    :disabled="friendActionLoading"
-                    class="px-3 py-2 rounded-lg bg-white text-gray-700 border border-gray-200 hover:bg-gray-100 disabled:opacity-60 text-sm font-semibold"
-                  >
-                    {{ friendActionLoading ? "Đang hủy..." : "Hủy kết bạn" }}
-                  </button>
-                </div>
-
-                <div
-                  v-else-if="friendshipStatus === 'request_received'"
-                  class="flex gap-2"
-                >
-                  <button
-                    @click="acceptFriendRequest"
-                    :disabled="friendActionLoading"
-                    class="flex-1 py-2 rounded-lg bg-black text-white hover:bg-gray-800 disabled:opacity-60 transition-all duration-200 text-sm font-semibold shadow-lg hover:shadow-xl"
-                  >
-                    {{ friendActionLoading ? "Đang xử lý..." : "Chấp nhận" }}
-                  </button>
-                  <button
-                    @click="rejectFriendRequest"
-                    :disabled="friendActionLoading"
-                    class="flex-1 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200 disabled:opacity-60 transition-all duration-200 text-sm font-semibold"
-                  >
-                    Từ chối
-                  </button>
-                </div>
-              </div>
-
-              <!-- Nút tạo bài viết chỉ hiển thị nếu xem profile của chính mình -->
-              <button
-                v-if="isOwnProfile"
-                @click="showModal = true"
-                class="mt-4 w-full py-2 rounded-lg bg-black text-white hover:bg-gray-800 transition-all duration-200 font-semibold text-sm shadow-lg hover:shadow-xl"
-              >
-                Tạo bài viết mới
-              </button>
-            </div>
-          </div>
-
-          <!-- Friends List -->
-          <div
-            v-if="isOwnProfile && auth.user"
-            class="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200"
-          >
-            <div class="px-4 py-3 border-b border-gray-200 bg-gray-50">
-              <h3 class="font-bold text-sm text-gray-900">
-                Bạn bè ({{ friendCount }})
-              </h3>
-            </div>
-            <div class="px-4 py-3 max-h-96 overflow-y-auto">
-              <div v-if="loadingFriends" class="text-center py-4">
-                <div
-                  class="animate-spin rounded-full h-6 w-6 border-b-2 border-black mx-auto"
-                ></div>
-              </div>
-              <div
-                v-else-if="friendsList.length === 0"
-                class="text-center py-6 text-gray-500 text-sm"
-              >
-                Chưa có bạn bè nào
-              </div>
-              <div v-else class="space-y-2">
-                <NuxtLink
-                  v-for="friend in friendsList"
-                  :key="friend.id"
-                  :to="`/feed/${friend.id}`"
-                  class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 transition"
-                >
-                  <div
-                    class="w-10 h-10 rounded-full bg-linear-to-br from-gray-700 to-gray-900 flex items-center justify-center shrink-0"
-                  >
-                    <span class="text-white text-sm font-bold">{{
-                      (friend.fullName || friend.email || "?").charAt(0).toUpperCase()
-                    }}</span>
-                  </div>
-                  <div class="flex-1 min-w-0">
-                    <p class="text-sm font-semibold text-gray-900 truncate">
-                      {{ friend.fullName || friend.email || "Người dùng" }}
-                    </p>
-                    <p v-if="friend.email" class="text-xs text-gray-500 truncate">
-                      {{ friend.email }}
-                    </p>
-                  </div>
-                </NuxtLink>
               </div>
             </div>
-          </div>
+
+            <!-- Friends List -->
+            <div
+              v-if="isOwnProfile && auth.user"
+              class="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200"
+            >
+              <div class="px-4 py-3 border-b border-gray-200 bg-gray-50">
+                <h3 class="font-bold text-sm text-gray-900">
+                  Bạn bè ({{ friendCount }})
+                </h3>
+              </div>
+              <div class="px-4 py-3 max-h-96 overflow-y-auto">
+                <div v-if="loadingFriends" class="text-center py-4">
+                  <div
+                    class="animate-spin rounded-full h-6 w-6 border-b-2 border-black mx-auto"
+                  ></div>
+                </div>
+                <div
+                  v-else-if="friendsList.length === 0"
+                  class="text-center py-6 text-gray-500 text-sm"
+                >
+                  Chưa có bạn bè nào
+                </div>
+                <div v-else class="space-y-2">
+                  <NuxtLink
+                    v-for="friend in friendsList"
+                    :key="friend.id"
+                    :to="`/feed/${friend.id}`"
+                    class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 transition"
+                  >
+                    <div
+                      class="w-10 h-10 rounded-full bg-linear-to-br from-gray-700 to-gray-900 flex items-center justify-center shrink-0"
+                    >
+                      <span class="text-white text-sm font-bold">{{
+                        (friend.fullName || friend.email || "?")
+                          .charAt(0)
+                          .toUpperCase()
+                      }}</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm font-semibold text-gray-900 truncate">
+                        {{ friend.fullName || friend.email || "Người dùng" }}
+                      </p>
+                      <p
+                        v-if="friend.email"
+                        class="text-xs text-gray-500 truncate"
+                      >
+                        {{ friend.email }}
+                      </p>
+                    </div>
+                  </NuxtLink>
+                </div>
+              </div>
+            </div>
           </div>
         </aside>
 

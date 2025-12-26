@@ -77,6 +77,14 @@ export const friendStatusEnum = pgEnum("friend_status", [
   "accepted", // đã chấp nhận
 ]);
 
+// Loại thông báo
+export const notificationTypeEnum = pgEnum("notification_type", [
+  "friend_request", // Lời mời kết bạn
+  "friend_accepted", // Chấp nhận kết bạn
+  "post_like", // Thích bài viết
+  "post_comment", // Bình luận bài viết
+]);
+
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
   email: varchar("email", { length: 255 }).notNull().unique(),
@@ -620,3 +628,42 @@ export const friendships = pgTable(
     pk: primaryKey({ columns: [t.userId, t.friendId] }),
   })
 );
+
+// Thông báo
+export const notifications = pgTable("notifications", {
+  id: uuid("id").defaultRandom().primaryKey(),
+
+  // Người nhận thông báo
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+
+  // Loại thông báo
+  type: notificationTypeEnum("type").notNull(),
+
+  // Tiêu đề & nội dung
+  title: varchar("title", { length: 255 }).notNull(),
+  content: text("content"),
+
+  // Người/Entity liên quan
+  relatedUserId: uuid("related_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }), // Ai gửi kết bạn, ai like, ai comment, etc.
+
+  relatedEntityType: varchar("related_entity_type", { length: 50 }), // post, order, friend_request
+  relatedEntityId: uuid("related_entity_id"), // ID của post, order, friendRequest
+
+  // Link để navigate
+  actionUrl: varchar("action_url", { length: 500 }),
+
+  // Trạng thái đã đọc
+  isRead: boolean("is_read").notNull().default(false),
+  readAt: timestamp("read_at", { withTimezone: true }),
+
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});

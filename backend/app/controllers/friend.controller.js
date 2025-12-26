@@ -9,6 +9,10 @@ import {
   checkFriendshipStatusService,
   getFriendCountService,
 } from "../services/friend.service.js";
+import { createNotificationService } from "../services/notification.service.js";
+import { db } from "../db/client.js";
+import { users, friendRequests } from "../db/schema.js";
+import { eq } from "drizzle-orm";
 
 // Gửi lời mời kết bạn
 export const sendFriendRequestController = async (req, res) => {
@@ -24,6 +28,34 @@ export const sendFriendRequestController = async (req, res) => {
     }
 
     const result = await sendFriendRequestService(senderId, receiverId);
+
+    try {
+      const [sender] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, senderId));
+
+      const notification = await createNotificationService({
+        userId: receiverId,
+        type: "friend_request",
+        title: `${sender?.fullName || "Người dùng"} đã gửi lời mời kết bạn`,
+        relatedUserId: senderId,
+        relatedEntityType: "user",
+        relatedEntityId: senderId,
+        actionUrl: `/feed/${senderId}`,
+      });
+
+      if (global.io) {
+        global.io
+          .to(String(receiverId))
+          .emit("notification:new", { notification });
+        global.io
+          .to(String(receiverId))
+          .emit("friend_request_received", { friendRequest: result });
+      }
+    } catch (e) {
+      console.warn("Friend request notification failed:", e?.message);
+    }
 
     res.status(201).json({
       success: true,
@@ -42,7 +74,7 @@ export const sendFriendRequestController = async (req, res) => {
 export const acceptFriendRequestController = async (req, res) => {
   try {
     const { requestId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user.id; // userId là người chấp nhận (receiver)
 
     if (!requestId) {
       return res.status(400).json({
@@ -52,6 +84,38 @@ export const acceptFriendRequestController = async (req, res) => {
     }
 
     const result = await acceptFriendRequestService(requestId, userId);
+
+    try {
+      const [request] = await db
+        .select()
+        .from(friendRequests)
+        .where(eq(friendRequests.id, requestId));
+
+      if (request?.senderId && String(request.senderId) !== String(userId)) {
+        const [receiver] = await db
+          .select()
+          .from(users)
+          .where(eq(users.id, request.receiverId));
+
+        const notification = await createNotificationService({
+          userId: request.senderId,
+          type: "friend_accepted",
+          title: `${receiver?.fullName || "Người dùng"} đã chấp nhận lời mời kết bạn`,
+          relatedUserId: request.receiverId,
+          relatedEntityType: "user",
+          relatedEntityId: request.receiverId,
+          actionUrl: `/feed/${request.receiverId}`,
+        });
+
+        if (global.io) {
+          global.io
+            .to(String(request.senderId))
+            .emit("notification:new", { notification });
+        }
+      }
+    } catch (e) {
+      console.warn("Friend accept notification failed:", e?.message);
+    }
 
     res.status(200).json({
       success: true,

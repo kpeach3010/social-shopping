@@ -15,6 +15,7 @@ import paymentRoutes from "./app/routes/payment.routes.js";
 import reviewRoutes from "./app/routes/review.route.js";
 import postRoutes from "./app/routes/post.route.js";
 import friendRoutes from "./app/routes/friend.route.js";
+import notificationRoutes from "./app/routes/notification.route.js";
 
 const app = express();
 
@@ -52,6 +53,7 @@ app.use("/api/payment", paymentRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/friends", friendRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 app.get("/", (req, res) => {
   res.json({ message: "Welcome to the Social Shopping App API!" });

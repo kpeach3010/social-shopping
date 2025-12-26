@@ -135,6 +135,12 @@ export const acceptFriendRequestService = async (requestId, userId) => {
     return {
       success: true,
       message: "Chấp nhận lời mời kết bạn thành công",
+      request: {
+        id: request[0].id,
+        senderId: request[0].senderId,
+        receiverId: request[0].receiverId,
+        status: "accepted",
+      },
     };
   } catch (error) {
     console.error("Error accepting friend request:", error);

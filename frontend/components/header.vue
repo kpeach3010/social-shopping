@@ -187,6 +187,7 @@ import FriendsDropdown from "~/components/FriendsDropdown.vue";
 import { ShoppingCartIcon, FireIcon } from "@heroicons/vue/24/outline";
 import { useAuthStore } from "~/stores/auth";
 import { useChatStore } from "~/stores/chat";
+import { useFriendStore } from "~/stores/friend";
 import { ref, computed, onMounted, watch, onBeforeUnmount } from "vue";
 
 const auth = useAuthStore();
@@ -210,6 +211,7 @@ const userDisplayName = computed(() => {
 const categories = ref([]);
 const cartCount = ref(0);
 const chatStore = useChatStore();
+const friendStore = useFriendStore();
 let __authChangedHandler = null;
 
 const loadCartCount = async () => {
@@ -252,6 +254,12 @@ onMounted(async () => {
     if (savedUnread) {
       try {
         chatStore.setUnreadCount(parseInt(savedUnread) || 0);
+      } catch (e) {}
+    }
+    const savedFriendsUnread = localStorage.getItem("friendsUnread");
+    if (savedFriendsUnread) {
+      try {
+        friendStore.setUnread(parseInt(savedFriendsUnread) || 0);
       } catch (e) {}
     }
   }
@@ -316,6 +324,9 @@ onMounted(async () => {
         cartCount.value = 0;
         try {
           chatStore.clearUnread();
+        } catch (e) {}
+        try {
+          friendStore.clearUnread();
         } catch (e) {}
       }
     } catch (e) {

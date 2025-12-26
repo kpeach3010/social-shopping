@@ -1,9 +1,11 @@
 import { io } from "socket.io-client";
 import { useAuthStore } from "../stores/auth.js";
+import { useFriendStore } from "../stores/friend.js";
 
 export default defineNuxtPlugin((nuxtApp) => {
   const config = useRuntimeConfig();
   const auth = useAuthStore();
+  const friendStore = useFriendStore();
 
   const apiBase =
     config.public.apiBase ||
@@ -114,6 +116,13 @@ export default defineNuxtPlugin((nuxtApp) => {
     console.error("Socket connect error:", err.message);
     // Nếu lỗi auth, socket sẽ tự chờ.
     // Bên fetchInterceptor khi refresh token xong sẽ gọi socket.connect() lại.
+  });
+
+  // --- Friend request events: update global unread badge immediately ---
+  socket.on("friend_request_received", () => {
+    try {
+      friendStore.incrementUnread();
+    } catch {}
   });
 
   // Inject socket vào nuxtApp để dùng ở fetchInterceptor và các component khác

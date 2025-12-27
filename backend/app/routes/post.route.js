@@ -28,6 +28,38 @@ router.get("/me", authenticate, PostController.getMyPostsController);
 
 router.delete("/:postId", authenticate, PostController.deletePostController);
 
+router.post("/:postId/like", authenticate, PostController.likePostController);
+
+router.delete(
+  "/:postId/like",
+  authenticate,
+  PostController.unlikePostController
+);
+
+router.post(
+  "/:postId/comments",
+  authenticate,
+  PostController.createCommentController
+);
+
+router.delete(
+  "/comments/:commentId",
+  authenticate,
+  PostController.deleteCommentController
+);
+
+router.post(
+  "/comments/:commentId/like",
+  authenticate,
+  PostController.likeCommentController
+);
+
+router.delete(
+  "/comments/:commentId/like",
+  authenticate,
+  PostController.unlikeCommentController
+);
+
 router.patch(
   "/:postId",
   authenticate,

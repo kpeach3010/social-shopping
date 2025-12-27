@@ -6,6 +6,9 @@ import {
   postProducts,
   friendships,
   users,
+  postLikes,
+  postComments,
+  postCommentLikes,
 } from "../db/schema.js";
 import {
   sql,
@@ -552,6 +555,246 @@ export const deletePostService = async (postId, authorId) => {
     };
   } catch (error) {
     console.error("Error deleting post:", error);
+    throw error;
+  }
+};
+
+// Like bài viết
+export const likePostService = async (postId, userId) => {
+  try {
+    // Kiểm tra bài post có tồn tại
+    const post = await db.select().from(posts).where(eq(posts.id, postId));
+
+    if (!post.length) {
+      throw new Error("Bài post không tồn tại");
+    }
+
+    // Kiểm tra đã like chưa
+    const existingLike = await db
+      .select()
+      .from(postLikes)
+      .where(and(eq(postLikes.postId, postId), eq(postLikes.userId, userId)));
+
+    if (existingLike.length > 0) {
+      throw new Error("Bạn đã like bài post này rồi");
+    }
+
+    // Tạo like
+    const [like] = await db
+      .insert(postLikes)
+      .values({
+        postId,
+        userId,
+      })
+      .returning();
+
+    return {
+      success: true,
+      data: like,
+      message: "Like bài post thành công",
+    };
+  } catch (error) {
+    console.error("Error liking post:", error);
+    throw error;
+  }
+};
+
+// Bỏ like bài viết
+export const unlikePostService = async (postId, userId) => {
+  try {
+    // Kiểm tra like có tồn tại
+    const existingLike = await db
+      .select()
+      .from(postLikes)
+      .where(and(eq(postLikes.postId, postId), eq(postLikes.userId, userId)));
+
+    if (!existingLike.length) {
+      throw new Error("Bạn chưa like bài post này");
+    }
+
+    // Xóa like
+    await db
+      .delete(postLikes)
+      .where(and(eq(postLikes.postId, postId), eq(postLikes.userId, userId)));
+
+    return {
+      success: true,
+      message: "Bỏ like bài post thành công",
+    };
+  } catch (error) {
+    console.error("Error unliking post:", error);
+    throw error;
+  }
+};
+
+// Bình luận bài viết
+export const createCommentService = async (
+  postId,
+  userId,
+  { content, parentCommentId = null }
+) => {
+  try {
+    if (!content || !content.trim()) {
+      throw new Error("Nội dung bình luận không được để trống");
+    }
+
+    // Kiểm tra bài post tồn tại
+    const post = await db.select().from(posts).where(eq(posts.id, postId));
+    if (!post.length) {
+      throw new Error("Bài post không tồn tại");
+    }
+
+    // Nếu có parentCommentId, kiểm tra hợp lệ và cùng post
+    if (parentCommentId) {
+      const parent = await db
+        .select()
+        .from(postComments)
+        .where(eq(postComments.id, parentCommentId));
+
+      if (!parent.length) {
+        throw new Error("Bình luận gốc không tồn tại");
+      }
+
+      if (parent[0].postId !== postId) {
+        throw new Error("Bình luận trả lời phải thuộc cùng bài viết");
+      }
+    }
+
+    const [comment] = await db
+      .insert(postComments)
+      .values({
+        postId,
+        authorId: userId,
+        content: content.trim(),
+        parentCommentId,
+      })
+      .returning();
+
+    return {
+      success: true,
+      data: comment,
+      message: "Bình luận thành công",
+    };
+  } catch (error) {
+    console.error("Error creating comment:", error);
+    throw error;
+  }
+};
+
+// Xóa bình luận bài viết (tác giả comment hoặc tác giả post)
+export const deleteCommentService = async (commentId, userId) => {
+  try {
+    const rows = await db
+      .select({
+        id: postComments.id,
+        authorId: postComments.authorId,
+        postId: postComments.postId,
+        postAuthorId: posts.authorId,
+      })
+      .from(postComments)
+      .leftJoin(posts, eq(postComments.postId, posts.id))
+      .where(eq(postComments.id, commentId));
+
+    if (!rows.length) {
+      throw new Error("Bình luận không tồn tại");
+    }
+
+    const comment = rows[0];
+    const isAuthor = comment.authorId === userId;
+    const isPostOwner = comment.postAuthorId === userId;
+
+    if (!isAuthor && !isPostOwner) {
+      throw new Error("Bạn không có quyền xóa bình luận này");
+    }
+
+    await db.delete(postComments).where(eq(postComments.id, commentId));
+
+    return {
+      success: true,
+      message: "Xóa bình luận thành công",
+    };
+  } catch (error) {
+    console.error("Error deleting comment:", error);
+    throw error;
+  }
+};
+
+// Like bình luận
+export const likeCommentService = async (commentId, userId) => {
+  try {
+    // Kiểm tra comment tồn tại
+    const comment = await db
+      .select()
+      .from(postComments)
+      .where(eq(postComments.id, commentId));
+
+    if (!comment.length) {
+      throw new Error("Bình luận không tồn tại");
+    }
+
+    // Kiểm tra đã like chưa
+    const existing = await db
+      .select()
+      .from(postCommentLikes)
+      .where(
+        and(
+          eq(postCommentLikes.commentId, commentId),
+          eq(postCommentLikes.userId, userId)
+        )
+      );
+
+    if (existing.length) {
+      throw new Error("Bạn đã like bình luận này");
+    }
+
+    const [like] = await db
+      .insert(postCommentLikes)
+      .values({ commentId, userId })
+      .returning();
+
+    return {
+      success: true,
+      data: like,
+      message: "Like bình luận thành công",
+    };
+  } catch (error) {
+    console.error("Error liking comment:", error);
+    throw error;
+  }
+};
+
+// Bỏ like bình luận
+export const unlikeCommentService = async (commentId, userId) => {
+  try {
+    const existing = await db
+      .select()
+      .from(postCommentLikes)
+      .where(
+        and(
+          eq(postCommentLikes.commentId, commentId),
+          eq(postCommentLikes.userId, userId)
+        )
+      );
+
+    if (!existing.length) {
+      throw new Error("Bạn chưa like bình luận này");
+    }
+
+    await db
+      .delete(postCommentLikes)
+      .where(
+        and(
+          eq(postCommentLikes.commentId, commentId),
+          eq(postCommentLikes.userId, userId)
+        )
+      );
+
+    return {
+      success: true,
+      message: "Bỏ like bình luận thành công",
+    };
+  } catch (error) {
+    console.error("Error unliking comment:", error);
     throw error;
   }
 };

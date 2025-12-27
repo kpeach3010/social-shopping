@@ -576,6 +576,70 @@ export const postProducts = pgTable(
   })
 );
 
+// Like, cmt bài viết
+export const postLikes = pgTable(
+  "post_likes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    postId: uuid("post_id")
+      .notNull()
+      .references(() => posts.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    // Mỗi user chỉ like 1 lần trên 1 bài viết
+    uqPostLike: uniqueIndex("uq_post_like").on(table.postId, table.userId),
+  })
+);
+
+export const postComments = pgTable("post_comments", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  postId: uuid("post_id")
+    .notNull()
+    .references(() => posts.id, { onDelete: "cascade" }),
+  parentCommentId: uuid("parent_comment_id").references(
+    () => postComments.id,
+    { onDelete: "cascade" } // Xóa comment cha cũng xóa reply
+  ), // Null nếu là bình luận chính, có ID nếu là reply
+  authorId: uuid("author_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+export const postCommentLikes = pgTable(
+  "post_comment_likes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    commentId: uuid("comment_id")
+      .notNull()
+      .references(() => postComments.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    uqCommentLike: uniqueIndex("uq_comment_like").on(
+      table.commentId,
+      table.userId
+    ),
+  })
+);
+
 // Kết bạn giữa các user
 // Lời moi kết bạn, trạng thái kết bạn
 export const friendRequests = pgTable(

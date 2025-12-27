@@ -169,6 +169,8 @@ export const updatePostService = async (postId, authorId, data) => {
       throw new Error("Bài post không tồn tại");
     }
 
+    const postAuthorId = post[0].authorId;
+
     if (post[0].authorId !== authorId) {
       throw new Error("Không có quyền sửa bài post này");
     }
@@ -559,6 +561,166 @@ export const deletePostService = async (postId, authorId) => {
   }
 };
 
+// Lấy chi tiết bài viết theo ID, kèm media, products, đếm like/comment
+export const getPostByIdService = async (postId, currentUserId = null) => {
+  try {
+    const rows = await db
+      .select({ post: posts, author: users })
+      .from(posts)
+      .innerJoin(users, eq(posts.authorId, users.id))
+      .where(eq(posts.id, postId))
+      .limit(1);
+
+    if (!rows.length) throw new Error("Bài viết không tồn tại");
+
+    const post = rows[0].post;
+    const author = rows[0].author;
+
+    // Kiểm tra quyền truy cập theo visibility
+    if (post.visibility === "private") {
+      if (!currentUserId || currentUserId !== post.authorId) {
+        throw new Error("Bạn không có quyền xem bài viết này");
+      }
+    } else if (post.visibility === "friends") {
+      if (!currentUserId) {
+        throw new Error("Bạn không có quyền xem bài viết này");
+      }
+      if (currentUserId !== post.authorId) {
+        const isFriend = await db
+          .select()
+          .from(friendships)
+          .where(
+            and(
+              eq(friendships.userId, currentUserId),
+              eq(friendships.friendId, post.authorId)
+            )
+          )
+          .limit(1);
+        if (!isFriend.length) {
+          throw new Error("Chỉ bạn bè mới có thể xem bài viết này");
+        }
+      }
+    }
+
+    const media = await db
+      .select()
+      .from(postMedia)
+      .where(eq(postMedia.postId, postId));
+
+    const attachedProducts = await db
+      .select({
+        id: products.id,
+        name: products.name,
+        price: products.price_default,
+        thumbnailUrl: products.thumbnailUrl,
+      })
+      .from(postProducts)
+      .leftJoin(products, eq(postProducts.productId, products.id))
+      .where(eq(postProducts.postId, postId));
+
+    const [{ likeCount }] = await db
+      .select({ likeCount: sql`count(*)` })
+      .from(postLikes)
+      .where(eq(postLikes.postId, postId));
+
+    const [{ commentCount }] = await db
+      .select({ commentCount: sql`count(*)` })
+      .from(postComments)
+      .where(eq(postComments.postId, postId));
+
+    // Check user đã like post chưa
+    let userHasLiked = false;
+    if (currentUserId) {
+      const liked = await db
+        .select()
+        .from(postLikes)
+        .where(
+          and(eq(postLikes.postId, postId), eq(postLikes.userId, currentUserId))
+        )
+        .limit(1);
+      userHasLiked = liked.length > 0;
+    }
+
+    return {
+      post: { ...post, authorName: author.fullName || author.email },
+      media,
+      products: attachedProducts,
+      likeCount: Number(likeCount) || 0,
+      commentCount: Number(commentCount) || 0,
+      userHasLiked,
+    };
+  } catch (error) {
+    console.error("Error getting post by id:", error);
+    throw error;
+  }
+};
+
+// Lấy danh sách bình luận của bài viết
+export const getPostCommentsService = async (postId, currentUserId = null) => {
+  try {
+    // Xác thực quyền xem bằng cách gọi getPostByIdService
+    await getPostByIdService(postId, currentUserId);
+
+    const rows = await db
+      .select({
+        id: postComments.id,
+        postId: postComments.postId,
+        parentCommentId: postComments.parentCommentId,
+        authorId: postComments.authorId,
+        content: postComments.content,
+        createdAt: postComments.createdAt,
+        updatedAt: postComments.updatedAt,
+        authorName: users.fullName,
+        authorEmail: users.email,
+      })
+      .from(postComments)
+      .innerJoin(users, eq(postComments.authorId, users.id))
+      .where(eq(postComments.postId, postId))
+      .orderBy(asc(postComments.createdAt));
+
+    // Đếm like cho từng comment và check user đã like chưa
+    const commentIds = rows.map((r) => r.id);
+    let likeRows = [];
+    let userLikes = [];
+
+    if (commentIds.length) {
+      likeRows = await db
+        .select({ count: sql`count(*)`, commentId: postCommentLikes.commentId })
+        .from(postCommentLikes)
+        .where(inArray(postCommentLikes.commentId, commentIds))
+        .groupBy(postCommentLikes.commentId);
+
+      // Check user đã like comment nào
+      if (currentUserId) {
+        userLikes = await db
+          .select({ commentId: postCommentLikes.commentId })
+          .from(postCommentLikes)
+          .where(
+            and(
+              inArray(postCommentLikes.commentId, commentIds),
+              eq(postCommentLikes.userId, currentUserId)
+            )
+          );
+      }
+    }
+
+    const likeMap = new Map(
+      likeRows.map((l) => [l.commentId, Number(l.count) || 0])
+    );
+    const userLikeSet = new Set(userLikes.map((ul) => ul.commentId));
+
+    return rows.map((r) => ({
+      ...r,
+      authorName: r.authorName || r.authorEmail,
+      likeCount: likeMap.get(r.id) || 0,
+      userHasLiked: userLikeSet.has(r.id),
+    }));
+  } catch (error) {
+    console.error("Error getting post comments:", error);
+    throw error;
+  }
+};
+
 // Like bài viết
 export const likePostService = async (postId, userId) => {
   try {
@@ -568,6 +730,8 @@ export const likePostService = async (postId, userId) => {
     if (!post.length) {
       throw new Error("Bài post không tồn tại");
     }
+
+    const postAuthorId = post[0]?.authorId;
 
     // Kiểm tra đã like chưa
     const existingLike = await db
@@ -592,9 +756,25 @@ export const likePostService = async (postId, userId) => {
       success: true,
       data: like,
       message: "Like bài post thành công",
+      postAuthorId,
     };
   } catch (error) {
     console.error("Error liking post:", error);
+    throw error;
+  }
+};
+
+// Lấy danh sách postId mà user đã like
+export const getLikedPostIdsService = async (userId) => {
+  try {
+    const likedPosts = await db
+      .select({ postId: postLikes.postId })
+      .from(postLikes)
+      .where(eq(postLikes.userId, userId));
+
+    return likedPosts.map((row) => row.postId);
+  } catch (error) {
+    console.error("Error getting liked posts:", error);
     throw error;
   }
 };
@@ -645,6 +825,7 @@ export const createCommentService = async (
     }
 
     // Nếu có parentCommentId, kiểm tra hợp lệ và cùng post
+    let parentAuthorId = null;
     if (parentCommentId) {
       const parent = await db
         .select()
@@ -658,7 +839,11 @@ export const createCommentService = async (
       if (parent[0].postId !== postId) {
         throw new Error("Bình luận trả lời phải thuộc cùng bài viết");
       }
+
+      parentAuthorId = parent[0].authorId;
     }
+
+    const postAuthorId = post[0].authorId;
 
     const [comment] = await db
       .insert(postComments)
@@ -673,6 +858,8 @@ export const createCommentService = async (
     return {
       success: true,
       data: comment,
+      postAuthorId,
+      parentAuthorId,
       message: "Bình luận thành công",
     };
   } catch (error) {
@@ -732,6 +919,18 @@ export const likeCommentService = async (commentId, userId) => {
       throw new Error("Bình luận không tồn tại");
     }
 
+    const commentAuthorId = comment[0].authorId;
+    const postId = comment[0].postId;
+    const commentContent = comment[0].content;
+
+    // Lấy thông tin post để có authorId của bài viết
+    const post = await db
+      .select({ authorId: posts.authorId })
+      .from(posts)
+      .where(eq(posts.id, postId));
+
+    const postAuthorId = post[0]?.authorId || null;
+
     // Kiểm tra đã like chưa
     const existing = await db
       .select()
@@ -755,6 +954,10 @@ export const likeCommentService = async (commentId, userId) => {
     return {
       success: true,
       data: like,
+      commentAuthorId,
+      commentContent,
+      postId,
+      postAuthorId,
       message: "Like bình luận thành công",
     };
   } catch (error) {

@@ -83,6 +83,8 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "friend_accepted", // Chấp nhận kết bạn
   "post_like", // Thích bài viết
   "post_comment", // Bình luận bài viết
+  "comment_reply", // Trả lời bình luận
+  "comment_like", // Thích bình luận
 ]);
 
 export const users = pgTable("users", {

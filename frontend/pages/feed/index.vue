@@ -259,25 +259,25 @@
               </div>
 
               <!-- Post Media -->
-              <div v-if="mediaVisual(post).length" class="bg-white">
+              <div v-if="mediaOf(post.id).length" class="bg-white">
                 <div
                   :class="[
                     'grid gap-0.5',
-                    mediaVisual(post).length === 1
+                    mediaOf(post.id).length === 1
                       ? 'grid-cols-1'
-                      : mediaVisual(post).length === 2
+                      : mediaOf(post.id).length === 2
                       ? 'grid-cols-2'
-                      : mediaVisual(post).length === 3
+                      : mediaOf(post.id).length === 3
                       ? 'grid-cols-3'
                       : 'grid-cols-2',
                   ]"
                 >
                   <div
-                    v-for="(m, index) in mediaVisual(post).slice(0, 4)"
+                    v-for="(m, index) in mediaOf(post.id).slice(0, 4)"
                     :key="m.id"
                     class="relative bg-white group cursor-pointer overflow-hidden"
-                    :class="[mediaVisual(post).length === 1 ? 'h-96' : 'h-56']"
-                    @click="openMediaGallery(mediaVisual(post), index)"
+                    :class="[mediaOf(post.id).length === 1 ? 'h-96' : 'h-56']"
+                    @click="openMediaGallery(mediaOf(post.id), index)"
                   >
                     <!-- Video -->
                     <video
@@ -312,11 +312,11 @@
 
                     <!-- More items overlay -->
                     <div
-                      v-if="index === 3 && mediaVisual(post).length > 4"
+                      v-if="index === 3 && mediaOf(post.id).length > 4"
                       class="absolute inset-0 bg-linear-to-br from-black/20 via-black/30 to-black/40 flex items-center justify-center hover:from-black/30 hover:via-black/40 hover:to-black/50 transition"
                     >
                       <span class="text-white text-4xl font-bold drop-shadow-lg"
-                        >+{{ mediaVisual(post).length - 4 }}</span
+                        >+{{ mediaOf(post.id).length - 4 }}</span
                       >
                     </div>
                   </div>
@@ -379,6 +379,39 @@
                   </a>
                 </div>
               </div>
+
+              <!-- Actions -->
+              <div class="px-4 py-3 border-t border-gray-200 bg-white">
+                <div class="flex items-center justify-center gap-3">
+                  <button
+                    @click="toggleLike(post)"
+                    :class="[
+                      'inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full text-sm font-medium shadow-sm transition-all min-w-[160px] ring-1 ring-inset',
+                      likedPostIds.has(post.id)
+                        ? 'bg-blue-600 text-white ring-blue-600 hover:bg-blue-700'
+                        : 'bg-white text-gray-700 ring-gray-200 hover:bg-gray-50',
+                    ]"
+                    aria-label="Thích bài viết"
+                  >
+                    <HandThumbUpIcon class="w-5 h-5" />
+                    <span>Thích</span>
+                    <span class="text-xs opacity-80"
+                      >({{ postStats[post.id]?.likes ?? 0 }})</span
+                    >
+                  </button>
+                  <button
+                    @click="openComments(post.id)"
+                    class="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-white text-gray-700 hover:bg-gray-50 text-sm font-medium shadow-sm transition-all min-w-[160px] ring-1 ring-inset ring-gray-200"
+                    aria-label="Bình luận bài viết"
+                  >
+                    <ChatBubbleLeftEllipsisIcon class="w-5 h-5" />
+                    <span>Bình luận</span>
+                    <span class="text-xs opacity-80"
+                      >({{ postStats[post.id]?.comments ?? 0 }})</span
+                    >
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -401,15 +434,26 @@
       :start-index="currentMediaIndex || 0"
       @close="showMediaGallery = false"
     />
+    <CommentsModal
+      :is-open="showComments"
+      :post-id="activePostId"
+      @close="showComments = false"
+    />
   </div>
 </template>
 
 <script setup>
 import CreatePostModal from "@/components/modals/feed/CreatePostModal.vue";
 import MediaGalleryModal from "@/components/MediaGalleryModal.vue";
+import CommentsModal from "@/components/modals/feed/CommentsModal.vue";
 import { useAuthStore } from "@/stores/auth";
 import { UserCircleIcon } from "@heroicons/vue/24/solid";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/vue/24/outline";
+import {
+  HandThumbUpIcon,
+  ChatBubbleLeftEllipsisIcon,
+} from "@heroicons/vue/24/solid";
+import { usePostStats } from "@/composables/usePostStats.js";
 
 const auth = useAuthStore();
 const config = useRuntimeConfig();
@@ -464,6 +508,24 @@ const { data: productsData } = await useAsyncData(
 
 const productList = computed(
   () => productsData.value?.data || productsData.value || []
+);
+
+// Cache visual media per post to avoid repeated filters in template
+const mediaVisualMap = computed(() => {
+  const map = new Map();
+  (posts.value || []).forEach((p) => {
+    map.set(p.id, mediaVisual(p));
+  });
+  return map;
+});
+
+const mediaOf = (postId) => mediaVisualMap.value.get(postId) || [];
+
+// Per-post stats (likes & comments)
+const { postStats, bumpLike } = usePostStats(
+  posts,
+  config.public.apiBase,
+  computed(() => auth.accessToken)
 );
 
 // Kiểm tra đăng nhập trước khi mở modal tạo bài
@@ -535,6 +597,60 @@ const openMediaGallery = (mediaList, index) => {
   currentGalleryMedia.value = mediaList;
   currentMediaIndex.value = index;
   showMediaGallery.value = true;
+};
+
+// Comment modal state
+const showComments = ref(false);
+const activePostId = ref(null);
+const likedPostIds = reactive(new Set());
+const openComments = (postId) => {
+  activePostId.value = postId;
+  showComments.value = true;
+};
+
+// Fetch liked posts
+const fetchLikedPosts = async () => {
+  if (!auth.accessToken) return;
+  try {
+    const res = await $fetch("/posts/liked/me", {
+      baseURL: config.public.apiBase,
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+    });
+    const likedIds = res?.data || [];
+    likedIds.forEach((id) => likedPostIds.add(id));
+  } catch (err) {
+    console.error("Error fetching liked posts:", err);
+  }
+};
+
+// Like/Unlike post with UI state
+const toggleLike = async (post) => {
+  if (!auth.isLoggedIn) {
+    alert("Đăng nhập để thích bài viết");
+    return;
+  }
+  const liked = likedPostIds.has(post.id);
+  try {
+    if (!liked) {
+      await $fetch(`/posts/${post.id}/like`, {
+        baseURL: config.public.apiBase,
+        method: "POST",
+        headers: { Authorization: `Bearer ${auth.accessToken}` },
+      });
+      likedPostIds.add(post.id);
+      bumpLike(post.id, 1);
+    } else {
+      await $fetch(`/posts/${post.id}/like`, {
+        baseURL: config.public.apiBase,
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${auth.accessToken}` },
+      });
+      likedPostIds.delete(post.id);
+      bumpLike(post.id, -1);
+    }
+  } catch (err) {
+    console.error("Toggle like error:", err);
+  }
 };
 
 // Helpers for avatar letter
@@ -616,6 +732,7 @@ const fetchDiscover = async () => {
 
 onMounted(() => {
   fetchDiscover();
+  fetchLikedPosts();
 });
 
 // Send friend request

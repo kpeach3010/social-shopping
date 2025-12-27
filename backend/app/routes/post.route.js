@@ -30,6 +30,8 @@ router.delete("/:postId", authenticate, PostController.deletePostController);
 
 router.post("/:postId/like", authenticate, PostController.likePostController);
 
+router.get("/liked/me", authenticate, PostController.getLikedPostsController);
+
 router.delete(
   "/:postId/like",
   authenticate,
@@ -65,6 +67,18 @@ router.patch(
   authenticate,
   uploadPostFiles,
   PostController.updatePostController
+);
+
+// Read single post & comments
+router.get(
+  "/:postId",
+  optionalAuthenticate,
+  PostController.getPostByIdController
+);
+router.get(
+  "/:postId/comments",
+  optionalAuthenticate,
+  PostController.getPostCommentsController
 );
 
 export default router;

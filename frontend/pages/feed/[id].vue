@@ -425,6 +425,39 @@
                   </a>
                 </div>
               </div>
+
+              <!-- Actions -->
+              <div class="px-3 py-2 border-t border-gray-200 bg-white">
+                <div class="flex items-center justify-center gap-3">
+                  <button
+                    @click="toggleLike(post)"
+                    :class="[
+                      'inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full text-sm font-medium shadow-sm transition-all min-w-[160px] ring-1 ring-inset',
+                      likedPostIds.has(post.id)
+                        ? 'bg-blue-600 text-white ring-blue-600 hover:bg-blue-700'
+                        : 'bg-white text-gray-700 ring-gray-200 hover:bg-gray-50',
+                    ]"
+                    aria-label="Thích bài viết"
+                  >
+                    <HandThumbUpIcon class="w-5 h-5" />
+                    <span>Thích</span>
+                    <span class="text-xs opacity-80"
+                      >({{ postStats[post.id]?.likes ?? 0 }})</span
+                    >
+                  </button>
+                  <button
+                    @click="openComments(post.id)"
+                    class="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-white text-gray-700 hover:bg-gray-50 text-sm font-medium shadow-sm transition-all min-w-[160px] ring-1 ring-inset ring-gray-200"
+                    aria-label="Bình luận bài viết"
+                  >
+                    <ChatBubbleLeftEllipsisIcon class="w-5 h-5" />
+                    <span>Bình luận</span>
+                    <span class="text-xs opacity-80"
+                      >({{ postStats[post.id]?.comments ?? 0 }})</span
+                    >
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </main>
@@ -453,15 +486,26 @@
       :start-index="currentMediaIndex || 0"
       @close="showMediaGallery = false"
     />
+    <CommentsModal
+      :is-open="showComments"
+      :post-id="activePostId"
+      @close="showComments = false"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import { useAuthStore } from "@/stores/auth";
 import { UserCircleIcon, EllipsisVerticalIcon } from "@heroicons/vue/24/solid";
 import CreatePostModal from "@/components/modals/feed/CreatePostModal.vue";
 import MediaGalleryModal from "@/components/MediaGalleryModal.vue";
+import CommentsModal from "@/components/modals/feed/CommentsModal.vue";
+import {
+  HandThumbUpIcon,
+  ChatBubbleLeftEllipsisIcon,
+} from "@heroicons/vue/24/solid";
+import { usePostStats } from "@/composables/usePostStats.js";
 
 const route = useRoute();
 const config = useRuntimeConfig();
@@ -485,6 +529,77 @@ const friendActionLoading = ref(false);
 const expandedPostIds = ref(new Set()); // Theo dõi bài nào đang expand
 const friendsList = ref([]);
 const loadingFriends = ref(false);
+
+// Comment modal state
+const showComments = ref(false);
+const activePostId = ref(null);
+const likedPostIds = reactive(new Set());
+const openComments = (postId) => {
+  activePostId.value = postId;
+  showComments.value = true;
+};
+
+// Fetch liked posts
+const fetchLikedPosts = async () => {
+  if (!auth.accessToken) return;
+  try {
+    const res = await $fetch("/posts/liked/me", {
+      baseURL: config.public.apiBase,
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+    });
+    const likedIds = res?.data || [];
+    likedIds.forEach((id) => likedPostIds.add(id));
+  } catch (err) {
+    console.error("Error fetching liked posts:", err);
+  }
+};
+
+const tryOpenCommentsFromRoute = () => {
+  const queryPostId = route.query.postId;
+  const wantsComments =
+    route.query.comments === "1" || route.query.comments === "true";
+  if (wantsComments && queryPostId) {
+    activePostId.value = queryPostId;
+    showComments.value = true;
+  }
+};
+
+// Per-post stats (likes & comments)
+const { postStats, bumpLike } = usePostStats(
+  posts,
+  config.public.apiBase,
+  computed(() => auth.accessToken)
+);
+
+// Like/Unlike post with UI state
+const toggleLike = async (post) => {
+  if (!auth.accessToken) {
+    alert("Đăng nhập để thích bài viết");
+    return;
+  }
+  const liked = likedPostIds.has(post.id);
+  try {
+    if (!liked) {
+      await $fetch(`/posts/${post.id}/like`, {
+        baseURL: config.public.apiBase,
+        method: "POST",
+        headers: { Authorization: `Bearer ${auth.accessToken}` },
+      });
+      likedPostIds.add(post.id);
+      bumpLike(post.id, 1);
+    } else {
+      await $fetch(`/posts/${post.id}/like`, {
+        baseURL: config.public.apiBase,
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${auth.accessToken}` },
+      });
+      likedPostIds.delete(post.id);
+      bumpLike(post.id, -1);
+    }
+  } catch (err) {
+    console.error("Toggle like error:", err);
+  }
+};
 
 // Kiểm tra content có quá dài không (>300 ký tự)
 const isContentLong = (content) => content?.length > 300;
@@ -535,10 +650,20 @@ onMounted(async () => {
     fetchFriendshipStatus(targetId),
     fetchUserProfile(targetId),
     fetchFriends(targetId),
+    fetchLikedPosts(),
   ]);
 
+  tryOpenCommentsFromRoute();
   loading.value = false;
 });
+
+watch(
+  () => route.query,
+  () => {
+    tryOpenCommentsFromRoute();
+  },
+  { deep: true }
+);
 
 // Lấy posts theo user ID
 const fetchUserPosts = async (userId) => {

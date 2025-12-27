@@ -38,6 +38,18 @@
       @close="closeChat"
       class="z-50"
     />
+
+    <!-- Modal bình luận kích hoạt từ thông báo -->
+    <CommentsModal
+      :is-open="showNotifyComments"
+      :post-id="notifyPostId"
+      @close="
+        () => {
+          showNotifyComments = false;
+          notifyPostId = null;
+        }
+      "
+    />
   </div>
 </template>
 
@@ -46,6 +58,7 @@ import Header from "@/components/header.vue";
 import Footer from "@/components/footer.vue";
 import ChatSidebar from "@/components/chat/ChatSidebar.vue";
 import ChatBox from "@/components/chat/ChatBox.vue";
+import CommentsModal from "@/components/modals/feed/CommentsModal.vue";
 import { useAuthStore } from "@/stores/auth";
 import { useChatStore } from "@/stores/chat";
 import { useWaitForAuthReady } from "@/composables/useWaitForAuthReady";
@@ -58,6 +71,10 @@ const activePartner = ref(null);
 const activeConversation = ref(null);
 const activeConversationId = ref(null);
 const chatBoxVisible = ref(false);
+
+// Modal bình luận khi mở từ thông báo (dùng toàn cục)
+const notifyPostId = ref(null);
+const showNotifyComments = ref(false);
 
 const currentUserId = computed(() => auth.user?.id || "");
 const isLoggedIn = computed(() => !!auth.accessToken);
@@ -95,7 +112,36 @@ const route = useRoute();
 const config = useRuntimeConfig();
 const { $socket } = useNuxtApp();
 
+const handleNotificationOpen = (e) => {
+  const data = e.detail || {};
+
+  // Nếu có actionUrl, parse postId từ URL query params
+  let extractedPostId = null;
+  if (data.actionUrl) {
+    try {
+      const url = new URL(data.actionUrl, window.location.origin);
+      extractedPostId = url.searchParams.get("postId");
+    } catch (err) {
+      console.error("Parse actionUrl error:", err);
+    }
+  }
+
+  // Ưu tiên postId từ URL > relatedEntityId (với type = post) > postId từ payload
+  notifyPostId.value =
+    extractedPostId ||
+    (data.relatedEntityType === "post" ? data.relatedEntityId : null) ||
+    data.postId ||
+    null;
+
+  if (notifyPostId.value) {
+    showNotifyComments.value = true;
+  }
+};
+
 onMounted(async () => {
+  // Lắng nghe click thông báo để trang nào cũng xử lý (mở modal tùy trang)
+  window.addEventListener("notification-open", handleNotificationOpen);
+
   window.addEventListener("open-group-chat", (e) => {
     const conv = e.detail;
     if (!conv) return;
@@ -253,6 +299,14 @@ onMounted(async () => {
     window.removeEventListener("unread-count-updated", unreadHandler);
     window.removeEventListener("typing-message", typingHandler);
   });
+
+  onBeforeUnmount(() => {
+    window.removeEventListener("notification-open", handleNotificationOpen);
+  });
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("notification-open", handleNotificationOpen);
 });
 </script>
 

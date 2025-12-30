@@ -57,6 +57,29 @@
             </div>
           </div>
 
+          <!-- Nhập lại mật khẩu -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700">
+              Nhập lại mật khẩu
+            </label>
+            <div class="mt-1">
+              <input
+                v-model="form.confirmPassword"
+                type="password"
+                required
+                class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+              />
+            </div>
+            <p
+              v-if="
+                form.confirmPassword && form.confirmPassword !== form.password
+              "
+              class="text-sm text-red-600 mt-1"
+            >
+              Mật khẩu không khớp.
+            </p>
+          </div>
+
           <!-- Số điện thoại -->
           <div>
             <label class="block text-sm font-medium text-gray-700">
@@ -201,6 +224,7 @@ const successMessage = ref("");
 const form = reactive({
   email: "",
   password: "",
+  confirmPassword: "",
   fullName: "",
   phone: "",
   gender: "",
@@ -215,6 +239,8 @@ const isFormValid = computed(() => {
   return (
     form.email.trim() !== "" &&
     form.password.trim() !== "" &&
+    form.confirmPassword.trim() !== "" &&
+    form.password === form.confirmPassword &&
     form.fullName.trim() !== "" &&
     form.phone.trim() !== "" &&
     form.gender.trim() !== "" &&
@@ -229,6 +255,12 @@ const isFormValid = computed(() => {
 const onSubmit = async () => {
   errorMessage.value = "";
   successMessage.value = "";
+
+  // Kiểm tra khớp mật khẩu trước khi gửi
+  if (form.password !== form.confirmPassword) {
+    errorMessage.value = "Mật khẩu nhập lại không khớp";
+    return;
+  }
   try {
     // Clone form
     const payload = { ...form };

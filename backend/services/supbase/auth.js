@@ -1,4 +1,5 @@
 import supabase from "./client.js";
+import config from "../../app/config/index.js";
 
 export const register = async (email, password, userMetadata) => {
   try {
@@ -6,7 +7,7 @@ export const register = async (email, password, userMetadata) => {
       email,
       password,
       options: {
-        // emailRedirectTo: `${config.public.baseUrl}/auth/verify-noop`,
+        emailRedirectTo: `${config.frontendUrl}/auth/verify-noop`,
         data: {
           phone: userMetadata.phone,
           full_name: userMetadata.fullName,

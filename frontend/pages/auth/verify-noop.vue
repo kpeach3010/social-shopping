@@ -42,10 +42,12 @@
 
 <script setup>
 const route = useRoute();
+const config = useRuntimeConfig();
+const baseUrl = (config.public.baseUrl || "").replace(/\/$/, "");
 
-// fallback mặc định
-const loginUrl = route.query.login ?? "/auth/login-page";
-const homeUrl = route.query.home ?? "/";
+// fallback mặc định dùng baseUrl (login page nằm ở /login-page)
+const loginUrl = route.query.login ?? `${baseUrl}/login-page`;
+const homeUrl = route.query.home ?? `${baseUrl}/`;
 </script>
 
 <style scoped></style>

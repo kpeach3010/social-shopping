@@ -92,10 +92,16 @@ export const loginService = async (loginData) => {
       throw new Error("Tài khoản của bạn đang bị vô hiệu hóa");
     }
 
-    const { accessToken, refreshToken } = await login(
+    const { accessToken, refreshToken, supabaseUser } = await login(
       loginData.email,
       loginData.password
     );
+
+    // Chặn đăng nhập nếu chưa xác thực email
+    if (!supabaseUser?.email_confirmed_at) {
+      throw new Error("Email chưa được xác thực. Vui lòng kiểm tra hộp thư.");
+    }
+
     return { user: user, accessToken, refreshToken };
   } catch (e) {
     throw e;

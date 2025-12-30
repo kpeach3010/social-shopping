@@ -115,7 +115,8 @@
               <div
                 v-for="c in coupons"
                 :key="c.id"
-                class="flex items-center justify-between px-3 py-2 border rounded-lg bg-white shadow-sm hover:shadow-md transition text-sm"
+                class="flex items-center justify-between px-3 py-2 border rounded-lg bg-white shadow-sm hover:shadow-md transition text-sm cursor-pointer"
+                @click="openCouponDetail(c.id)"
               >
                 <!-- Thông tin coupon -->
                 <div>
@@ -377,12 +378,20 @@
       :start-index="currentMediaIndex || 0"
       @close="showMediaGallery = false"
     />
+
+    <!-- Coupon Detail Modal -->
+    <CouponDetailModal
+      :is-open="showCouponDetail"
+      :coupon="selectedCoupon"
+      @close="showCouponDetail = false"
+    />
   </div>
 </template>
 
 <script setup>
 import { useAuthStore } from "@/stores/auth";
 import MediaGalleryModal from "@/components/MediaGalleryModal.vue";
+import CouponDetailModal from "@/components/modals/CouponDetailModal.vue";
 
 const route = useRoute();
 const config = useRuntimeConfig();
@@ -404,6 +413,8 @@ const reviewsPerPage = 3;
 const showMediaGallery = ref(false);
 const currentGalleryMedia = ref([]);
 const currentMediaIndex = ref(null);
+const showCouponDetail = ref(false);
+const selectedCoupon = ref(null);
 
 const createInviteLink = async (couponId) => {
   if (!auth.accessToken) {
@@ -646,5 +657,14 @@ const openMediaGallery = (mediaList, startIndex) => {
   currentGalleryMedia.value = mediaList;
   currentMediaIndex.value = startIndex;
   showMediaGallery.value = true;
+};
+
+// Coupon Detail Logic
+const openCouponDetail = (couponId) => {
+  const coupon = coupons.value.find((c) => c.id === couponId);
+  if (coupon) {
+    selectedCoupon.value = coupon;
+    showCouponDetail.value = true;
+  }
 };
 </script>

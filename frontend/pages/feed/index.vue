@@ -284,6 +284,10 @@
                       v-if="isVideo(m.postFileUrl)"
                       :src="m.postFileUrl"
                       class="w-full h-full object-contain bg-white"
+                      autoplay
+                      loop
+                      muted
+                      playsinline
                     ></video>
 
                     <!-- Image -->
@@ -293,22 +297,6 @@
                       :alt="'Post media'"
                       class="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
                     />
-
-                    <!-- Play icon for video -->
-                    <div
-                      v-if="isVideo(m.postFileUrl)"
-                      class="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition"
-                    >
-                      <svg
-                        class="w-12 h-12 text-white"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"
-                        ></path>
-                      </svg>
-                    </div>
 
                     <!-- More items overlay -->
                     <div

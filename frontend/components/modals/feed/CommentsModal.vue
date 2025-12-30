@@ -96,6 +96,10 @@
                     v-if="isVideo(m.postFileUrl)"
                     :src="m.postFileUrl"
                     class="w-full h-40 object-contain bg-white"
+                    autoplay
+                    loop
+                    muted
+                    playsinline
                   />
                   <img
                     v-else

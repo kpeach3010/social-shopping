@@ -25,9 +25,10 @@
             Đăng ký thành công!
           </h3>
           <p class="text-gray-600 mb-2">
-            Vui lòng kiểm tra email của bạn để xác nhận tài khoản.
+            Vui lòng kiểm tra email của bạn để xác nhận tài khoản trước khi đăng
+            nhập nhập
           </p>
-          <p class="text-gray-600 mb-6">trước khi đăng nhập.</p>
+
           <p class="text-sm text-red-600 italic mb-6">
             Lưu ý: Email chỉ có hiệu lực trong 1 giờ kể từ khi nhận được
           </p>

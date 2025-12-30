@@ -22,6 +22,10 @@ async function startServer() {
         origin: "*",
         methods: ["GET", "POST"],
       },
+      pingInterval: 25000, // Server ping client mỗi 25 giây
+      pingTimeout: 60000, // Chờ pong từ client trong 60 giây
+      connectTimeout: 45000, // Timeout khi handshake
+      transports: ["websocket", "polling"],
     });
 
     global.io = io; // lưu io vào biến toàn cục để các module khác có thể sử dụng
@@ -32,7 +36,18 @@ async function startServer() {
       if (userId) {
         socket.join(userId); // Tham gia phòng với tên là userId
       }
-      console.log(`New client connected: ${socket.id}, userId: ${userId}`);
+      console.log(
+        `[SOCKET-BE] Client connected: ${socket.id}, userId: ${userId}`
+      );
+
+      // Log ping/pong để debug
+      socket.on("ping", () => {
+        console.log(`[SOCKET-BE] Ping from ${socket.id}`);
+      });
+
+      socket.on("pong", () => {
+        console.log(`[SOCKET-BE] Pong from ${socket.id}`);
+      });
 
       // join room
       socket.on("join-conversation", (conversationId) => {
@@ -118,7 +133,9 @@ async function startServer() {
       });
 
       socket.on("disconnect", () => {
-        console.log("Client disconnected:", socket.id);
+        console.log(
+          `[SOCKET-BE] Client disconnected: ${socket.id}, userId: ${userId}`
+        );
       });
     });
 

@@ -145,7 +145,7 @@
                   class="flex flex-col items-end gap-1 mt-1 text-sm text-gray-900"
                 >
                   <button
-                    @click="createInviteLink(c.id)"
+                    @click.stop="createInviteLink(c.id)"
                     class="px-3 py-1 bg-black text-white rounded-full hover:bg-gray-800 text-xs font-semibold shadow-sm active:scale-[0.97]"
                   >
                     + Tạo nhóm
@@ -159,10 +159,10 @@
                       readonly
                       :value="groupInviteLinks[c.id]"
                       class="bg-transparent w-[140px] truncate focus:outline-none cursor-text text-gray-800"
-                      @click="$event.target.select()"
+                      @click.stop="$event.target.select()"
                     />
                     <button
-                      @click="copyInviteLink(groupInviteLinks[c.id])"
+                      @click.stop="copyInviteLink(groupInviteLinks[c.id])"
                       class="text-xs font-semibold text-blue-700 hover:underline"
                     >
                       Copy

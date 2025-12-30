@@ -9,7 +9,9 @@
     </div>
 
     <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-      <div class="bg-white py-8 px-4 shadow-xl sm:rounded-lg sm:px-10 font-sans">
+      <div
+        class="bg-white py-8 px-4 shadow-xl sm:rounded-lg sm:px-10 font-sans"
+      >
         <form class="space-y-6" @submit.prevent="onSubmit">
           <!-- Email -->
           <div>

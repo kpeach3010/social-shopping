@@ -126,11 +126,9 @@ const onSubmit = async () => {
     }
   } catch (err) {
     console.error("Lỗi đăng nhập:", err);
-    if (err?.response?._data?.error) {
-      errorMessage.value = "Email hoặc mật khẩu không chính xác";
-    } else {
-      errorMessage.value = "Có lỗi xảy ra, vui lòng thử lại";
-    }
+    const apiError =
+      err?.response?._data?.error || err?.data?.error || err?.message;
+    errorMessage.value = apiError || "Có lỗi xảy ra, vui lòng thử lại";
   }
 };
 </script>

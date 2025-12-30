@@ -4,7 +4,7 @@ import { users } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import { register, login } from "../../services/supbase/auth.js";
 import { Role } from "../enums/role.enum.js";
-import { supabaseAuth } from "../../services/supbase/client.js";
+import supabase, { supabaseAuth } from "../../services/supbase/client.js";
 
 // util: kiểm tra 'YYYY-MM-DD'
 function isYYYYMMDD(str) {
@@ -104,7 +104,43 @@ export const loginService = async (loginData) => {
 
     return { user: user, accessToken, refreshToken };
   } catch (e) {
-    throw e;
+    const msg = e?.message || "";
+
+    // Map lỗi Supabase về tiếng Việt
+    if (
+      typeof msg === "string" &&
+      msg.toLowerCase().includes("email not confirmed")
+    ) {
+      throw new Error("Email chưa được xác thực. Vui lòng kiểm tra email.");
+    }
+
+    // Nếu Supabase trả lỗi chung thử kiểm tra trạng thái xác thực email
+    try {
+      const { data: userByEmail } = await supabase.auth.admin.getUserByEmail(
+        loginData.email
+      );
+      if (userByEmail && !userByEmail.email_confirmed_at) {
+        throw new Error("Email chưa được xác thực. Vui lòng kiểm tra email.");
+      }
+    } catch (adminErr) {
+      // Nếu kiểm tra admin lỗi, bỏ qua và ném lỗi gốc
+    }
+
+    // Map lỗi tiếng Anh phổ biến sang tiếng Việt
+    if (
+      typeof msg === "string" &&
+      msg.toLowerCase().includes("invalid login credentials")
+    ) {
+      throw new Error("Email hoặc mật khẩu không chính xác");
+    }
+
+    // Nếu thông báo đã là tiếng Việt (có ký tự non-ASCII), giữ nguyên
+    if (/[^\u0000-\u007f]/.test(msg)) {
+      throw e;
+    }
+
+    // Fallback chung
+    throw new Error("Email hoặc mật khẩu không chính xác");
   }
 };
 export const refreshTokenService = async (refreshToken) => {

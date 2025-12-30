@@ -24,14 +24,14 @@
       </p>
 
       <NuxtLink
-        :to="loginUrl"
+        to="/login-page"
         class="block w-full py-3 rounded-lg bg-green-600 text-white font-medium hover:brightness-95 transition mb-3"
       >
         Đăng nhập
       </NuxtLink>
 
       <NuxtLink
-        :to="homeUrl"
+        to="/"
         class="block w-full py-3 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition"
       >
         Về trang chủ
@@ -39,15 +39,3 @@
     </div>
   </div>
 </template>
-
-<script setup>
-const route = useRoute();
-const config = useRuntimeConfig();
-const baseUrl = (config.public.baseUrl || "").replace(/\/$/, "");
-
-// fallback mặc định dùng baseUrl
-const loginUrl = `${baseUrl}/login-page`;
-const homeUrl = `${baseUrl}/`;
-</script>
-
-<style scoped></style>

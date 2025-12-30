@@ -30,14 +30,23 @@
             <label class="block text-sm font-medium text-gray-700"
               >Mật khẩu</label
             >
-            <div class="mt-1">
+            <div class="mt-1 relative">
               <input
                 v-model="form.password"
-                type="password"
+                :type="showPassword ? 'text' : 'password'"
                 required
                 placeholder="Nhập mật khẩu"
-                class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                class="appearance-none block w-full px-3 py-2 pr-24 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
               />
+              <button
+                type="button"
+                class="absolute inset-y-0 right-0 px-4 flex items-center text-gray-600 hover:text-black focus:outline-none"
+                @click="showPassword = !showPassword"
+                aria-label="Toggle password visibility"
+              >
+                <EyeSlashIcon v-if="showPassword" class="h-5 w-5" />
+                <EyeIcon v-else class="h-5 w-5" />
+              </button>
             </div>
           </div>
 
@@ -80,11 +89,14 @@
 definePageMeta({ layout: false });
 
 import { useAuthStore } from "@/stores/auth";
+import { EyeIcon, EyeSlashIcon } from "@heroicons/vue/24/outline";
 
 const form = reactive({
   email: "",
   password: "",
 });
+
+const showPassword = ref(false);
 
 const errorMessage = ref(null);
 const config = useRuntimeConfig();

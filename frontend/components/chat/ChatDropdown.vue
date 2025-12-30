@@ -92,6 +92,17 @@ function toggleDropdown() {
 
 function formatTime(t) {
   const date = new Date(t);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return "Vừa xong";
+  if (diffMins < 60) return `${diffMins}p`;
+  if (diffHours < 24) return `${diffHours}h`;
+  if (diffDays === 1) return "Hôm qua";
+
   return date.toLocaleTimeString("vi-VN", {
     hour: "2-digit",
     minute: "2-digit",
@@ -144,6 +155,34 @@ onMounted(() => {
       conversations.value[idx].senderId = auth.user.id;
     }
   };
+
+  // Lắng nghe tin nhắn mới để cập nhật dropdown realtime
+  $socket.on("message", (raw) => {
+    const convId = raw.conversationId || raw.conversation_id;
+    const idx = conversations.value.findIndex(
+      (c) => c.conversationId === convId
+    );
+
+    if (idx !== -1) {
+      // Cập nhật last message và timestamp
+      conversations.value[idx].lastMessage = raw.content || "[Tệp đính kèm]";
+      conversations.value[idx].createdAt = new Date().toISOString();
+      conversations.value[idx].senderId = raw.senderId || raw.sender_id;
+      conversations.value[idx].isUnread = raw.senderId !== auth.user.id;
+
+      // Cập nhật unread count trong store
+      if (raw.senderId !== auth.user.id) {
+        chatStore.unreadCount++;
+      }
+
+      // Đưa conversation này lên đầu danh sách
+      const conv = conversations.value.splice(idx, 1)[0];
+      conversations.value.unshift(conv);
+    } else if (dropdownOpen.value) {
+      // Nếu conversation chưa có trong list -> fetch lại danh sách
+      fetchConversations();
+    }
+  });
 
   window.addEventListener("mark-as-read", __markAsReadHandler);
 

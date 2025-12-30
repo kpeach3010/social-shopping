@@ -624,6 +624,8 @@ let typingTimeout = null;
 
 const deliveredIds = new Set();
 const pendingMap = new Map();
+// Sử dụng AbortController để hủy yêu cầu cũ khi chuyển hội thoại, tránh race condition
+let messageLoadAbortController = null;
 
 const isMine = (m) =>
   String(m?.senderId ?? m?.sender_id ?? "") ===
@@ -680,7 +682,7 @@ function handleScroll() {
   if (!el || !props.conversationId) return;
 }
 
-async function loadMessagesForConversation(convId) {
+async function loadMessagesForConversation(convId, abortController = null) {
   messages.value = [];
   deliveredIds.clear();
   pendingMap.clear();
@@ -691,10 +693,12 @@ async function loadMessagesForConversation(convId) {
     emit("update:conversationId", convId);
     await nextTick();
 
+    // Sử dụng signal để hủy yêu cầu nếu cần thiết
     const data = await $fetch(`/messages/${convId}`, {
       method: "GET",
       baseURL: config.public.apiBase,
       headers: { Authorization: `Bearer ${auth.accessToken}` },
+      signal: abortController?.signal,
     });
     const norm = data.map(normalize);
     norm.forEach((m) => {
@@ -763,10 +767,20 @@ watch(
     if (fileInput.value) fileInput.value.value = "";
     if (docInput.value) docInput.value.value = "";
 
+    // Hủy yêu cầu tải tin nhắn trước đó để tránh race condition
+    if (messageLoadAbortController) {
+      messageLoadAbortController.abort();
+    }
+    messageLoadAbortController = new AbortController();
+
+    // Xóa các cấu trúc dữ liệu để tránh rò rỉ bộ nhớ khi chuyển hội thoại
+    deliveredIds.clear();
+    pendingMap.clear();
+
     if (!newId) return;
 
     readStatus.value = {};
-    await loadMessagesForConversation(newId);
+    await loadMessagesForConversation(newId, messageLoadAbortController);
     $socket.emit("join-conversation", newId);
 
     try {
@@ -1127,9 +1141,11 @@ async function sendMessage() {
     let optimisticContent = text;
     let optimisticType = "text";
 
+    let blobUrl = null;
     if (file) {
-      // Tạo Blob URL để hiển thị ảnh ngay lập tức
-      optimisticContent = URL.createObjectURL(file);
+      // Tạo Blob URL để hiển thị ảnh ngay lập tức (cần revokeObjectURL sau khi upload)
+      blobUrl = URL.createObjectURL(file);
+      optimisticContent = blobUrl;
       optimisticType = file.type.startsWith("image/") ? "image" : "file";
     }
 
@@ -1178,6 +1194,11 @@ async function sendMessage() {
       savedMsg.id && deliveredIds.add(savedMsg.id);
     }
 
+    // Giải phóng Blob URL sau khi tải lên thành công để tránh rò rỉ bộ nhớ
+    if (blobUrl) {
+      URL.revokeObjectURL(blobUrl);
+    }
+
     message.value = "";
     selectedFile.value = null;
     if (fileInput.value) fileInput.value.value = ""; // Reset input file
@@ -1187,6 +1208,10 @@ async function sendMessage() {
     console.error("Lỗi gửi message:", err);
     const last = messages.value[messages.value.length - 1];
     if (last && last.status === "sending") last.status = "error";
+    // Giải phóng Blob URL trên lỗi để tránh rò rỉ bộ nhớ
+    if (blobUrl) {
+      URL.revokeObjectURL(blobUrl);
+    }
   } finally {
     loading.value = false;
   }

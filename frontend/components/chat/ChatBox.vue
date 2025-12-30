@@ -1163,6 +1163,12 @@ async function sendMessage() {
     pendingMap.set(tempId, messages.value.length - 1);
     scrollToBottom();
 
+    // Clear textbox ngay lập tức sau khi gửi
+    message.value = "";
+    selectedFile.value = null;
+    if (fileInput.value) fileInput.value.value = "";
+    if (docInput.value) docInput.value.value = "";
+
     const formData = new FormData();
     // formData.append("senderId", props.currentUserId); // Backend đã lấy từ token, không cần gửi
 
@@ -1199,10 +1205,6 @@ async function sendMessage() {
       URL.revokeObjectURL(blobUrl);
     }
 
-    message.value = "";
-    selectedFile.value = null;
-    if (fileInput.value) fileInput.value.value = ""; // Reset input file
-    if (docInput.value) docInput.value.value = ""; // Reset input doc
     scrollToBottom();
   } catch (err) {
     console.error("Lỗi gửi message:", err);

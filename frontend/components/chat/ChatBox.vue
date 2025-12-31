@@ -131,12 +131,21 @@
                   class="max-w-[200px] rounded-lg opacity-70"
                   alt="Uploading..."
                 />
-                <ChatImage v-else :path="msg.content" />
+                <ChatImage
+                  v-else
+                  :path="msg.content"
+                  class="cursor-pointer hover:opacity-80 transition"
+                  @click="openMediaModal(msg)"
+                />
               </div>
 
               <!-- Nếu là tệp -->
               <div v-else-if="msg.type === 'file'">
-                <div v-if="isVideo(msg.fileName || msg.content)" class="mt-1">
+                <div
+                  v-if="isVideo(msg.fileName || msg.content)"
+                  class="mt-1 cursor-pointer hover:opacity-80 transition"
+                  @click="openMediaModal(msg)"
+                >
                   <ChatVideo :path="msg.content" />
                 </div>
 
@@ -397,6 +406,12 @@
       @close="showChooseModal = false"
       @chosen="handleChosen"
     />
+    <MediaGalleryModal
+      :isOpen="showMediaModal"
+      :mediaList="mediaList"
+      :startIndex="selectedMediaIndex"
+      @close="closeMediaModal"
+    />
   </div>
 </template>
 
@@ -412,16 +427,20 @@ import { useAuthStore } from "@/stores/auth";
 import { useChatStore } from "@/stores/chat";
 import GroupOrderDetailModal from "../modals/groupOrder/GroupOrderDetailModal.vue";
 import GroupOrderChooseModal from "../modals/groupOrder/GroupOrderChooseModal.vue";
+import MediaGalleryModal from "@/components/MediaGalleryModal.vue";
 import ChatImage from "@/components/chat/ChatImage.vue";
 import ChatFile from "@/components/chat/ChatFile.vue";
 import ChatVideo from "@/components/chat/ChatVideo.vue";
 
 const chatStore = useChatStore();
 const router = useRouter();
+const { $supabase } = useNuxtApp();
 const readStatus = ref({}); // { userId: { lastReadAt, fullName } }
 const showGroupDetail = ref(false);
 const groupDetail = ref(null);
 const showChooseModal = ref(false);
+const showMediaModal = ref(false);
+const selectedMediaIndex = ref(0);
 let supabaseChannel;
 // Thêm biến cho upload
 const fileInput = ref(null);
@@ -434,6 +453,47 @@ const isGroupChat = computed(
 );
 
 const groupBoxExpanded = ref(false);
+
+// Media gallery
+const filteredMediaMessages = computed(() => {
+  return messages.value.filter((msg) => {
+    if (msg.status === "sending") return false;
+    if (msg.type === "image") return true;
+    if (msg.type === "file" && isVideo(msg.fileName || msg.content))
+      return true;
+    return false;
+  });
+});
+
+const getPublicUrl = (path) => {
+  const { data } = $supabase.storage
+    .from("chat-attachments")
+    .getPublicUrl(path);
+  return data?.publicUrl || path;
+};
+
+const mediaList = computed(() =>
+  filteredMediaMessages.value.map((msg) => ({
+    postFileUrl: getPublicUrl(msg.content),
+    fileUrl: getPublicUrl(msg.content),
+  }))
+);
+
+function openMediaModal(msg) {
+  const index = filteredMediaMessages.value.findIndex(
+    (m) =>
+      (m.id === msg.id && msg.id) || (m.tempId === msg.tempId && msg.tempId)
+  );
+  if (index !== -1) {
+    selectedMediaIndex.value = index;
+    showMediaModal.value = true;
+  }
+}
+
+function closeMediaModal() {
+  showMediaModal.value = false;
+}
+
 function openChooseModal() {
   if (!groupDetail.value?.product) {
     console.warn("groupDetail chưa có product, chặn mở modal");

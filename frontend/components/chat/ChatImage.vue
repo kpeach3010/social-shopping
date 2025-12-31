@@ -10,7 +10,6 @@
       :src="imageUrl"
       alt="Ảnh tin nhắn"
       class="max-w-[200px] rounded-lg cursor-pointer hover:opacity-90 transition"
-      @click="previewImage"
     />
 
     <div v-else class="text-red-500 text-xs bg-red-50 p-2 rounded">

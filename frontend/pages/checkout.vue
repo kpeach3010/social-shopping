@@ -66,7 +66,7 @@
                 </div>
               </div>
             </label>
-
+            <!-- 
             <label
               v-if="orderInfo.order.paymentMethod === 'MOMO'"
               class="flex items-center gap-3 p-3 border rounded-lg border-pink-500 bg-pink-50 ring-1 ring-pink-500 cursor-default"
@@ -89,7 +89,7 @@
                 src="https://upload.wikimedia.org/wikipedia/vi/f/fe/MoMo_Logo.png"
                 class="w-8 h-8 object-contain rounded"
               />
-            </label>
+            </label> -->
 
             <label
               v-if="orderInfo.order.paymentMethod === 'VNPAY'"

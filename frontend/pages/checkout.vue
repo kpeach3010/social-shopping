@@ -111,10 +111,7 @@
                   Đã thanh toán qua cổng VNPay
                 </div>
               </div>
-              <img
-                src="https://sandbox.vnpayment.vn/paymentv2/images/logo.png"
-                class="h-6 object-contain"
-              />
+              <img src="/cdnlogo.com_vnpay.png" class="h-6 object-contain" />
             </label>
           </div>
         </div>
@@ -282,7 +279,7 @@
               </div>
             </label>
 
-            <label
+            <!-- <label
               class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-all"
               :class="
                 paymentMethod === 'MOMO'
@@ -314,7 +311,7 @@
                 src="https://upload.wikimedia.org/wikipedia/vi/f/fe/MoMo_Logo.png"
                 class="w-8 h-8 object-contain rounded"
               />
-            </label>
+            </label> -->
 
             <label
               class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-all"
@@ -335,19 +332,16 @@
                   class="font-semibold text-blue-700 flex items-center gap-2"
                 >
                   VNPay / Ngân hàng
-                  <span
+                  <!-- <span
                     class="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded"
                     >Ổn định</span
-                  >
+                  > -->
                 </div>
                 <div class="text-xs text-gray-500">
                   Thẻ ATM nội địa, Thẻ quốc tế, Internet Banking
                 </div>
               </div>
-              <img
-                src="https://sandbox.vnpayment.vn/paymentv2/images/logo.png"
-                class="h-6 object-contain"
-              />
+              <img src="/cdnlogo.com_vnpay.png" class="h-6 object-contain" />
             </label>
           </div>
         </div>

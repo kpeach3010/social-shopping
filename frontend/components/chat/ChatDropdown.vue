@@ -170,11 +170,6 @@ onMounted(() => {
       conversations.value[idx].senderId = raw.senderId || raw.sender_id;
       conversations.value[idx].isUnread = raw.senderId !== auth.user.id;
 
-      // Cập nhật unread count trong store
-      if (raw.senderId !== auth.user.id) {
-        chatStore.unreadCount++;
-      }
-
       // Đưa conversation này lên đầu danh sách
       const conv = conversations.value.splice(idx, 1)[0];
       conversations.value.unshift(conv);

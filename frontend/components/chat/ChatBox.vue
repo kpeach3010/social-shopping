@@ -454,6 +454,19 @@ const isGroupChat = computed(
 
 const groupBoxExpanded = ref(false);
 
+// Phát âm thanh thông báo tin nhắn
+const playNotificationSound = () => {
+  try {
+    const audio = new Audio("/new-message.mp3");
+    audio.volume = 0.5;
+    audio.play().catch(() => {
+      // Ignore errors if audio fails to play
+    });
+  } catch (err) {
+    console.error("Error playing sound:", err);
+  }
+};
+
 // Media gallery
 const filteredMediaMessages = computed(() => {
   return messages.value.filter((msg) => {
@@ -954,6 +967,11 @@ onMounted(() => {
     if (msg.id) deliveredIds.add(String(msg.id));
     scrollToBottom();
     readStatus.value = {};
+
+    // Phát âm thanh nếu là tin nhắn từ người khác
+    if (!isMine(msg)) {
+      playNotificationSound();
+    }
   });
 
   $socket.on("typing", (payload) => {

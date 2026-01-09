@@ -560,47 +560,55 @@ export const reviewMedia = pgTable("review_media", {
 });
 
 // Bài đăng
-export const posts = pgTable("posts", {
-  id: uuid("id").defaultRandom().primaryKey(),
+export const posts = pgTable(
+  "posts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
 
-  authorId: uuid("author_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
+    authorId: uuid("author_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
 
-  content: text("content"), // caption / mô tả
+    content: text("content"), // caption / mô tả
 
-  visibility: postVisibilityEnum("visibility").default("public").notNull(),
+    visibility: postVisibilityEnum("visibility").default("public").notNull(),
 
-  isEdited: boolean("is_edited").default(false).notNull(),
+    isEdited: boolean("is_edited").default(false).notNull(),
 
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
 
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-  }, (table) => ({
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
     idxPostsAuthor: index("idx_posts_author_id").on(table.authorId),
-  }));
+  })
+);
 
-export const postMedia = pgTable("post_media", {
-  id: uuid("id").defaultRandom().primaryKey(),
+export const postMedia = pgTable(
+  "post_media",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
 
-  postId: uuid("post_id")
-    .notNull()
-    .references(() => posts.id, { onDelete: "cascade" }),
+    postId: uuid("post_id")
+      .notNull()
+      .references(() => posts.id, { onDelete: "cascade" }),
 
-  type: postMediaTypeEnum("type").notNull().default("image"), // image | video | file
-  postFilePath: varchar("post_file_path", { length: 500 }),
-  postFileUrl: varchar("post_file_url", { length: 500 }),
+    type: postMediaTypeEnum("type").notNull().default("image"), // image | video | file
+    postFilePath: varchar("post_file_path", { length: 500 }),
+    postFileUrl: varchar("post_file_url", { length: 500 }),
 
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-  }, (table) => ({
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
     idxPostMediaPost: index("idx_post_media_post_id").on(table.postId),
-  }));
+  })
+);
 
 export const postProducts = pgTable(
   "post_products",
@@ -616,7 +624,9 @@ export const postProducts = pgTable(
   (t) => ({
     pk: primaryKey({ columns: [t.postId, t.productId] }),
     idxPostProductsPost: index("idx_post_products_post_id").on(t.postId),
-    idxPostProductsProduct: index("idx_post_products_product_id").on(t.productId),
+    idxPostProductsProduct: index("idx_post_products_product_id").on(
+      t.productId
+    ),
   })
 );
 
@@ -641,29 +651,35 @@ export const postLikes = pgTable(
   })
 );
 
-export const postComments = pgTable("post_comments", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  postId: uuid("post_id")
-    .notNull()
-    .references(() => posts.id, { onDelete: "cascade" }),
-  parentCommentId: uuid("parent_comment_id").references(
-    () => postComments.id,
-    { onDelete: "cascade" } // Xóa comment cha cũng xóa reply
-  ), // Null nếu là bình luận chính, có ID nếu là reply
-  authorId: uuid("author_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  content: text("content").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-  }, (table) => ({
+export const postComments = pgTable(
+  "post_comments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    postId: uuid("post_id")
+      .notNull()
+      .references(() => posts.id, { onDelete: "cascade" }),
+    parentCommentId: uuid("parent_comment_id").references(
+      () => postComments.id,
+      { onDelete: "cascade" } // Xóa comment cha cũng xóa reply
+    ), // Null nếu là bình luận chính, có ID nếu là reply
+    authorId: uuid("author_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    content: text("content").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
     idxPostCommentsPost: index("idx_post_comments_post_id").on(table.postId),
-    idxPostCommentsParent: index("idx_post_comments_parent_id").on(table.parentCommentId),
-  }));
+    idxPostCommentsParent: index("idx_post_comments_parent_id").on(
+      table.parentCommentId
+    ),
+  })
+);
 
 export const postCommentLikes = pgTable(
   "post_comment_likes",

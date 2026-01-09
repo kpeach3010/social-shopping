@@ -144,23 +144,43 @@ export const products = pgTable(
   })
 );
 
-export const colors = pgTable("colors", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  productId: uuid("product_id").references(() => products.id, {
-    onDelete: "cascade",
-  }),
-  name: varchar("name", { length: 20 }).notNull(),
-  imagePath: varchar("image_path"), // path trong bucket Supabase
-  imageUrl: varchar("image_url"), // public URL (nếu cần cache)
-});
+export const colors = pgTable(
+  "colors",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    productId: uuid("product_id").references(() => products.id, {
+      onDelete: "cascade",
+    }),
+    name: varchar("name", { length: 20 }).notNull(),
+    imagePath: varchar("image_path"), // path trong bucket Supabase
+    imageUrl: varchar("image_url"), // public URL (nếu cần cache)
+  },
+  (table) => ({
+    idxColorsProduct: index("idx_colors_product_id").on(table.productId),
+    idxColorsProductName: index("idx_colors_product_name").on(
+      table.productId,
+      table.name
+    ),
+  })
+);
 
-export const sizes = pgTable("sizes", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  productId: uuid("product_id").references(() => products.id, {
-    onDelete: "cascade",
-  }),
-  name: varchar("name", { length: 20 }).notNull(),
-});
+export const sizes = pgTable(
+  "sizes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    productId: uuid("product_id").references(() => products.id, {
+      onDelete: "cascade",
+    }),
+    name: varchar("name", { length: 20 }).notNull(),
+  },
+  (table) => ({
+    idxSizesProduct: index("idx_sizes_product_id").on(table.productId),
+    idxSizesProductName: index("idx_sizes_product_name").on(
+      table.productId,
+      table.name
+    ),
+  })
+);
 
 export const productVariants = pgTable(
   "product_variants",
@@ -186,6 +206,11 @@ export const productVariants = pgTable(
       uqProductVariantColorSize: uniqueIndex(
         "uq_product_variant_color_size"
       ).on(table.productId, table.colorId, table.sizeId),
+      idxVariantProduct: index("idx_variants_product_id").on(table.productId),
+      idxVariantProductColor: index("idx_variants_product_color").on(
+        table.productId,
+        table.colorId
+      ),
     };
   }
 );
@@ -226,6 +251,9 @@ export const couponProducts = pgTable(
   // 1 coupon có thể áp dụng cho nhiều sản phẩm, 1 sản phẩm có thể áp dụng với nhiều coupon
   (table) => ({
     pk: primaryKey({ columns: [table.couponId, table.productId] }),
+    idxCouponProduct: index("idx_coupon_products_product_id").on(
+      table.productId
+    ),
   })
 );
 
@@ -552,7 +580,9 @@ export const posts = pgTable("posts", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
-});
+  }, (table) => ({
+    idxPostsAuthor: index("idx_posts_author_id").on(table.authorId),
+  }));
 
 export const postMedia = pgTable("post_media", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -568,7 +598,9 @@ export const postMedia = pgTable("post_media", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
-});
+  }, (table) => ({
+    idxPostMediaPost: index("idx_post_media_post_id").on(table.postId),
+  }));
 
 export const postProducts = pgTable(
   "post_products",
@@ -583,6 +615,8 @@ export const postProducts = pgTable(
   },
   (t) => ({
     pk: primaryKey({ columns: [t.postId, t.productId] }),
+    idxPostProductsPost: index("idx_post_products_post_id").on(t.postId),
+    idxPostProductsProduct: index("idx_post_products_product_id").on(t.productId),
   })
 );
 
@@ -626,7 +660,10 @@ export const postComments = pgTable("post_comments", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
-});
+  }, (table) => ({
+    idxPostCommentsPost: index("idx_post_comments_post_id").on(table.postId),
+    idxPostCommentsParent: index("idx_post_comments_parent_id").on(table.parentCommentId),
+  }));
 
 export const postCommentLikes = pgTable(
   "post_comment_likes",

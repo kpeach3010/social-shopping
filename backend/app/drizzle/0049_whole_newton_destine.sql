@@ -1,0 +1,1 @@
+CREATE INDEX "idx_coupon_products_product_id" ON "coupon_products" USING btree ("product_id");

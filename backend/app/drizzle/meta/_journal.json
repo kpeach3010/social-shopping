@@ -358,6 +358,27 @@
       "when": 1767958558163,
       "tag": "0050_gifted_sabretooth",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1767960267047,
+      "tag": "0051_steady_junta",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1767961151377,
+      "tag": "0052_fixed_sinister_six",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1767961366765,
+      "tag": "0053_ordinary_paladin",
+      "breakpoints": true
     }
   ]
 }

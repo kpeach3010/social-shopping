@@ -6,4 +6,23 @@
   body {
     font-family: "Poppins", sans-serif;
   }
+  button,
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"],
+  input[type="checkbox"],
+  input[type="radio"],
+  label[for],
+  a[href],
+  select,
+  [role="button"],
+  [tabindex]:not([tabindex="-1"]),
+  [onclick],
+  [aria-pressed],
+  [aria-checked],
+  [aria-selected],
+  [aria-expanded],
+  [aria-haspopup] {
+    cursor: pointer;
+  }
 }

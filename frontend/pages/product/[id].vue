@@ -44,7 +44,7 @@
                 @click="!isColorDisabled(color) && selectColor(color)"
                 :disabled="isColorDisabled(color)"
                 :class="[
-                  'px-3 py-1 border rounded',
+                  'px-3 py-1 border rounded cursor-pointer',
                   selectedColor === color ? 'bg-black text-white' : 'bg-white',
                   isColorDisabled(color) ? 'opacity-40 cursor-not-allowed' : '',
                 ]"
@@ -64,7 +64,7 @@
                 @click="!isSizeDisabled(size) && (selectedSize = size)"
                 :disabled="isSizeDisabled(size)"
                 :class="[
-                  'px-3 py-1 border rounded',
+                  'px-3 py-1 border rounded cursor-pointer',
                   selectedSize === size ? 'bg-black text-white' : 'bg-white',
                   isSizeDisabled(size) ? 'opacity-40 cursor-not-allowed' : '',
                 ]"
@@ -78,14 +78,14 @@
           <div class="mt-4 flex items-center gap-3">
             <button
               @click="decQty"
-              class="px-3 py-1 border rounded hover:bg-gray-100"
+              class="px-3 py-1 border rounded hover:bg-gray-100 cursor-pointer"
             >
               -
             </button>
             <span>{{ quantity }}</span>
             <button
               @click="incQty"
-              class="px-3 py-1 border rounded hover:bg-gray-100"
+              class="px-3 py-1 border rounded hover:bg-gray-100 cursor-pointer"
             >
               +
             </button>
@@ -95,13 +95,13 @@
           <div class="mt-6 flex gap-3">
             <button
               @click="addToCart"
-              class="px-6 py-2 bg-gray-200 rounded hover:bg-gray-300"
+              class="px-6 py-2 bg-gray-200 rounded hover:bg-gray-300 cursor-pointer"
             >
               Thêm vào giỏ hàng
             </button>
             <button
               @click="buyNow"
-              class="px-6 py-2 bg-black text-white rounded hover:bg-gray-800"
+              class="px-6 py-2 bg-black text-white rounded hover:bg-gray-800 cursor-pointer"
             >
               Mua ngay
             </button>
@@ -128,12 +128,6 @@
                     {{ c.code }}
                   </span>
 
-                  <span class="text-green-600 font-bold mx-2">
-                    Giảm
-                    <span v-if="c.type === 'percent'">{{ c.value }}%</span>
-                    <span v-else>{{ formatPrice(c.value) }}</span>
-                  </span>
-
                   <span v-if="c.endsAt" class="text-blue-500 text-xs">
                     Đơn tối thiểu {{ formatPrice(c.minOrderTotal) }}
                   </span>
@@ -146,7 +140,7 @@
                 >
                   <button
                     @click.stop="createInviteLink(c.id)"
-                    class="px-3 py-1 bg-black text-white rounded-full hover:bg-gray-800 text-xs font-semibold shadow-sm active:scale-[0.97]"
+                    class="px-3 py-1 bg-black text-white rounded-full hover:bg-gray-800 text-xs font-semibold shadow-sm active:scale-[0.97] cursor-pointer"
                   >
                     + Tạo nhóm
                   </button>
@@ -163,7 +157,7 @@
                     />
                     <button
                       @click.stop="copyInviteLink(groupInviteLinks[c.id])"
-                      class="text-xs font-semibold text-blue-700 hover:underline"
+                      class="text-xs font-semibold text-blue-700 hover:underline cursor-pointer"
                     >
                       Copy
                     </button>
@@ -341,7 +335,7 @@
           class="flex justify-center mt-8 gap-2"
         >
           <button
-            class="px-3 py-1 rounded border hover:bg-gray-100 disabled:opacity-40"
+            class="px-3 py-1 rounded border hover:bg-gray-100 disabled:opacity-40 cursor-pointer"
             :disabled="currentReviewPage === 1"
             @click="prevReviewPage"
           >
@@ -350,7 +344,7 @@
           <button
             v-for="p in reviewPages"
             :key="p"
-            class="px-3 py-1 rounded border"
+            class="px-3 py-1 rounded border cursor-pointer"
             :class="
               currentReviewPage === p
                 ? 'bg-black text-white'
@@ -361,7 +355,7 @@
             {{ p }}
           </button>
           <button
-            class="px-3 py-1 rounded border hover:bg-gray-100 disabled:opacity-40"
+            class="px-3 py-1 rounded border hover:bg-gray-100 disabled:opacity-40 cursor-pointer"
             :disabled="currentReviewPage === totalReviewsPages"
             @click="nextReviewPage"
           >
@@ -524,7 +518,7 @@ onMounted(async () => {
         coupons.value = couponRes;
       }
     }
-    await fetchReviews();
+    fetchReviews();
   } catch (e) {
     console.error("Lỗi load sản phẩm:", e);
   } finally {

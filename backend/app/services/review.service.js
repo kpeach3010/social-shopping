@@ -6,7 +6,7 @@ import {
   users,
   products,
 } from "../db/schema.js";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 import supabase from "../../services/supbase/client.js";
 
@@ -103,34 +103,51 @@ export const createReviewService = async (userId, data) => {
 };
 
 // 2. Service lấy danh sách đánh giá theo Product ID (Public xem)
-export const getReviewsByProductIdService = async (productId) => {
-  // Lấy list review join với User để lấy tên người review
+export const getReviewsByProductIdService = async (
+  productId,
+  page = 1,
+  limit = 3
+) => {
+  const offset = (page - 1) * limit;
+
   const reviewsList = await db
     .select({
       id: reviews.id,
       rating: reviews.rating,
       comment: reviews.comment,
       createdAt: reviews.createdAt,
-      fullName: users.fullName, // Lấy tên người dùng
-      variantName: orderItems.variantName, // Lấy tên phân loại hàng đã mua
+      fullName: users.fullName,
+      variantName: orderItems.variantName,
     })
     .from(reviews)
     .innerJoin(orderItems, eq(reviews.orderItemId, orderItems.id))
     .innerJoin(users, eq(reviews.userId, users.id))
-    .where(eq(orderItems.productId, productId)) // Lọc theo sản phẩm
-    .orderBy(desc(reviews.createdAt));
+    .where(eq(orderItems.productId, productId))
+    .orderBy(desc(reviews.createdAt))
+    .limit(limit)
+    .offset(offset);
 
-  // Gắn media cho từng review
-  for (const review of reviewsList) {
-    const mediaItems = await db
-      .select({
-        type: reviewMedia.type,
-        fileUrl: reviewMedia.fileUrl,
-      })
-      .from(reviewMedia)
-      .where(eq(reviewMedia.reviewId, review.id));
+  const reviewIds = reviewsList.map((r) => r.id);
 
-    review.media = mediaItems;
+  const mediaList = reviewIds.length
+    ? await db
+        .select({
+          reviewId: reviewMedia.reviewId,
+          type: reviewMedia.type,
+          fileUrl: reviewMedia.fileUrl,
+        })
+        .from(reviewMedia)
+        .where(inArray(reviewMedia.reviewId, reviewIds))
+    : [];
+
+  const mediaMap = new Map();
+  for (const m of mediaList) {
+    if (!mediaMap.has(m.reviewId)) mediaMap.set(m.reviewId, []);
+    mediaMap.get(m.reviewId).push({ type: m.type, fileUrl: m.fileUrl });
+  }
+
+  for (const r of reviewsList) {
+    r.media = mediaMap.get(r.id) || [];
   }
 
   return reviewsList;

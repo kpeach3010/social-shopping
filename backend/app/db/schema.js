@@ -1,3 +1,4 @@
+import { table } from "console";
 import { create } from "domain";
 import { is } from "drizzle-orm";
 import {
@@ -257,10 +258,16 @@ export const couponProducts = pgTable(
   })
 );
 
-export const carts = pgTable("carts", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  userId: uuid("user_id").references(() => users.id),
-});
+export const carts = pgTable(
+  "carts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").references(() => users.id),
+  },
+  (table) => ({
+    idxCartUser: index("idx_carts_user_id").on(table.userId),
+  })
+);
 
 export const cartItems = pgTable(
   "cart_items",
@@ -622,6 +629,13 @@ export const reviews = pgTable(
     uniqueOrderItem: uniqueIndex("unique_review_per_order_item").on(
       table.orderItemId
     ),
+    idxReviewsOrderItem: index("idx_reviews_order_item_id").on(
+      table.orderItemId
+    ),
+
+    idxReviewsCreatedAt: index("idx_reviews_created_at").on(table.createdAt),
+
+    idxReviewsUser: index("idx_reviews_user_id").on(table.userId),
   })
 );
 

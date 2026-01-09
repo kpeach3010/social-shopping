@@ -372,49 +372,46 @@ export const getProductByIdService = async (productId) => {
       .where(eq(products.id, productId))
       .limit(1);
 
-    if (!product) {
-      throw new Error("Product not found");
-    }
+    if (!product) throw new Error("Product not found");
 
-    // Lay danh sach variant
-    const variants = await db
-      .select({
-        id: productVariants.id,
-        sku: productVariants.stockKeepingUnit,
-        stock: productVariants.stock,
-        price: productVariants.price,
-        imagePath: colors.imagePath,
-        imageUrl: colors.imageUrl,
-        color: colors.name,
-        size: sizes.name,
-      })
-      .from(productVariants)
-      .leftJoin(colors, eq(productVariants.colorId, colors.id))
-      .leftJoin(sizes, eq(productVariants.sizeId, sizes.id))
-      .where(eq(productVariants.productId, productId));
+    const [variants, couponsList, colorsList] = await Promise.all([
+      db
+        .select({
+          id: productVariants.id,
+          sku: productVariants.stockKeepingUnit,
+          stock: productVariants.stock,
+          price: productVariants.price,
+          imagePath: colors.imagePath,
+          imageUrl: colors.imageUrl,
+          color: colors.name,
+          size: sizes.name,
+        })
+        .from(productVariants)
+        .leftJoin(colors, eq(productVariants.colorId, colors.id))
+        .leftJoin(sizes, eq(productVariants.sizeId, sizes.id))
+        .where(eq(productVariants.productId, productId)),
 
-    // lay coupon (neu co)
-    const couponsList = await db
-      .select({
-        id: coupons.id,
-        code: coupons.code,
-        description: coupons.description,
-        value: coupons.value,
-      })
-      .from(couponProducts)
-      .leftJoin(coupons, eq(couponProducts.couponId, coupons.id))
-      .where(eq(couponProducts.productId, productId));
+      db
+        .select({
+          id: coupons.id,
+          code: coupons.code,
+          description: coupons.description,
+          value: coupons.value,
+        })
+        .from(couponProducts)
+        .leftJoin(coupons, eq(couponProducts.couponId, coupons.id))
+        .where(eq(couponProducts.productId, productId)),
 
-    // Lấy danh sách màu (unique) của sản phẩm
-    const colorsList = await db
-      .select({
-        id: colors.id,
-        name: colors.name,
-        imageUrl: colors.imageUrl,
-        imagePath: colors.imagePath,
-      })
-      .from(colors)
-      .where(eq(colors.productId, productId));
+      db
+        .select({
+          id: colors.id,
+          name: colors.name,
+          imageUrl: colors.imageUrl,
+          imagePath: colors.imagePath,
+        })
+        .from(colors)
+        .where(eq(colors.productId, productId)),
+    ]);
 
     return {
       ...product,

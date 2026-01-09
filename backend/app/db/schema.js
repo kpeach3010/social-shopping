@@ -13,6 +13,7 @@ import {
   text,
   primaryKey,
   uniqueIndex,
+  index,
 } from "drizzle-orm/pg-core";
 
 // Enum giới tính
@@ -116,25 +117,32 @@ export const categories = pgTable("categories", {
 });
 
 // 1 category co nhieu san pham
-export const products = pgTable("products", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  categoryId: uuid("category_id").references(() => categories.id),
-  name: varchar("name", { length: 160 }).notNull(),
-  description: text("description"),
-  price_default: decimal("price_default", {
-    precision: 12,
-    scale: 2,
-  }).notNull(),
-  stock: integer("stock").notNull().default(0),
-  thumbnailPath: varchar("thumbnail_path"), // path trong bucket Supabase
-  thumbnailUrl: varchar("thumbnail_url"), // public URL
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-});
+export const products = pgTable(
+  "products",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    categoryId: uuid("category_id").references(() => categories.id),
+    name: varchar("name", { length: 160 }).notNull(),
+    description: text("description"),
+    price_default: decimal("price_default", {
+      precision: 12,
+      scale: 2,
+    }).notNull(),
+    stock: integer("stock").notNull().default(0),
+    thumbnailPath: varchar("thumbnail_path"), // path trong bucket Supabase
+    thumbnailUrl: varchar("thumbnail_url"), // public URL
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    idxProductCategory: index("idx_products_category_id").on(table.categoryId),
+    idxProductCreatedAt: index("idx_products_created_at").on(table.createdAt),
+  })
+);
 
 export const colors = pgTable("colors", {
   id: uuid("id").defaultRandom().primaryKey(),

@@ -26,7 +26,16 @@
           &times;
         </button>
       </div>
-      <div v-if="order" class="px-6 py-5 overflow-y-auto">
+      <div
+        v-if="loading"
+        class="flex flex-col items-center justify-center min-h-[300px] py-16"
+      >
+        <div
+          class="animate-spin rounded-full h-10 w-10 border-b-2 border-black mb-4"
+        ></div>
+        <div class="text-lg text-gray-500 font-semibold">Đang tải...</div>
+      </div>
+      <div v-else-if="order" class="px-6 py-5 overflow-y-auto">
         <div
           class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4"
         >
@@ -270,7 +279,11 @@ async function fetchOrderDetail() {
 watch(
   () => props.show,
   (val) => {
-    if (val) fetchOrderDetail();
+    if (val) {
+      order.value = null;
+      loading.value = true;
+      fetchOrderDetail();
+    }
   }
 );
 watch(

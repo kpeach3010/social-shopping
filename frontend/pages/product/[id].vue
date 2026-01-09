@@ -1,5 +1,14 @@
 <template>
   <div>
+    <div
+      v-if="loading"
+      class="flex flex-col items-center justify-center min-h-[300px] py-16"
+    >
+      <div
+        class="animate-spin rounded-full h-10 w-10 border-b-2 border-black mb-4"
+      ></div>
+      <!-- <div class="text-lg text-gray-500 font-semibold">Đang tải...</div> -->
+    </div>
     <main class="container mx-auto px-4 py-10" v-if="!loading && product">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
         <!-- Ảnh -->

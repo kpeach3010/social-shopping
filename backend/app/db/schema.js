@@ -281,76 +281,106 @@ export const cartItems = pgTable(
   }
 );
 
-export const orders = pgTable("orders", {
-  id: uuid("id").defaultRandom().primaryKey(),
+export const orders = pgTable(
+  "orders",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
 
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  groupOrderId: uuid("group_order_id").references(() => groupOrders.id, {
-    onDelete: "set null",
-  }),
-  status: orderStatusEnum("status").notNull().default("pending"),
-  paymentMethod: varchar("payment_method", { length: 10 }).default("COD"),
-  // Cờ đánh dấu đã thanh toán tiền hay chưa
-  isPaid: boolean("is_paid").default(false).notNull(),
-  // Thời điểm thanh toán thành công
-  paidAt: timestamp("paid_at", { withTimezone: true }),
-  subtotal: decimal("subtotal", { precision: 12, scale: 2 }).notNull(), // Tổng tiền trước giảm giá
-  discountTotal: decimal("discount_total", { precision: 12, scale: 2 }).default(
-    "0"
-  ), // Tổng tiền giảm giá áp dụng
-  shippingFee: decimal("shipping_fee", { precision: 12, scale: 2 }).default(
-    "0"
-  ), // Tiền ship
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    groupOrderId: uuid("group_order_id").references(() => groupOrders.id, {
+      onDelete: "set null",
+    }),
+    status: orderStatusEnum("status").notNull().default("pending"),
+    paymentMethod: varchar("payment_method", { length: 10 }).default("COD"),
+    // Cờ đánh dấu đã thanh toán tiền hay chưa
+    isPaid: boolean("is_paid").default(false).notNull(),
+    // Thời điểm thanh toán thành công
+    paidAt: timestamp("paid_at", { withTimezone: true }),
+    subtotal: decimal("subtotal", { precision: 12, scale: 2 }).notNull(), // Tổng tiền trước giảm giá
+    discountTotal: decimal("discount_total", {
+      precision: 12,
+      scale: 2,
+    }).default("0"), // Tổng tiền giảm giá áp dụng
+    shippingFee: decimal("shipping_fee", { precision: 12, scale: 2 }).default(
+      "0"
+    ), // Tiền ship
 
-  couponCode: varchar("coupon_code", { length: 40 }), // snapshot mã coupon
+    couponCode: varchar("coupon_code", { length: 40 }), // snapshot mã coupon
 
-  total: decimal("total", { precision: 12, scale: 2 }).notNull(), // Tổng tiền cần thanh toán
+    total: decimal("total", { precision: 12, scale: 2 }).notNull(), // Tổng tiền cần thanh toán
 
-  // Thông tin giao hàng snapshot
-  shippingName: varchar("shipping_name", { length: 120 }),
-  shippingPhone: varchar("shipping_phone", { length: 20 }),
-  province: varchar("province", { length: 120 }),
-  district: varchar("district", { length: 120 }),
-  ward: varchar("ward", { length: 120 }),
-  addressDetail: varchar("address_detail", { length: 255 }),
-  note: text("note"),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-});
+    // Thông tin giao hàng snapshot
+    shippingName: varchar("shipping_name", { length: 120 }),
+    shippingPhone: varchar("shipping_phone", { length: 20 }),
+    province: varchar("province", { length: 120 }),
+    district: varchar("district", { length: 120 }),
+    ward: varchar("ward", { length: 120 }),
+    addressDetail: varchar("address_detail", { length: 255 }),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    idxOrdersUser: index("idx_orders_user_id").on(table.userId),
+    idxOrdersGroup: index("idx_orders_group_order_id").on(table.groupOrderId),
+    idxOrdersCreatedAt: index("idx_orders_created_at").on(table.createdAt),
+  })
+);
 
-export const orderItems = pgTable("order_items", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  orderId: uuid("order_id")
-    .notNull()
-    .references(() => orders.id, { onDelete: "cascade" }),
-  productId: uuid("product_id").references(() => products.id),
-  variantId: uuid("variant_id").references(() => productVariants.id),
-  productName: varchar("product_name", { length: 160 }).notNull(), // snapshot tên
-  variantName: varchar("variant_name", { length: 80 }), // snapshot màu + size
-  imagePath: varchar("image_path"), // path ảnh snapshot trong order-images/
-  imageUrl: varchar("image_url"), // public URL để client render
-  price: decimal("price", { precision: 12, scale: 2 }).notNull(),
-  quantity: integer("quantity").notNull(),
-});
+export const orderItems = pgTable(
+  "order_items",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    orderId: uuid("order_id")
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" }),
+    productId: uuid("product_id").references(() => products.id),
+    variantId: uuid("variant_id").references(() => productVariants.id),
+    productName: varchar("product_name", { length: 160 }).notNull(), // snapshot tên
+    variantName: varchar("variant_name", { length: 80 }), // snapshot màu + size
+    imagePath: varchar("image_path"), // path ảnh snapshot trong order-images/
+    imageUrl: varchar("image_url"), // public URL để client render
+    price: decimal("price", { precision: 12, scale: 2 }).notNull(),
+    quantity: integer("quantity").notNull(),
+  },
+  (table) => ({
+    idxOrderItemsOrder: index("idx_order_items_order_id").on(table.orderId),
+  })
+);
 
 // Thong tin nhom mua chung, status
-export const groupOrders = pgTable("group_orders", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  productId: uuid("product_id").references(() => products.id),
-  couponId: uuid("coupon_id").references(() => coupons.id),
-  creatorId: uuid("creator_id").references(() => users.id),
-  targetMember: integer("target_member").notNull(), // so luong thanh vien muc tieu
-  currentMember: integer("current_member").notNull().default(1), // so luong thanh vien hien tai
-  status: groupOrderStatusEnum("status").notNull().default("pending"),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
-});
+export const groupOrders = pgTable(
+  "group_orders",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    productId: uuid("product_id").references(() => products.id),
+    couponId: uuid("coupon_id").references(() => coupons.id),
+    creatorId: uuid("creator_id").references(() => users.id),
+    targetMember: integer("target_member").notNull(), // so luong thanh vien muc tieu
+    currentMember: integer("current_member").notNull().default(1), // so luong thanh vien hien tai
+    status: groupOrderStatusEnum("status").notNull().default("pending"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    idxGroupOrdersProduct: index("idx_group_orders_product_id").on(
+      table.productId
+    ),
+    idxGroupOrdersCreator: index("idx_group_orders_creator_id").on(
+      table.creatorId
+    ),
+    idxGroupOrdersStatusCreated: index("idx_group_orders_status_created").on(
+      table.status,
+      table.createdAt
+    ),
+  })
+);
 
 // Chi tiết thành viên trong nhóm mua chung, chọn variant, qty
 export const groupOrderMembers = pgTable(
@@ -374,6 +404,10 @@ export const groupOrderMembers = pgTable(
       uqGroupOrderUser: uniqueIndex("uq_group_order_user").on(
         table.groupOrderId,
         table.userId
+      ),
+
+      idxGroupOrderMembersGroup: index("idx_group_order_members_group_id").on(
+        table.groupOrderId
       ),
     };
   }
@@ -401,51 +435,82 @@ export const groupOrderMemberItems = pgTable(
       table.memberId,
       table.variantId
     ),
+    idxMemberItemsMember: index("idx_group_order_member_items_member_id").on(
+      table.memberId
+    ),
   })
 );
 
 // chat schema
-export const inviteLinks = pgTable("invite_links", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  token: varchar("token", { length: 255 }).notNull().unique(),
-  creatorId: uuid("creator_id").references(() => users.id, {
-    onDelete: "cascade",
-  }),
-  productId: uuid("product_id").references(() => products.id, {
-    onDelete: "cascade",
-  }),
-  couponId: uuid("coupon_id").references(() => coupons.id, {
-    onDelete: "cascade",
-  }),
-  isUsed: boolean("is_used").notNull().default(false),
-  expiresAt: timestamp("expires_at", { withTimezone: true }),
-  conversationId: uuid("conversation_id")
-    .unique()
-    .references(() => conversations.id),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
-});
+export const inviteLinks = pgTable(
+  "invite_links",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    token: varchar("token", { length: 255 }).notNull().unique(),
+    creatorId: uuid("creator_id").references(() => users.id, {
+      onDelete: "cascade",
+    }),
+    productId: uuid("product_id").references(() => products.id, {
+      onDelete: "cascade",
+    }),
+    couponId: uuid("coupon_id").references(() => coupons.id, {
+      onDelete: "cascade",
+    }),
+    isUsed: boolean("is_used").notNull().default(false),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    conversationId: uuid("conversation_id")
+      .unique()
+      .references(() => conversations.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    uqInviteToken: uniqueIndex("uq_invite_links_token").on(table.token),
+
+    idxInviteCreatorProductCoupon: index(
+      "idx_invite_creator_product_coupon"
+    ).on(table.creatorId, table.productId, table.couponId),
+
+    idxInviteExpiresAt: index("idx_invite_links_expires_at").on(
+      table.expiresAt
+    ),
+  })
+);
 
 // room chat (1-1, group)
-export const conversations = pgTable("conversations", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  ownerId: uuid("owner_id").references(() => users.id), // nguoi tao nhom
-  groupOrderId: uuid("group_order_id").references(() => groupOrders.id, {
-    onDelete: "set null",
-  }), // neu la nhom mua chung
-  type: conversationTypesEnum("conversation_types").notNull().default("direct"), // direct, group
-  name: varchar("name", { length: 100 }), // ten nhom || null neu 1-1 || rename
-  inviteToken: varchar("invite_token", { length: 255 }).unique(), // link moi nguoi vao nhom
-  lastMessage: text("last_message"), // tin nhan moi nhat
-  lastMessageAt: timestamp("last_message_at", { withTimezone: true }), // thoi diem tin nhan moi nhat
-  archived: boolean("archived").notNull().default(false), // co bi luu tru khong
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-});
+export const conversations = pgTable(
+  "conversations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ownerId: uuid("owner_id").references(() => users.id), // nguoi tao nhom
+    groupOrderId: uuid("group_order_id").references(() => groupOrders.id, {
+      onDelete: "set null",
+    }), // neu la nhom mua chung
+    type: conversationTypesEnum("conversation_types")
+      .notNull()
+      .default("direct"), // direct, group
+    name: varchar("name", { length: 100 }), // ten nhom || null neu 1-1 || rename
+    inviteToken: varchar("invite_token", { length: 255 }).unique(), // link moi nguoi vao nhom
+    lastMessage: text("last_message"), // tin nhan moi nhat
+    lastMessageAt: timestamp("last_message_at", { withTimezone: true }), // thoi diem tin nhan moi nhat
+    archived: boolean("archived").notNull().default(false), // co bi luu tru khong
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    idxConversationsType: index("idx_conversations_type").on(table.type),
+    idxConversationsGroupOrder: index("idx_conversations_group_order_id").on(
+      table.groupOrderId
+    ),
+    idxConversationsInviteToken: index("idx_conversations_invite_token").on(
+      table.inviteToken
+    ),
+  })
+);
 
 // ai thuoc ve conversation nao
 export const conversationMembers = pgTable(
@@ -468,28 +533,44 @@ export const conversationMembers = pgTable(
         table.conversationId,
         table.userId
       ),
+      idxConversationMembersUser: index("idx_conversation_members_user_id").on(
+        table.userId
+      ),
+      idxConversationMembersConversation: index(
+        "idx_conversation_members_conversation_id"
+      ).on(table.conversationId),
     };
   }
 );
 
 // tin nhan trong conversation
-export const messages = pgTable("messages", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  conversationId: uuid("conversation_id")
-    .notNull()
-    .references(() => conversations.id, { onDelete: "cascade" }),
-  senderId: uuid("sender_id")
-    .notNull()
-    .references(() => users.id),
-  content: text("content").notNull(),
-  type: messageTypesEnum("type").notNull().default("text"),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-});
+export const messages = pgTable(
+  "messages",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    conversationId: uuid("conversation_id")
+      .notNull()
+      .references(() => conversations.id, { onDelete: "cascade" }),
+    senderId: uuid("sender_id")
+      .notNull()
+      .references(() => users.id),
+    content: text("content").notNull(),
+    type: messageTypesEnum("type").notNull().default("text"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    idxMessagesConversationCreated: index(
+      "idx_messages_conversation_created"
+    ).on(table.conversationId, table.createdAt),
+
+    idxMessagesSender: index("idx_messages_sender_id").on(table.senderId),
+  })
+);
 
 // thời điểm người dùng đọc tin nhắn trong conversation
 export const messageReads = pgTable(

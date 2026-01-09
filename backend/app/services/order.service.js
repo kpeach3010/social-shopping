@@ -457,21 +457,34 @@ export const getOrdersOverviewForStaffService = async () => {
     )
     .orderBy(desc(orders.createdAt));
 
-  // Gắn items cho từng order
-  for (const order of ordersList) {
-    const items = await db
-      .select({
-        productName: orderItems.productName,
-        variantName: orderItems.variantName,
-        price: orderItems.price,
-        quantity: orderItems.quantity,
-        imagePath: orderItems.imagePath,
-        imageUrl: orderItems.imageUrl ?? null,
-      })
-      .from(orderItems)
-      .where(eq(orderItems.orderId, order.id));
+  // Lấy tất cả orderId
+  const orderIds = ordersList.map((o) => o.id);
+  if (orderIds.length === 0) return [];
 
-    order.items = items;
+  // Lấy tất cả items của các order này trong 1 query
+  const itemsData = await db
+    .select({
+      orderId: orderItems.orderId,
+      productName: orderItems.productName,
+      variantName: orderItems.variantName,
+      price: orderItems.price,
+      quantity: orderItems.quantity,
+      imagePath: orderItems.imagePath,
+      imageUrl: orderItems.imageUrl ?? null,
+    })
+    .from(orderItems)
+    .where(inArray(orderItems.orderId, orderIds));
+
+  // Gom items theo orderId
+  const itemsByOrder = itemsData.reduce((acc, item) => {
+    if (!acc[item.orderId]) acc[item.orderId] = [];
+    acc[item.orderId].push(item);
+    return acc;
+  }, {});
+
+  // Gắn items vào từng order
+  for (const order of ordersList) {
+    order.items = itemsByOrder[order.id] || [];
   }
 
   return ordersList;

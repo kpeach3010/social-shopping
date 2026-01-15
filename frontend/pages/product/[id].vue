@@ -22,6 +22,7 @@
               class="w-20 h-20 object-cover rounded border cursor-pointer hover:opacity-80"
               :class="selectedImage === img ? 'border-2 border-black' : ''"
               @click="selectedImage = img"
+              loading="lazy"
             />
           </div>
 
@@ -31,6 +32,7 @@
               :src="selectedImage"
               :alt="product.name"
               class="w-full rounded-lg shadow"
+              loading="lazy"
             />
           </div>
         </div>
@@ -114,6 +116,12 @@
             >
               Mua ngay
             </button>
+            <button
+              @click="showTryProduct = true"
+              class="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 cursor-pointer"
+            >
+              Thử sản phẩm
+            </button>
           </div>
 
           <!-- Coupon -->
@@ -135,6 +143,12 @@
 
                   <span class="font-mono font-semibold text-gray-900 mr-2">
                     {{ c.code }}
+                  </span>
+
+                  <span class="text-green-600 font-bold mx-2">
+                    Giảm
+                    <span v-if="c.type === 'percent'">{{ c.value }}%</span>
+                    <span v-else>{{ formatPrice(c.value) }}</span>
                   </span>
 
                   <span v-if="c.endsAt" class="text-blue-500 text-xs">
@@ -306,6 +320,7 @@
                       <img
                         :src="m.fileUrl"
                         class="w-full h-full object-cover transition duration-300 group-hover:scale-110"
+                        loading="lazy"
                       />
                     </div>
 
@@ -388,6 +403,20 @@
       :coupon="selectedCoupon"
       @close="showCouponDetail = false"
     />
+
+    <!-- Try Product Modal -->
+    <TryProductModal
+      :isOpen="showTryProduct"
+      :colors="uniqueColors"
+      :variantImages="
+        product?.variants?.map((v) => ({
+          color: v.color,
+          imageUrl: v.imageUrl,
+        }))
+      "
+      :apiBase="config.public.apiBase"
+      @close="showTryProduct = false"
+    />
   </div>
 </template>
 
@@ -395,6 +424,24 @@
 import { useAuthStore } from "@/stores/auth";
 import MediaGalleryModal from "@/components/MediaGalleryModal.vue";
 import CouponDetailModal from "@/components/modals/CouponDetailModal.vue";
+import TryProductModal from "@/components/modals/TryProductModal.vue";
+
+// Đảm bảo formatDate luôn có sẵn cho template
+const formatDate = (date) => {
+  if (!date) return "";
+  return new Date(date).toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+};
+
+const copyInviteLink = (link) => {
+  navigator.clipboard.writeText(link);
+  alert("Đã copy link mời!");
+};
+
+const showTryProduct = ref(false);
 
 const route = useRoute();
 const config = useRuntimeConfig();
@@ -419,78 +466,35 @@ const currentMediaIndex = ref(null);
 const showCouponDetail = ref(false);
 const selectedCoupon = ref(null);
 
-const createInviteLink = async (couponId) => {
-  if (!auth.accessToken) {
-    alert("Bạn cần đăng nhập để tạo nhóm");
-    return;
-  }
-
-  try {
-    const res = await $fetch("/conversations/invite-links", {
-      method: "POST",
-      baseURL: config.public.apiBase,
-      headers: { Authorization: `Bearer ${auth.accessToken}` },
-      body: {
-        productId: product.value.id,
-        couponId,
-
-        frontendUrl: `${requestURL.origin}${config.app?.baseURL || "/"}`,
-      },
-    });
-
-    if (res.reused) {
-      if (res.isUsed) {
-        alert(
-          `Bạn đã có nhóm đang hoạt động!\nTên nhóm: ${res.conversationName}`
-        );
-      }
-    }
-
-    groupInviteLinks.value = {
-      ...groupInviteLinks.value,
-      [couponId]: res.inviteLink,
-    };
-  } catch (e) {
-    alert("Không thể tạo link mời: " + (e?.data?.message || e.message));
-  }
-};
-
-function copyInviteLink(link) {
-  navigator.clipboard.writeText(link);
-  alert("Đã copy link mời!");
-}
-
 const allImages = computed(() => {
   if (!product.value) return [];
-  const variantImages = product.value.variants.map((v) => v.imageUrl);
-  return [product.value.thumbnailUrl, ...new Set(variantImages)];
+  const variantImages = (product.value.variants || [])
+    .map((v) => v.imageUrl)
+    .filter(Boolean);
+  return [
+    product.value.thumbnailUrl,
+    ...new Set(
+      variantImages.filter((img) => img && img !== product.value.thumbnailUrl)
+    ),
+  ];
 });
 
-const formatPrice = (v) =>
-  new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(
-    v || 0
-  );
-
-const uniqueColors = computed(() => [
-  ...new Set(product.value?.variants.map((v) => v.color)),
-]);
-const uniqueSizes = computed(() => [
-  ...new Set(product.value?.variants.map((v) => v.size)),
-]);
-
-const formatDate = (date) => {
-  if (!date) return "";
-  return new Date(date).toLocaleDateString("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-};
-
-const incQty = () => quantity.value++;
-const decQty = () => {
-  if (quantity.value > 1) quantity.value--;
-};
+const uniqueColors = computed(() => {
+  if (!product.value) return [];
+  return [
+    ...new Set(
+      (product.value.variants || []).map((v) => v.color).filter(Boolean)
+    ),
+  ];
+});
+const uniqueSizes = computed(() => {
+  if (!product.value) return [];
+  return [
+    ...new Set(
+      (product.value.variants || []).map((v) => v.size).filter(Boolean)
+    ),
+  ];
+});
 
 // api hiển thị đánh giá
 const fetchReviews = async () => {
@@ -508,26 +512,30 @@ const fetchReviews = async () => {
 
 onMounted(async () => {
   try {
-    const res = await $fetch(`/product/get-product/${route.params.id}`, {
+    // Gọi API sản phẩm, coupon, review song song
+    const productPromise = $fetch(`/product/get-product/${route.params.id}`, {
       baseURL: config.public.apiBase,
     });
+    const reviewsPromise = fetchReviews();
+
+    const res = await productPromise;
     product.value = res;
     selectedImage.value = res.thumbnailUrl;
-    // gọi API lấy coupon khả dụng
-    const variantIds = res.variants.map((v) => v.id).join(",");
-    if (auth.isLoggedIn) {
-      if (variantIds) {
-        const couponRes = await $fetch(
-          `/coupons/available?variantIds=${variantIds}`,
-          {
-            baseURL: config.public.apiBase,
-            headers: { Authorization: `Bearer ${auth.accessToken}` }, // nếu cần login
-          }
-        );
-        coupons.value = couponRes;
-      }
+
+    // Coupon chỉ fetch nếu đã login và có variantIds
+    const variantIds = (res.variants || []).map((v) => v.id).join(",");
+    if (auth.isLoggedIn && variantIds) {
+      const couponRes = await $fetch(
+        `/coupons/available?variantIds=${variantIds}`,
+        {
+          baseURL: config.public.apiBase,
+          headers: { Authorization: `Bearer ${auth.accessToken}` },
+        }
+      );
+      coupons.value = couponRes;
     }
-    fetchReviews();
+
+    await reviewsPromise;
   } catch (e) {
     console.error("Lỗi load sản phẩm:", e);
   } finally {
@@ -670,4 +678,44 @@ const openCouponDetail = (couponId) => {
     showCouponDetail.value = true;
   }
 };
+
+const createInviteLink = async (couponId) => {
+  if (!auth.accessToken) {
+    alert("Bạn cần đăng nhập để tạo nhóm");
+    return;
+  }
+
+  try {
+    const res = await $fetch("/conversations/invite-links", {
+      method: "POST",
+      baseURL: config.public.apiBase,
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+      body: {
+        productId: product.value.id,
+        couponId,
+        frontendUrl: `${requestURL.origin}${config.app?.baseURL || "/"}`,
+      },
+    });
+
+    if (res.reused) {
+      if (res.isUsed) {
+        alert(
+          `Bạn đã có nhóm đang hoạt động!\nTên nhóm: ${res.conversationName}`
+        );
+      }
+    }
+
+    groupInviteLinks.value = {
+      ...groupInviteLinks.value,
+      [couponId]: res.inviteLink,
+    };
+  } catch (e) {
+    alert("Không thể tạo link mời: " + (e?.data?.message || e.message));
+  }
+};
+
+const formatPrice = (v) =>
+  new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(
+    v || 0
+  );
 </script>

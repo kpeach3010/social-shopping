@@ -109,7 +109,7 @@ export const getReviewsByProductIdService = async (
   limit = 3
 ) => {
   const offset = (page - 1) * limit;
-
+  // Chỉ lấy các trường cần thiết, join hợp lý
   const reviewsList = await db
     .select({
       id: reviews.id,
@@ -127,29 +127,26 @@ export const getReviewsByProductIdService = async (
     .limit(limit)
     .offset(offset);
 
+  // Prefetch media cho tất cả review bằng một query duy nhất
+  if (!reviewsList.length) return [];
   const reviewIds = reviewsList.map((r) => r.id);
-
-  const mediaList = reviewIds.length
-    ? await db
-        .select({
-          reviewId: reviewMedia.reviewId,
-          type: reviewMedia.type,
-          fileUrl: reviewMedia.fileUrl,
-        })
-        .from(reviewMedia)
-        .where(inArray(reviewMedia.reviewId, reviewIds))
-    : [];
+  const mediaList = await db
+    .select({
+      reviewId: reviewMedia.reviewId,
+      type: reviewMedia.type,
+      fileUrl: reviewMedia.fileUrl,
+    })
+    .from(reviewMedia)
+    .where(inArray(reviewMedia.reviewId, reviewIds));
 
   const mediaMap = new Map();
   for (const m of mediaList) {
     if (!mediaMap.has(m.reviewId)) mediaMap.set(m.reviewId, []);
     mediaMap.get(m.reviewId).push({ type: m.type, fileUrl: m.fileUrl });
   }
-
   for (const r of reviewsList) {
     r.media = mediaMap.get(r.id) || [];
   }
-
   return reviewsList;
 };
 

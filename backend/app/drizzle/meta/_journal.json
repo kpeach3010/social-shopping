@@ -379,6 +379,13 @@
       "when": 1767961366765,
       "tag": "0053_ordinary_paladin",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1768486332171,
+      "tag": "0054_glorious_silver_centurion",
+      "breakpoints": true
     }
   ]
 }

@@ -212,26 +212,35 @@ export const productVariants = pgTable(
         table.productId,
         table.colorId
       ),
+      idxVariantPrice: index("idx_variants_price").on(table.price),
+      idxVariantStock: index("idx_variants_stock").on(table.stock),
     };
   }
 );
 
-export const coupons = pgTable("coupons", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  code: varchar("code", { length: 50 }).notNull().unique(),
-  description: text("description"),
-  kind: kindEnum("kind").default("general"),
-  type: typeEnum("type").default("fixed"),
-  value: decimal("value", { precision: 12, scale: 2 }).notNull(),
-  startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
-  endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
-  usage_limit: integer("usage_limit"), // tong so lan su dung
-  used: integer("used").notNull().default(0), // da dung bao nhieu lan
-  perUserLimit: integer("per_user_limit"), // so lan su dung tren 1 user
-  minOrderTotal: decimal("min_order_total"), // gia tri don hang toi thieu de ap dung coupon
-  // so luong thanh vien toi da
-  maxMember: integer("max_member"),
-});
+export const coupons = pgTable(
+  "coupons",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    code: varchar("code", { length: 50 }).notNull().unique(),
+    description: text("description"),
+    kind: kindEnum("kind").default("general"),
+    type: typeEnum("type").default("fixed"),
+    value: decimal("value", { precision: 12, scale: 2 }).notNull(),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+    usage_limit: integer("usage_limit"), // tong so lan su dung
+    used: integer("used").notNull().default(0), // da dung bao nhieu lan
+    perUserLimit: integer("per_user_limit"), // so lan su dung tren 1 user
+    minOrderTotal: decimal("min_order_total"), // gia tri don hang toi thieu de ap dung coupon
+    // so luong thanh vien toi da
+    maxMember: integer("max_member"),
+  },
+  (table) => ({
+    idxCouponsStartsAt: index("idx_coupons_starts_at").on(table.startsAt),
+    idxCouponsEndsAt: index("idx_coupons_ends_at").on(table.endsAt),
+  })
+);
 
 export const couponProducts = pgTable(
   "coupon_products",
@@ -255,6 +264,7 @@ export const couponProducts = pgTable(
     idxCouponProduct: index("idx_coupon_products_product_id").on(
       table.productId
     ),
+    idxCouponCoupon: index("idx_coupon_products_coupon_id").on(table.couponId),
   })
 );
 
@@ -358,6 +368,12 @@ export const orderItems = pgTable(
   },
   (table) => ({
     idxOrderItemsOrder: index("idx_order_items_order_id").on(table.orderId),
+    idxOrderItemsProduct: index("idx_order_items_product_id").on(
+      table.productId
+    ),
+    idxOrderItemsVariant: index("idx_order_items_variant_id").on(
+      table.variantId
+    ),
   })
 );
 
@@ -623,6 +639,7 @@ export const reviews = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
+    productId: uuid("product_id").references(() => products.id), // Thêm productId để index nhanh hơn
   },
   (table) => ({
     // Ràng buộc: Mỗi order item chỉ được review 1 lần
@@ -636,6 +653,7 @@ export const reviews = pgTable(
     idxReviewsCreatedAt: index("idx_reviews_created_at").on(table.createdAt),
 
     idxReviewsUser: index("idx_reviews_user_id").on(table.userId),
+    idxReviewsProduct: index("idx_reviews_product_id").on(table.productId),
   })
 );
 

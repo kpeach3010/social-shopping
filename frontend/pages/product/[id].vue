@@ -326,25 +326,20 @@
 
                     <div
                       v-else
+                      :key="`video-${r.id}-${idx}`"
                       class="relative w-48 h-24 flex-shrink-0 rounded-lg overflow-hidden border cursor-pointer group"
                       @click="openMediaGallery(r.media, idx)"
                     >
-                      <video class="w-full h-full object-cover">
+                      <video
+                        class="w-full h-full object-cover"
+                        controls
+                        preload="metadata"
+                        @play="videoPlayStates[r.id + '-' + idx] = true"
+                        @pause="videoPlayStates[r.id + '-' + idx] = false"
+                        :key="`video-${r.id}-${idx}`"
+                      >
                         <source :src="m.fileUrl" type="video/mp4" />
                       </video>
-                      <div
-                        class="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition"
-                      >
-                        <svg
-                          class="w-8 h-8 text-white"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path
-                            d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"
-                          ></path>
-                        </svg>
-                      </div>
                     </div>
                   </template>
                 </div>
@@ -465,6 +460,8 @@ const currentGalleryMedia = ref([]);
 const currentMediaIndex = ref(null);
 const showCouponDetail = ref(false);
 const selectedCoupon = ref(null);
+const videoPlayStates = ref({});
+const videoHoverStates = ref({});
 
 const allImages = computed(() => {
   if (!product.value) return [];
@@ -510,6 +507,40 @@ const fetchReviews = async () => {
   }
 };
 
+const COUPON_CACHE_TTL = 10 * 60 * 1000; // 10 phút
+
+function getCouponCacheKey(variantIds) {
+  return `coupons_${variantIds}`;
+}
+
+async function fetchCouponsWithCache(variantIds) {
+  const cacheKey = getCouponCacheKey(variantIds);
+  const cached = localStorage.getItem(cacheKey);
+  if (cached) {
+    try {
+      const { data, expires } = JSON.parse(cached);
+      if (Date.now() < expires) {
+        return data;
+      } else {
+        localStorage.removeItem(cacheKey);
+      }
+    } catch {}
+  }
+  // Nếu không có cache hoặc cache hết hạn, fetch mới
+  const couponRes = await $fetch(
+    `/coupons/available?variantIds=${variantIds}`,
+    {
+      baseURL: config.public.apiBase,
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+    }
+  );
+  localStorage.setItem(
+    cacheKey,
+    JSON.stringify({ data: couponRes, expires: Date.now() + COUPON_CACHE_TTL })
+  );
+  return couponRes;
+}
+
 onMounted(async () => {
   try {
     // Gọi API sản phẩm, coupon, review song song
@@ -525,14 +556,7 @@ onMounted(async () => {
     // Coupon chỉ fetch nếu đã login và có variantIds
     const variantIds = (res.variants || []).map((v) => v.id).join(",");
     if (auth.isLoggedIn && variantIds) {
-      const couponRes = await $fetch(
-        `/coupons/available?variantIds=${variantIds}`,
-        {
-          baseURL: config.public.apiBase,
-          headers: { Authorization: `Bearer ${auth.accessToken}` },
-        }
-      );
-      coupons.value = couponRes;
+      coupons.value = await fetchCouponsWithCache(variantIds);
     }
 
     await reviewsPromise;

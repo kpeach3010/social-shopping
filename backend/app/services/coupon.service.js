@@ -123,10 +123,23 @@ export const getCouponByIdService = async (id) => {
 // Lấy tất cả coupon còn hiệu lực
 export const getValidCouponsService = async (userId = null) => {
   const now = new Date();
-
-  // Lấy coupon còn hạn và chưa hết usage_limit tổng
+  // Chỉ lấy các trường cần thiết
   const activeCoupons = await db
-    .select()
+    .select({
+      id: coupons.id,
+      code: coupons.code,
+      description: coupons.description,
+      kind: coupons.kind,
+      type: coupons.type,
+      value: coupons.value,
+      startsAt: coupons.startsAt,
+      endsAt: coupons.endsAt,
+      usage_limit: coupons.usage_limit,
+      used: coupons.used,
+      perUserLimit: coupons.perUserLimit,
+      minOrderTotal: coupons.minOrderTotal,
+      maxMember: coupons.maxMember,
+    })
     .from(coupons)
     .where(
       and(
@@ -210,10 +223,27 @@ export const getAvailableCouponsForProductsService = async ({
       ? true
       : uniqueProductIds.every((pid) => allowedSet.has(pid));
 
+    // Chỉ trả về các trường cần thiết cho FE
+    const couponData = {
+      id: c.id,
+      code: c.code,
+      description: c.description,
+      kind: c.kind,
+      type: c.type,
+      value: c.value,
+      startsAt: c.startsAt,
+      endsAt: c.endsAt,
+      usage_limit: c.usage_limit,
+      used: c.used,
+      perUserLimit: c.perUserLimit,
+      minOrderTotal: c.minOrderTotal,
+      maxMember: c.maxMember,
+      applicable,
+    };
     if (onlyApplicable) {
-      if (applicable) result.push({ ...c, applicable: true });
+      if (applicable) result.push(couponData);
     } else {
-      result.push({ ...c, applicable });
+      result.push(couponData);
     }
     return result;
   }, []);

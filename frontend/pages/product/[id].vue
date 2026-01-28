@@ -471,7 +471,7 @@ const allImages = computed(() => {
   return [
     product.value.thumbnailUrl,
     ...new Set(
-      variantImages.filter((img) => img && img !== product.value.thumbnailUrl)
+      variantImages.filter((img) => img && img !== product.value.thumbnailUrl),
     ),
   ];
 });
@@ -480,17 +480,27 @@ const uniqueColors = computed(() => {
   if (!product.value) return [];
   return [
     ...new Set(
-      (product.value.variants || []).map((v) => v.color).filter(Boolean)
+      (product.value.variants || []).map((v) => v.color).filter(Boolean),
     ),
   ];
 });
+const sizeOrder = ["S", "M", "L", "XL", "XXL"];
 const uniqueSizes = computed(() => {
   if (!product.value) return [];
-  return [
+  const sizes = [
     ...new Set(
-      (product.value.variants || []).map((v) => v.size).filter(Boolean)
+      (product.value.variants || []).map((v) => v.size).filter(Boolean),
     ),
   ];
+  // Sắp xếp theo bảng size chuẩn
+  return sizes.sort((a, b) => {
+    const idxA = sizeOrder.indexOf(a);
+    const idxB = sizeOrder.indexOf(b);
+    if (idxA === -1 && idxB === -1) return a.localeCompare(b);
+    if (idxA === -1) return 1;
+    if (idxB === -1) return -1;
+    return idxA - idxB;
+  });
 });
 
 // api hiển thị đánh giá
@@ -532,11 +542,11 @@ async function fetchCouponsWithCache(variantIds) {
     {
       baseURL: config.public.apiBase,
       headers: { Authorization: `Bearer ${auth.accessToken}` },
-    }
+    },
   );
   localStorage.setItem(
     cacheKey,
-    JSON.stringify({ data: couponRes, expires: Date.now() + COUPON_CACHE_TTL })
+    JSON.stringify({ data: couponRes, expires: Date.now() + COUPON_CACHE_TTL }),
   );
   return couponRes;
 }
@@ -582,7 +592,7 @@ const selectColor = (color) => {
 const isColorDisabled = (color) => {
   if (!selectedSize.value) return false; // nếu chưa chọn size thì tất cả color đều được chọn
   return !product.value.variants.some(
-    (v) => v.color === color && v.size === selectedSize.value
+    (v) => v.color === color && v.size === selectedSize.value,
   );
 };
 
@@ -590,7 +600,7 @@ const isColorDisabled = (color) => {
 const isSizeDisabled = (size) => {
   if (!selectedColor.value) return false; // nếu chưa chọn color thì tất cả size đều được chọn
   return !product.value.variants.some(
-    (v) => v.size === size && v.color === selectedColor.value
+    (v) => v.size === size && v.color === selectedColor.value,
   );
 };
 
@@ -601,7 +611,7 @@ const addToCart = async () => {
   }
 
   const variant = product.value.variants.find(
-    (v) => v.color === selectedColor.value && v.size === selectedSize.value
+    (v) => v.color === selectedColor.value && v.size === selectedSize.value,
   );
 
   if (!variant) {
@@ -638,7 +648,7 @@ const addToCart = async () => {
 
 const buyNow = () => {
   const variant = product.value.variants.find(
-    (v) => v.color === selectedColor.value && v.size === selectedSize.value
+    (v) => v.color === selectedColor.value && v.size === selectedSize.value,
   );
   if (!variant) {
     alert("Vui lòng chọn màu và size");
@@ -669,7 +679,7 @@ const calculateAverage = () => {
 };
 
 const totalReviewsPages = computed(() =>
-  Math.ceil(reviews.value.length / reviewsPerPage)
+  Math.ceil(reviews.value.length / reviewsPerPage),
 );
 
 const paginatedReviews = computed(() => {
@@ -678,7 +688,7 @@ const paginatedReviews = computed(() => {
 });
 
 const reviewPages = computed(() =>
-  Array.from({ length: totalReviewsPages.value }, (_, i) => i + 1)
+  Array.from({ length: totalReviewsPages.value }, (_, i) => i + 1),
 );
 
 const goToReviewPage = (p) => {
@@ -724,7 +734,7 @@ const createInviteLink = async (couponId) => {
     if (res.reused) {
       if (res.isUsed) {
         alert(
-          `Bạn đã có nhóm đang hoạt động!\nTên nhóm: ${res.conversationName}`
+          `Bạn đã có nhóm đang hoạt động!\nTên nhóm: ${res.conversationName}`,
         );
       }
     }
@@ -740,6 +750,6 @@ const createInviteLink = async (couponId) => {
 
 const formatPrice = (v) =>
   new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(
-    v || 0
+    v || 0,
   );
 </script>

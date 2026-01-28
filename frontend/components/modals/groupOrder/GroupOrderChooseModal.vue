@@ -384,9 +384,20 @@ const colors = computed(() => {
   return [...new Set(productDetail.value.variants.map((v) => v.color))];
 });
 
+const sizeOrder = ["S", "M", "L", "XL", "XXL"];
 const sizes = computed(() => {
   if (!productDetail.value?.variants) return [];
-  return [...new Set(productDetail.value.variants.map((v) => v.size))];
+  const rawSizes = [
+    ...new Set(productDetail.value.variants.map((v) => v.size)),
+  ];
+  return rawSizes.sort((a, b) => {
+    const idxA = sizeOrder.indexOf(a);
+    const idxB = sizeOrder.indexOf(b);
+    if (idxA === -1 && idxB === -1) return a.localeCompare(b);
+    if (idxA === -1) return 1;
+    if (idxB === -1) return -1;
+    return idxA - idxB;
+  });
 });
 
 const selectedVariant = computed(() =>

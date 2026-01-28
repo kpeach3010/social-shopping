@@ -84,12 +84,14 @@
               <button
                 v-for="color in colors"
                 :key="color"
-                @click="selectColor(color)"
+                @click="!isColorDisabled(color) && selectColor(color)"
+                :disabled="isColorDisabled(color)"
                 class="px-3 py-1 border text-sm font-medium transition rounded-md"
                 :class="[
                   selectedColor === color
                     ? 'bg-black text-white border-black'
                     : 'hover:bg-gray-100 border-gray-300 text-gray-800',
+                  isColorDisabled(color) ? 'opacity-40 cursor-not-allowed' : '',
                 ]"
               >
                 {{ color }}
@@ -106,12 +108,14 @@
               <button
                 v-for="size in sizes"
                 :key="size"
-                @click="selectedSize = size"
+                @click="!isSizeDisabled(size) && (selectedSize = size)"
+                :disabled="isSizeDisabled(size)"
                 class="px-3 py-1 border text-sm font-medium transition rounded-md"
                 :class="[
                   selectedSize === size
                     ? 'bg-black text-white border-black'
                     : 'hover:bg-gray-100 border-gray-300 text-gray-800',
+                  isSizeDisabled(size) ? 'opacity-40 cursor-not-allowed' : '',
                 ]"
               >
                 {{ size }}
@@ -272,10 +276,12 @@
         </button>
         <button
           @click="confirmChoose"
-          class="px-5 py-2 bg-black text-white hover:bg-gray-800 disabled:bg-gray-400 rounded-md text-sm font-medium"
-          :disabled="selectedItems.length === 0"
+          class="px-5 py-2 bg-black text-white hover:bg-gray-800 disabled:bg-gray-400 rounded-md text-sm font-medium flex items-center justify-center gap-2"
+          :disabled="selectedItems.length === 0 || isLoading"
+          :style="isLoading ? 'opacity:0.7;pointer-events:none;' : ''"
         >
-          Xác nhận lựa chọn
+          <span v-if="isLoading" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+          <span>{{ isLoading ? 'Đang xử lý...' : 'Xác nhận lựa chọn' }}</span>
         </button>
       </div>
     </div>
@@ -303,6 +309,36 @@ const quantity = ref(1);
 
 // Danh sách các biến thể đã chọn: [{ variantId, color, size, quantity }]
 const selectedItems = ref([]);
+
+// ====== Disable color nếu tất cả variant của màu đó hết kho hoặc không có variant nào còn hàng ======
+function isColorDisabled(color) {
+  if (!productDetail.value?.variants) return false;
+  // Nếu đã chọn size thì chỉ disable nếu không có variant còn hàng cho cả color+size
+  if (selectedSize.value) {
+    return !productDetail.value.variants.some(
+      (v) => v.color === color && v.size === selectedSize.value && v.stock > 0
+    );
+  }
+  // Nếu chưa chọn size, disable nếu không có variant nào còn hàng cho color này
+  return !productDetail.value.variants.some(
+    (v) => v.color === color && v.stock > 0
+  );
+}
+
+// ====== Disable size nếu tất cả variant của size đó hết kho hoặc không có variant nào còn hàng ======
+function isSizeDisabled(size) {
+  if (!productDetail.value?.variants) return false;
+  // Nếu đã chọn color thì chỉ disable nếu không có variant còn hàng cho cả color+size
+  if (selectedColor.value) {
+    return !productDetail.value.variants.some(
+      (v) => v.size === size && v.color === selectedColor.value && v.stock > 0
+    );
+  }
+  // Nếu chưa chọn color, disable nếu không có variant nào còn hàng cho size này
+  return !productDetail.value.variants.some(
+    (v) => v.size === size && v.stock > 0
+  );
+}
 
 // ====== Gọi API lấy chi tiết sản phẩm ======
 watch(
@@ -457,12 +493,14 @@ function removeItem(variantId) {
 }
 
 // ====== Gọi API chọn sản phẩm (multi-variant) ======
+
+const isLoading = ref(false);
+
 async function confirmChoose() {
-  if (selectedItems.value.length === 0) {
-    alert("Bạn chưa chọn biến thể nào.");
+  if (selectedItems.value.length === 0 || isLoading.value) {
     return;
   }
-
+  isLoading.value = true;
   try {
     const payloadItems = selectedItems.value.map((i) => ({
       variantId: i.variantId,
@@ -497,6 +535,8 @@ async function confirmChoose() {
   } catch (err) {
     console.error("Lỗi khi chọn sản phẩm:", err);
     alert(err?.data?.message || "Không thể chọn sản phẩm, vui lòng thử lại.");
+  } finally {
+    isLoading.value = false;
   }
 }
 </script>

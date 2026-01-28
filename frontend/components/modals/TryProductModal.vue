@@ -282,7 +282,7 @@ watch(
       clearPerson();
       clearResult();
     }
-  }
+  },
 );
 
 onBeforeUnmount(() => {
@@ -293,7 +293,7 @@ onBeforeUnmount(() => {
 const currentClothImage = computed(() => {
   if (!selectedColor.value) return "";
   const found = props.variantImages?.find(
-    (v) => v.color === selectedColor.value
+    (v) => v.color === selectedColor.value,
   );
   return found?.imageUrl || "";
 });
@@ -339,7 +339,7 @@ async function tryOn() {
     form.append(
       "person",
       personFile.value,
-      personFile.value.name || "person.png"
+      personFile.value.name || "person.png",
     );
     form.append("clothUrl", currentClothImage.value);
     form.append("clothType", "upper");

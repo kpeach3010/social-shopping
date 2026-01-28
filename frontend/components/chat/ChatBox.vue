@@ -5,12 +5,27 @@
   >
     <!-- Header -->
     <div class="flex items-center p-3 border-b border-gray-200 bg-gray-100">
-      <UserCircleIcon class="w-8 h-8 text-gray-500 mr-2" />
+      <span
+        v-if="partner"
+        class="mr-2 cursor-pointer"
+        @click="goToPartnerFeed"
+        title="Xem trang cá nhân"
+      >
+        <UserCircleIcon class="w-8 h-8 text-gray-500" />
+      </span>
+      <span v-else class="mr-2">
+        <UserCircleIcon class="w-8 h-8 text-gray-500" />
+      </span>
 
       <!-- Tên nhóm + trạng thái -->
       <div class="flex flex-col flex-1">
         <div class="flex items-center">
-          <span class="font-semibold text-gray-800 mr-2">
+          <span
+            class="font-semibold text-gray-800 mr-2"
+            :class="partner ? 'cursor-pointer hover:underline' : ''"
+            @click="partner && goToPartnerFeed()"
+            title="Xem trang cá nhân"
+          >
             {{ partner?.fullName || conversation?.name || "Chat" }}
           </span>
 
@@ -244,9 +259,12 @@
               chosenCount === totalMemberCount
             "
             @click="checkoutGroupOrder"
-            class="bg-black hover:bg-gray-800 text-white text-[10px] font-medium px-2.5 py-1 rounded-md transition"
+            :disabled="groupOrderActionLoading"
+            class="bg-black hover:bg-gray-800 text-white text-[10px] font-medium px-2.5 py-1 rounded-md transition flex items-center justify-center min-w-[90px]"
           >
-            Đặt đơn nhóm
+            <span v-if="groupOrderActionLoading" class="loader mr-1"></span>
+            <span v-if="groupOrderActionLoading">Đang đặt...</span>
+            <span v-else>Đặt đơn nhóm</span>
           </button>
 
           <button
@@ -256,9 +274,12 @@
               groupDetail?.groupOrder?.status === 'ordering'
             "
             @click="cancelGroupOrder"
-            class="bg-red-600 hover:bg-red-700 text-white text-[10px] font-medium px-2.5 py-1 rounded-md transition ml-1"
+            :disabled="groupOrderActionLoading"
+            class="bg-red-600 hover:bg-red-700 text-white text-[10px] font-medium px-2.5 py-1 rounded-md transition ml-1 flex items-center justify-center min-w-[70px]"
           >
-            Hủy đơn
+            <span v-if="groupOrderActionLoading" class="loader mr-1"></span>
+            <span v-if="groupOrderActionLoading">Đang huỷ...</span>
+            <span v-else>Hủy đơn</span>
           </button>
         </div>
       </div>
@@ -449,7 +470,7 @@ const selectedFile = ref(null);
 const docInput = ref(null);
 
 const isGroupChat = computed(
-  () => props.conversation?.type === "group" || !!groupDetail.value?.groupOrder
+  () => props.conversation?.type === "group" || !!groupDetail.value?.groupOrder,
 );
 
 const groupBoxExpanded = ref(false);
@@ -489,13 +510,13 @@ const mediaList = computed(() =>
   filteredMediaMessages.value.map((msg) => ({
     postFileUrl: getPublicUrl(msg.content),
     fileUrl: getPublicUrl(msg.content),
-  }))
+  })),
 );
 
 function openMediaModal(msg) {
   const index = filteredMediaMessages.value.findIndex(
     (m) =>
-      (m.id === msg.id && msg.id) || (m.tempId === msg.tempId && msg.tempId)
+      (m.id === msg.id && msg.id) || (m.tempId === msg.tempId && msg.tempId),
   );
   if (index !== -1) {
     selectedMediaIndex.value = index;
@@ -534,7 +555,7 @@ function handleChosen(data) {
   console.log("User đã chọn:", data);
 }
 const isGroupOrderLocked = computed(
-  () => groupDetail.value?.groupOrder?.status === "locked"
+  () => groupDetail.value?.groupOrder?.status === "locked",
 );
 
 const groupMembers = computed(() => groupDetail.value?.members || []);
@@ -542,14 +563,14 @@ const groupMembers = computed(() => groupDetail.value?.members || []);
 // tìm member tương ứng với user hiện tại
 const currentUserMember = computed(() =>
   groupMembers.value.find(
-    (m) => String(m.userId) === String(props.currentUserId)
-  )
+    (m) => String(m.userId) === String(props.currentUserId),
+  ),
 );
 
 const totalMemberCount = computed(() => groupMembers.value.length);
 
 const chosenCount = computed(
-  () => groupMembers.value.filter((m) => m.hasChosen).length
+  () => groupMembers.value.filter((m) => m.hasChosen).length,
 );
 
 // Chuẩn hóa dữ liệu hiển thị
@@ -620,6 +641,7 @@ function handleLeaveSuccess() {
   emit("close");
 }
 
+const groupOrderActionLoading = ref(false);
 async function checkoutGroupOrder() {
   const groupOrder = groupDetail.value?.groupOrder;
   if (!groupOrder?.id) return;
@@ -646,6 +668,7 @@ async function checkoutGroupOrder() {
   const ok = confirm("Xác nhận đặt đơn nhóm cho tất cả thành viên?");
   if (!ok) return;
 
+  groupOrderActionLoading.value = true;
   try {
     const res = await $fetch(`/group-orders/${groupOrder.id}/checkout`, {
       method: "PATCH",
@@ -658,6 +681,8 @@ async function checkoutGroupOrder() {
   } catch (err) {
     console.error("Lỗi khi đặt đơn nhóm:", err);
     alert(err?.data?.error || "Đặt đơn thất bại, vui lòng thử lại.");
+  } finally {
+    groupOrderActionLoading.value = false;
   }
 }
 
@@ -746,13 +771,19 @@ const visibleReaders = computed(() => {
     entries.filter(([_, info]) => {
       const t = info?.lastReadAt ? new Date(info.lastReadAt).getTime() : 0;
       return t >= lastMsgAt.value; // chỉ hiện khi đã đọc sau tin cuối
-    })
+    }),
   );
 });
 
 function handleScroll() {
   const el = scrollWrap.value;
   if (!el || !props.conversationId) return;
+}
+
+function goToPartnerFeed() {
+  if (props.partner && props.partner.id) {
+    router.push(`/feed/${props.partner.id}`);
+  }
 }
 
 async function loadMessagesForConversation(convId, abortController = null) {
@@ -791,10 +822,11 @@ async function cancelGroupOrder() {
 
   // 1. Xác nhận hành động
   const confirmed = confirm(
-    "Cảnh báo: Bạn có chắc chắn muốn hủy nhóm này không?\n\nTất cả đơn hàng của thành viên sẽ bị hủy bỏ."
+    "Cảnh báo: Bạn có chắc chắn muốn hủy nhóm này không?\n\nTất cả đơn hàng của thành viên sẽ bị hủy bỏ.",
   );
   if (!confirmed) return;
 
+  groupOrderActionLoading.value = true;
   try {
     // 2. Gọi API Cancel
     await $fetch(`/group-orders/${groupOrder.id}/cancel`, {
@@ -816,6 +848,8 @@ async function cancelGroupOrder() {
     const errorMsg =
       err?.data?.error || err?.message || "Không thể hủy nhóm lúc này.";
     alert(`Lỗi: ${errorMsg}`);
+  } finally {
+    groupOrderActionLoading.value = false;
   }
 }
 watch(
@@ -869,7 +903,7 @@ watch(
       groupDetail.value = null;
     }
   },
-  { immediate: true }
+  { immediate: true },
 );
 
 // Hàm kiểm tra xem đường dẫn/tên file có phải là video không
@@ -905,7 +939,7 @@ watch(
       }
     }
   },
-  { immediate: true }
+  { immediate: true },
 );
 
 // Socket listeners
@@ -1029,7 +1063,7 @@ onMounted(() => {
         lastReadAt,
         fullName: fullName || "Người dùng",
       };
-    }
+    },
   );
 
   nextTick(() => {
@@ -1041,7 +1075,7 @@ onMounted(() => {
 
     if (groupDetail.value && groupDetail.value.members) {
       const idx = groupDetail.value.members.findIndex(
-        (m) => String(m.userId) === String(payload.userId)
+        (m) => String(m.userId) === String(payload.userId),
       );
       if (idx !== -1) {
         groupDetail.value.members[idx] = {
@@ -1156,7 +1190,7 @@ function markAsRead() {
   window.dispatchEvent(
     new CustomEvent("mark-as-read", {
       detail: { conversationId: props.conversationId },
-    })
+    }),
   );
 }
 
@@ -1354,5 +1388,41 @@ onBeforeUnmount(() => {
   opacity: 0;
   max-height: 0;
   transform: scaleY(0.9);
+}
+/* Loader CSS cho nút */
+.loader {
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #fff;
+  border-radius: 50%;
+  width: 14px;
+  height: 14px;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+}
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+/* Loader CSS cho nút */
+.loader {
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #fff;
+  border-radius: 50%;
+  width: 14px;
+  height: 14px;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+}
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 </style>

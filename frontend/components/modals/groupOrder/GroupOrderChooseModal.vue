@@ -150,7 +150,7 @@
                 <span class="font-semibold text-gray-900">
                   {{
                     formatPrice(
-                      selectedVariant?.price || productDetail.price_default
+                      selectedVariant?.price || productDetail.price_default,
                     )
                   }}
                 </span>
@@ -280,8 +280,11 @@
           :disabled="selectedItems.length === 0 || isLoading"
           :style="isLoading ? 'opacity:0.7;pointer-events:none;' : ''"
         >
-          <span v-if="isLoading" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-          <span>{{ isLoading ? 'Đang xử lý...' : 'Xác nhận lựa chọn' }}</span>
+          <span
+            v-if="isLoading"
+            class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"
+          ></span>
+          <span>{{ isLoading ? "Đang xử lý..." : "Xác nhận lựa chọn" }}</span>
         </button>
       </div>
     </div>
@@ -316,12 +319,12 @@ function isColorDisabled(color) {
   // Nếu đã chọn size thì chỉ disable nếu không có variant còn hàng cho cả color+size
   if (selectedSize.value) {
     return !productDetail.value.variants.some(
-      (v) => v.color === color && v.size === selectedSize.value && v.stock > 0
+      (v) => v.color === color && v.size === selectedSize.value && v.stock > 0,
     );
   }
   // Nếu chưa chọn size, disable nếu không có variant nào còn hàng cho color này
   return !productDetail.value.variants.some(
-    (v) => v.color === color && v.stock > 0
+    (v) => v.color === color && v.stock > 0,
   );
 }
 
@@ -331,12 +334,12 @@ function isSizeDisabled(size) {
   // Nếu đã chọn color thì chỉ disable nếu không có variant còn hàng cho cả color+size
   if (selectedColor.value) {
     return !productDetail.value.variants.some(
-      (v) => v.size === size && v.color === selectedColor.value && v.stock > 0
+      (v) => v.size === size && v.color === selectedColor.value && v.stock > 0,
     );
   }
   // Nếu chưa chọn color, disable nếu không có variant nào còn hàng cho size này
   return !productDetail.value.variants.some(
-    (v) => v.size === size && v.stock > 0
+    (v) => v.size === size && v.stock > 0,
   );
 }
 
@@ -362,7 +365,7 @@ watch(
       console.error("Lỗi fetch sản phẩm:", err);
     }
   },
-  { immediate: true }
+  { immediate: true },
 );
 
 // ====== Danh sách ảnh: ưu tiên ảnh theo màu ======
@@ -388,12 +391,12 @@ const sizes = computed(() => {
 
 const selectedVariant = computed(() =>
   productDetail.value?.variants?.find(
-    (v) => v.color === selectedColor.value && v.size === selectedSize.value
-  )
+    (v) => v.color === selectedColor.value && v.size === selectedSize.value,
+  ),
 );
 
 const totalQuantity = computed(() =>
-  selectedItems.value.reduce((sum, item) => sum + item.quantity, 0)
+  selectedItems.value.reduce((sum, item) => sum + item.quantity, 0),
 );
 
 // ====== Xử lý chọn màu hiển thị ảnh variant tương ứng ======
@@ -472,7 +475,7 @@ function changeItemQty(variantId, newQty) {
   if (newQty <= 0) {
     // nếu = 0 thì xoá
     selectedItems.value = selectedItems.value.filter(
-      (i) => i.variantId !== variantId
+      (i) => i.variantId !== variantId,
     );
     return;
   }
@@ -488,7 +491,7 @@ function changeItemQty(variantId, newQty) {
 
 function removeItem(variantId) {
   selectedItems.value = selectedItems.value.filter(
-    (i) => i.variantId !== variantId
+    (i) => i.variantId !== variantId,
   );
 }
 
@@ -519,7 +522,7 @@ async function confirmChoose() {
         body: {
           items: payloadItems,
         },
-      }
+      },
     );
 
     console.log("Chọn sản phẩm (multi-variant) thành công:", res);

@@ -7,7 +7,7 @@ const router = express.Router();
 router.get(
   "/:conversationId",
   authenticate,
-  GroupOrderController.getGroupOrderDetailController
+  GroupOrderController.getGroupOrderDetailController,
 );
 
 // router.patch(
@@ -19,25 +19,31 @@ router.get(
 router.patch(
   "/:id/checkout",
   authenticate,
-  GroupOrderController.groupOrderCheckoutController
+  GroupOrderController.groupOrderCheckoutController,
 );
 
 router.patch(
   "/:groupOrderId/leave",
   authenticate,
-  GroupOrderController.leaveGroupController
+  GroupOrderController.leaveGroupController,
 );
 
 router.post(
   "/:groupOrderId/select-items",
   authenticate,
-  GroupOrderController.selectItemsController
+  GroupOrderController.selectItemsController,
 );
 
 router.patch(
   "/:id/cancel",
   authenticate,
-  GroupOrderController.cancelGroupOrderController
+  GroupOrderController.cancelGroupOrderController,
+);
+
+router.patch(
+  "/:groupOrderId/change-product",
+  authenticate,
+  GroupOrderController.changeGroupOrderProductController,
 );
 
 export default router;

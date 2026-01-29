@@ -6,6 +6,7 @@ import {
   selectItemsService,
   leaveConversationAfterDoneService,
   cancelGroupOrderAfterCheckoutService,
+  changeGroupOrderProductService,
 } from "../services/groupOrders.service.js";
 
 import { createSystemMessage } from "../services/message.service.js";
@@ -19,7 +20,7 @@ export const getGroupOrderDetailController = async (req, res) => {
     const { conversationId } = req.params;
     const groupOrderDetail = await getGroupOrderDetailService(
       userId,
-      conversationId
+      conversationId,
     );
     res.json(groupOrderDetail);
   } catch (error) {
@@ -140,7 +141,7 @@ export const leaveGroupController = async (req, res) => {
         if (String(socketUserId) === String(userId)) {
           socket.leave(conversationId); // Kick thực sự
           console.log(
-            `Kick socket ${socket.id} của user ${userId} ra khỏi phòng ${conversationId}`
+            `Kick socket ${socket.id} của user ${userId} ra khỏi phòng ${conversationId}`,
           );
         }
       }
@@ -339,5 +340,70 @@ export const cancelGroupOrderController = async (req, res) => {
   } catch (err) {
     console.error("Cancel Group Error:", err);
     res.status(400).json({ error: err.message });
+  }
+};
+
+// Đổi sản phẩm mua chung (chỉ trưởng nhóm, trạng thái pending/locked)
+export const changeGroupOrderProductController = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const groupOrderId = req.params.groupOrderId || req.params.id;
+    const { newProductId } = req.body;
+
+    if (!userId) return res.status(401).json({ error: "Chưa đăng nhập" });
+    if (!groupOrderId || !newProductId) {
+      return res
+        .status(400)
+        .json({ error: "Thiếu groupOrderId hoặc newProductId" });
+    }
+
+    // 1. Gọi service đổi sản phẩm
+    const result = await changeGroupOrderProductService({
+      userId,
+      groupOrderId,
+      newProductId,
+    });
+
+    // 2. Lấy conversationId để gửi socket và lưu message
+    const [conv] = await db
+      .select({ id: conversations.id })
+      .from(conversations)
+      .where(eq(conversations.groupOrderId, groupOrderId))
+      .limit(1);
+    const conversationId = conv?.id;
+
+    // 3. Lưu system message
+    let sysMsg = null;
+    const content =
+      "Trưởng nhóm đã đổi sản phẩm mua chung. Vui lòng chọn lại biến thể.";
+    if (conversationId) {
+      sysMsg = await createSystemMessage(conversationId, content);
+    }
+
+    // 4. Emit socket event cho FE
+    if (global.io && conversationId) {
+      global.io.to(conversationId).emit("group-order-product-changed", {
+        conversationId,
+        groupOrderId,
+        newProductId,
+        message: content,
+      });
+      // Emit luôn system message vào khung chat
+      if (sysMsg) {
+        global.io.to(conversationId).emit("message", {
+          id: sysMsg.id,
+          conversationId,
+          content,
+          type: "system",
+          senderId: "00000000-0000-0000-0000-000000000000",
+          createdAt: sysMsg.createdAt,
+        });
+      }
+    }
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("Lỗi đổi sản phẩm groupOrder:", err);
+    return res.status(400).json({ error: err.message });
   }
 };

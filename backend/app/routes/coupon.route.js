@@ -10,7 +10,7 @@ router.post(
   "/create-coupon",
   authenticate,
   hasRoles(Role.STAFF),
-  CouponController.createCouponController
+  CouponController.createCouponController,
 );
 
 router.get("/all-coupons", CouponController.getAllCouponsController);
@@ -18,23 +18,29 @@ router.get("/all-coupons", CouponController.getAllCouponsController);
 router.get(
   "/valid-coupons",
   authenticate,
-  CouponController.getValidCouponsController
+  CouponController.getValidCouponsController,
 );
 router.get(
   "/available",
   authenticate,
-  CouponController.getAvailableCouponsController
+  CouponController.getAvailableCouponsController,
 );
+// Lấy danh sách sản phẩm áp dụng cho coupon
+router.get(
+  "/products-by-coupon/:couponId",
+  CouponController.getProductsByCouponController,
+);
+
 router.delete(
   "/delete-coupon/:ids",
   authenticate,
-  CouponController.deleteCouponController
+  CouponController.deleteCouponController,
 );
 router.patch(
   "/update-coupon/:id",
   authenticate,
   hasRoles(Role.STAFF),
-  CouponController.updateCouponController
+  CouponController.updateCouponController,
 );
 
 router.get("/:id", authenticate, CouponController.getCouponByIdController);

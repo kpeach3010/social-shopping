@@ -77,7 +77,7 @@
                     Math.min(
                       (groupOrder.currentMember / groupOrder.targetMember) *
                         100,
-                      100
+                      100,
                     ) + '%',
                 }"
               ></div>
@@ -190,6 +190,23 @@
             <p class="text-gray-500 text-xs">Tồn kho: {{ product.stock }}</p>
           </div>
 
+          <!-- Nút đổi sản phẩm, chỉ trưởng nhóm mới thấy -->
+          <div
+            v-if="
+              auth.user?.id === groupOrder.creatorId &&
+              (groupOrder.status === 'pending' ||
+                groupOrder.status === 'locked')
+            "
+            class="mt-4 flex justify-center"
+          >
+            <button
+              @click="emit('open-select-product')"
+              class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow transition"
+            >
+              Đổi sản phẩm mua chung
+            </button>
+          </div>
+
           <!-- Coupon -->
           <div
             class="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg space-y-2 text-sm"
@@ -250,7 +267,7 @@ const props = defineProps({
   inviteToken: String,
 });
 
-const emit = defineEmits(["close", "leave-success"]);
+const emit = defineEmits(["close", "leave-success", "open-select-product"]);
 const auth = useAuthStore();
 const { $socket } = useNuxtApp();
 
@@ -261,7 +278,7 @@ const showInvite = ref(false);
 const fullInviteLink = computed(() =>
   props.inviteToken
     ? `${window.location.origin}/invite/${props.inviteToken}`
-    : null
+    : null,
 );
 
 function statusText(status) {

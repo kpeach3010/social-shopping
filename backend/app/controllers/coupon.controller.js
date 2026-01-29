@@ -1,3 +1,5 @@
+import { getProductsByCouponService } from "../services/coupon.service.js";
+
 import {
   createCouponService,
   getAllCouponsService,
@@ -121,5 +123,21 @@ export const updateCouponController = async (req, res) => {
     res.json(updatedCoupon);
   } catch (err) {
     res.status(400).json({ error: err.message });
+  }
+};
+
+// Lấy danh sách sản phẩm áp dụng cho coupon
+export const getProductsByCouponController = async (req, res) => {
+  try {
+    const { couponId } = req.params;
+    if (!couponId) return res.status(400).json({ error: "Thiếu couponId" });
+    const products = await getProductsByCouponService(couponId);
+    return res.status(200).json({
+      message: "Lấy danh sách sản phẩm theo coupon thành công",
+      data: products,
+    });
+  } catch (err) {
+    console.error("getProductsByCouponController:", err);
+    return res.status(400).json({ error: err.message });
   }
 };

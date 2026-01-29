@@ -418,6 +418,14 @@
       :inviteToken="groupDetail?.inviteToken"
       @close="showGroupDetail = false"
       @leave-success="handleLeaveSuccess"
+      @open-select-product="onOpenSelectProduct"
+    />
+    <SelectProductByCouponModal
+      v-if="showSelectProduct && groupDetail"
+      :open="showSelectProduct"
+      :coupon-id="groupDetail?.coupon?.id || groupDetail?.groupOrder?.couponId"
+      @close="showSelectProduct = false"
+      @select="onSelectNewProduct"
     />
     <GroupOrderChooseModal
       v-if="showChooseModal && groupDetail && groupDetail.product"
@@ -448,6 +456,7 @@ import { useAuthStore } from "@/stores/auth";
 import { useChatStore } from "@/stores/chat";
 import GroupOrderDetailModal from "../modals/groupOrder/GroupOrderDetailModal.vue";
 import GroupOrderChooseModal from "../modals/groupOrder/GroupOrderChooseModal.vue";
+import SelectProductByCouponModal from "../modals/groupOrder/SelectProductByCouponModal.vue";
 import MediaGalleryModal from "@/components/MediaGalleryModal.vue";
 import ChatImage from "@/components/chat/ChatImage.vue";
 import ChatFile from "@/components/chat/ChatFile.vue";
@@ -460,6 +469,7 @@ const readStatus = ref({}); // { userId: { lastReadAt, fullName } }
 const showGroupDetail = ref(false);
 const groupDetail = ref(null);
 const showChooseModal = ref(false);
+const showSelectProduct = ref(false);
 const showMediaModal = ref(false);
 const selectedMediaIndex = ref(0);
 let supabaseChannel;
@@ -1354,6 +1364,52 @@ async function openGroupDetail() {
     showGroupDetail.value = true;
   } catch (err) {
     console.error("Không thể lấy thông tin nhóm:", err);
+  }
+}
+
+function onOpenSelectProduct() {
+  // Đóng modal detail, mở modal chọn sản phẩm
+  showGroupDetail.value = false;
+  showSelectProduct.value = true;
+}
+
+async function onSelectNewProduct(product) {
+  const groupOrder = groupDetail.value?.groupOrder;
+  if (!groupOrder?.id) return;
+
+  const confirmChange = confirm(
+    "Xác nhận thay đổi sản phẩm mua chung cho nhóm này?\nTất cả lựa chọn hiện tại của thành viên sẽ bị reset.",
+  );
+  if (!confirmChange) {
+    // Người dùng hủy (Cancel) -> giữ modal chọn mở, không làm gì
+    return;
+  }
+  let changed = false;
+  try {
+    // Gọi API thay đổi sản phẩm
+    await $fetch(`/group-orders/${groupOrder.id}/change-product`, {
+      method: "PATCH",
+      baseURL: config.public.apiBase,
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+      body: { newProductId: product.id },
+    });
+
+    // Reload group detail để cập nhật đầy đủ dữ liệu
+    const res = await $fetch(`/group-orders/${props.conversationId}`, {
+      method: "GET",
+      baseURL: config.public.apiBase,
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+    });
+    groupDetail.value = res;
+    changed = true;
+    alert("Đã thay đổi sản phẩm mua chung.");
+  } catch (err) {
+    console.error("Lỗi khi thay đổi sản phẩm:", err);
+    alert(err?.data?.error || "Thay đổi sản phẩm thất bại.");
+  } finally {
+    showSelectProduct.value = false;
+    // Nếu thay đổi thành công thì không mở lại modal chi tiết
+    if (!changed) showGroupDetail.value = true;
   }
 }
 

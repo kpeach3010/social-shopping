@@ -145,8 +145,8 @@ export const getValidCouponsService = async (userId = null) => {
       and(
         lte(coupons.startsAt, now),
         gte(coupons.endsAt, now),
-        or(isNull(coupons.usage_limit), lt(coupons.used, coupons.usage_limit))
-      )
+        or(isNull(coupons.usage_limit), lt(coupons.used, coupons.usage_limit)),
+      ),
     );
 
   if (!userId) return activeCoupons;
@@ -364,4 +364,57 @@ export const deleteCouponService = async (ids) => {
     .where(inArray(coupons.id, ids))
     .returning();
   return { deletedCount: result.length };
+};
+
+// Lấy danh sách sản phẩm áp dụng cho coupon (đủ thông tin để đổi sản phẩm groupOrder)
+export const getProductsByCouponService = async (couponId) => {
+  // 1. Kiểm tra coupon tồn tại
+  const [coupon] = await db
+    .select()
+    .from(coupons)
+    .where(eq(coupons.id, couponId))
+    .limit(1);
+  if (!coupon) throw new Error("Coupon không tồn tại");
+
+  // 2. Lấy danh sách sản phẩm áp dụng cho coupon này
+  // Nếu không có record trong couponProducts thì hiểu là áp cho toàn bộ sản phẩm
+  const mappings = await db
+    .select({ productId: couponProducts.productId })
+    .from(couponProducts)
+    .where(eq(couponProducts.couponId, couponId));
+
+  let productsList = [];
+  if (mappings.length > 0) {
+    // Chỉ lấy các sản phẩm có trong mapping
+    const productIds = mappings.map((m) => m.productId);
+    productsList = await db
+      .select({
+        id: products.id,
+        name: products.name,
+        description: products.description,
+        price: products.price_default,
+        stock: products.stock,
+        thumbnailUrl: products.thumbnailUrl,
+        createdAt: products.createdAt,
+        updatedAt: products.updatedAt,
+      })
+      .from(products)
+      .where(inArray(products.id, productIds));
+  } else {
+    // Coupon áp cho toàn bộ sản phẩm
+    productsList = await db
+      .select({
+        id: products.id,
+        name: products.name,
+        description: products.description,
+        price: products.price_default,
+        stock: products.stock,
+        thumbnailUrl: products.thumbnailUrl,
+        createdAt: products.createdAt,
+        updatedAt: products.updatedAt,
+      })
+      .from(products);
+  }
+
+  return productsList;
 };

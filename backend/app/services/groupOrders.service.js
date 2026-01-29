@@ -115,12 +115,12 @@ export const getGroupOrderDetailService = async (userId, conversationId) => {
       groupOrderMembers,
       and(
         eq(groupOrderMembers.groupOrderId, groupOrder.id),
-        eq(groupOrderMembers.userId, conversationMembers.userId)
-      )
+        eq(groupOrderMembers.userId, conversationMembers.userId),
+      ),
     )
     .leftJoin(
       groupOrderMemberItems,
-      eq(groupOrderMemberItems.memberId, groupOrderMembers.id)
+      eq(groupOrderMemberItems.memberId, groupOrderMembers.id),
     )
     .where(eq(conversationMembers.conversationId, conversationId));
 
@@ -204,7 +204,7 @@ export const groupOrderCheckoutService = async (creatorId, groupOrderId) => {
     .from(groupOrderMembers)
     .leftJoin(
       groupOrderMemberItems,
-      eq(groupOrderMemberItems.memberId, groupOrderMembers.id)
+      eq(groupOrderMemberItems.memberId, groupOrderMembers.id),
     )
     .where(eq(groupOrderMembers.groupOrderId, groupOrderId));
 
@@ -239,7 +239,7 @@ export const groupOrderCheckoutService = async (creatorId, groupOrderId) => {
   for (const { userId, items } of userItemsMap.values()) {
     if (!items.length) {
       throw new Error(
-        `Có thành viên chưa có sản phẩm nào được chọn (userId=${userId})`
+        `Có thành viên chưa có sản phẩm nào được chọn (userId=${userId})`,
       );
     }
   }
@@ -262,7 +262,7 @@ export const groupOrderCheckoutService = async (creatorId, groupOrderId) => {
       null, // dùng địa chỉ mặc định
       "COD",
       false, // không phải từ giỏ hàng
-      groupOrderId
+      groupOrderId,
     );
 
     createdOrders.push(order);
@@ -317,8 +317,8 @@ export const leaveGroupOrderService = async ({ userId, groupOrderId }) => {
       .where(
         and(
           eq(groupOrderMembers.groupOrderId, groupOrderId),
-          eq(groupOrderMembers.userId, userId)
-        )
+          eq(groupOrderMembers.userId, userId),
+        ),
       );
 
     await tx
@@ -326,8 +326,8 @@ export const leaveGroupOrderService = async ({ userId, groupOrderId }) => {
       .where(
         and(
           eq(conversationMembers.conversationId, conversationId),
-          eq(conversationMembers.userId, userId)
-        )
+          eq(conversationMembers.userId, userId),
+        ),
       );
 
     // 5. Cập nhật số lượng thành viên (Fix 1: update count)
@@ -456,8 +456,8 @@ export const leaveConversationAfterDoneService = async ({
     .where(
       and(
         eq(conversationMembers.conversationId, conversationId),
-        eq(conversationMembers.userId, userId)
-      )
+        eq(conversationMembers.userId, userId),
+      ),
     );
 
   // 5) Kiểm tra xem còn ai trong nhóm không
@@ -510,7 +510,7 @@ export const selectItemsService = async ({ groupOrderId, userId, items }) => {
   // ================================
   if (groupOrder.status !== groupOrderStatusEnum.LOCKED) {
     throw new Error(
-      "Chỉ có thể chọn sản phẩm khi nhóm đang ở trạng thái LOCKED"
+      "Chỉ có thể chọn sản phẩm khi nhóm đang ở trạng thái LOCKED",
     );
   }
 
@@ -523,8 +523,8 @@ export const selectItemsService = async ({ groupOrderId, userId, items }) => {
     .where(
       and(
         eq(groupOrderMembers.groupOrderId, groupOrderId),
-        eq(groupOrderMembers.userId, userId)
-      )
+        eq(groupOrderMembers.userId, userId),
+      ),
     )
     .limit(1);
 
@@ -605,12 +605,12 @@ export const selectItemsService = async ({ groupOrderId, userId, items }) => {
         .select({ count: sql`COUNT(*)`.mapWith(Number) })
         .from(orders)
         .where(
-          and(eq(orders.userId, userId), eq(orders.couponCode, coupon.code))
+          and(eq(orders.userId, userId), eq(orders.couponCode, coupon.code)),
         );
 
       if (coupon.perUserLimit && count >= coupon.perUserLimit) {
         throw new Error(
-          "Bạn đã sử dụng mã giảm giá này tối đa số lần cho phép"
+          "Bạn đã sử dụng mã giảm giá này tối đa số lần cho phép",
         );
       }
 
@@ -623,7 +623,7 @@ export const selectItemsService = async ({ groupOrderId, userId, items }) => {
         }
         if (subtotal < coupon.minOrderTotal) {
           throw new Error(
-            `Giá trị tối thiểu để áp mã là ${coupon.minOrderTotal}`
+            `Giá trị tối thiểu để áp mã là ${coupon.minOrderTotal}`,
           );
         }
       }
@@ -680,7 +680,7 @@ export const selectItemsService = async ({ groupOrderId, userId, items }) => {
 // Trưởng nhóm hủy đơn nhóm khi tất cả đơn chưa được xác nhận
 export const cancelGroupOrderAfterCheckoutService = async (
   groupOrderId,
-  userId
+  userId,
 ) => {
   // 1. Lấy thông tin nhóm
   const [group] = await db
@@ -709,8 +709,8 @@ export const cancelGroupOrderAfterCheckoutService = async (
       and(
         eq(orders.groupOrderId, groupOrderId),
         ne(orders.status, "pending"),
-        ne(orders.status, "cancelled")
-      )
+        ne(orders.status, "cancelled"),
+      ),
     )
     .limit(1);
 
@@ -762,5 +762,143 @@ export const cancelGroupOrderAfterCheckoutService = async (
       groupOrderId,
       conversationId: conv ? conv.id : null,
     };
+  });
+};
+
+// Trưởng nhóm đổi sản phẩm mua chung khi nhóm ở trạng thái pending/locked
+export const changeGroupOrderProductService = async ({
+  userId,
+  groupOrderId,
+  newProductId,
+}) => {
+  // 1. Lấy thông tin group order
+  const [groupOrder] = await db
+    .select()
+    .from(groupOrders)
+    .where(eq(groupOrders.id, groupOrderId))
+    .limit(1);
+
+  if (!groupOrder) throw new Error("Nhóm không tồn tại");
+
+  // 2. Kiểm tra quyền trưởng nhóm
+  if (groupOrder.creatorId !== userId) {
+    throw new Error("Chỉ trưởng nhóm mới có quyền đổi sản phẩm");
+  }
+
+  // 3. Kiểm tra trạng thái nhóm
+  if (
+    groupOrder.status !== groupOrderStatusEnum.PENDING &&
+    groupOrder.status !== groupOrderStatusEnum.LOCKED
+  ) {
+    throw new Error(
+      "Chỉ được đổi sản phẩm khi nhóm ở trạng thái pending hoặc locked",
+    );
+  }
+
+  // 4. Kiểm tra productId mới
+  if (groupOrder.productId === newProductId) {
+    throw new Error("Sản phẩm mới phải khác sản phẩm hiện tại");
+  }
+
+  // 5. Kiểm tra sản phẩm mới tồn tại (và active nếu có status)
+  const [newProduct] = await db
+    .select()
+    .from(products)
+    .where(eq(products.id, newProductId))
+    .limit(1);
+  if (!newProduct) throw new Error("Sản phẩm mới không tồn tại");
+  // Nếu có trường status, kiểm tra active ở đây
+
+  // 6. Nếu nhóm đã có order (status >= ordering) thì chặn đổi
+  if (
+    groupOrder.status === groupOrderStatusEnum.ORDERING ||
+    groupOrder.status === groupOrderStatusEnum.COMPLETED ||
+    groupOrder.status === groupOrderStatusEnum.CANCELLED
+  ) {
+    throw new Error(
+      "Không thể đổi sản phẩm khi nhóm đã đặt đơn hoặc đã hoàn thành/hủy",
+    );
+  }
+
+  // 7. Kiểm tra coupon nếu có
+  if (groupOrder.couponId) {
+    // 7.1 Lấy thông tin coupon
+    const [coupon] = await db
+      .select()
+      .from(coupons)
+      .where(eq(coupons.id, groupOrder.couponId))
+      .limit(1);
+    if (!coupon) throw new Error("Mã giảm giá không tồn tại");
+
+    const now = new Date();
+    // 7.2 Kiểm tra thời gian hiệu lực
+    if (coupon.startsAt > now || coupon.endsAt < now) {
+      throw new Error("Mã giảm giá đã hết hạn");
+    }
+    // 7.3 Kiểm tra usage_limit nếu enforce ở đây
+    if (coupon.usage_limit && coupon.used >= coupon.usage_limit) {
+      throw new Error("Mã giảm giá đã hết lượt sử dụng");
+    }
+    // 7.4 Kiểm tra coupon áp dụng cho sản phẩm mới
+    // Nếu coupon có record trong coupon_products thì chỉ áp cho các sản phẩm đó
+    const mapping = await db
+      .select()
+      .from(couponProducts)
+      .where(eq(couponProducts.couponId, coupon.id));
+    if (mapping.length > 0) {
+      const allowed = mapping.map((m) => m.productId);
+      if (!allowed.includes(newProductId)) {
+        throw new Error("Sản phẩm mới không áp dụng được mã giảm giá hiện tại");
+      }
+    }
+    // Nếu không có record nào thì hiểu là áp cho mọi sản phẩm
+  }
+
+  // 8. Transaction: update productId, reset lựa chọn, update invite_links
+  return await db.transaction(async (tx) => {
+    // 8.1 Update group_orders.product_id
+    await tx
+      .update(groupOrders)
+      .set({ productId: newProductId, updatedAt: new Date() })
+      .where(eq(groupOrders.id, groupOrderId));
+
+    // 8.2 Lấy memberIds
+    const memberRows = await tx
+      .select({ id: groupOrderMembers.id })
+      .from(groupOrderMembers)
+      .where(eq(groupOrderMembers.groupOrderId, groupOrderId));
+    const memberIds = memberRows.map((m) => m.id);
+
+    if (memberIds.length > 0) {
+      // 8.3 Xoá toàn bộ lựa chọn đã chọn
+      await tx
+        .delete(groupOrderMemberItems)
+        .where(inArray(groupOrderMemberItems.memberId, memberIds));
+
+      // 8.4 Update group_order_members set has_chosen = false
+      await tx
+        .update(groupOrderMembers)
+        .set({ hasChosen: false, updatedAt: new Date() })
+        .where(inArray(groupOrderMembers.id, memberIds));
+    }
+
+    // 8.5 Update invite_links.productId (nếu có link)
+    await tx
+      .update(inviteLinks)
+      .set({ productId: newProductId })
+      .where(
+        eq(
+          inviteLinks.conversationId,
+          groupOrder.conversationId ||
+            (
+              await tx
+                .select({ conversationId: conversations.id })
+                .from(conversations)
+                .where(eq(conversations.groupOrderId, groupOrderId))
+                .limit(1)
+            )[0]?.conversationId,
+        ),
+      );
+    return { success: true };
   });
 };

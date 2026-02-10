@@ -113,6 +113,32 @@
               </div>
               <img src="/cdnlogo.com_vnpay.png" class="h-6 object-contain" />
             </label>
+
+            <label
+              v-if="orderInfo.order.paymentMethod === 'PAYPAL'"
+              class="flex items-center gap-3 p-3 border rounded-lg border-yellow-500 bg-yellow-50 ring-1 ring-yellow-500 cursor-default"
+            >
+              <input
+                type="radio"
+                checked
+                disabled
+                class="w-5 h-5 accent-yellow-500"
+              />
+              <div class="flex-1">
+                <div
+                  class="font-semibold text-yellow-700 flex items-center gap-2"
+                >
+                  PayPal / Quét QR
+                </div>
+                <div class="text-xs text-gray-500">
+                  Đã thanh toán qua PayPal
+                </div>
+              </div>
+              <img
+                src="https://www.paypalobjects.com/webstatic/icon/pp258.png"
+                class="h-7 object-contain"
+              />
+            </label>
           </div>
         </div>
 
@@ -139,7 +165,7 @@
             :key="it.variantId"
             class="flex items-center gap-4 border-b py-3"
           >
-            <div class="w-16 h-16 flex-shrink-0">
+            <div class="w-16 h-16 shrink-0">
               <img
                 :src="it.imageUrl"
                 class="w-full h-full object-cover rounded"
@@ -199,7 +225,7 @@
             :key="it.variantId"
             class="flex items-center gap-4 border-b py-3"
           >
-            <div class="w-16 h-16 flex-shrink-0">
+            <div class="w-16 h-16 shrink-0">
               <img
                 :src="it.imageUrl"
                 class="w-full h-full object-cover rounded"
@@ -332,16 +358,47 @@
                   class="font-semibold text-blue-700 flex items-center gap-2"
                 >
                   VNPay / Ngân hàng
-                  <!-- <span
-                    class="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded"
-                    >Ổn định</span
-                  > -->
                 </div>
                 <div class="text-xs text-gray-500">
                   Thẻ ATM nội địa, Thẻ quốc tế, Internet Banking
                 </div>
               </div>
               <img src="/cdnlogo.com_vnpay.png" class="h-6 object-contain" />
+            </label>
+
+            <!-- PayPal QR -->
+            <label
+              class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-all"
+              :class="
+                paymentMethod === 'PAYPAL'
+                  ? 'border-yellow-500 bg-yellow-50 ring-1 ring-yellow-500'
+                  : 'border-gray-200 hover:border-yellow-300'
+              "
+            >
+              <input
+                type="radio"
+                value="PAYPAL"
+                v-model="paymentMethod"
+                class="w-5 h-5 accent-yellow-500"
+              />
+              <div class="flex-1">
+                <div
+                  class="font-semibold text-yellow-700 flex items-center gap-2"
+                >
+                  PayPal / Quét QR
+                  <span
+                    class="bg-yellow-100 text-yellow-800 text-xs px-2 py-0.5 rounded"
+                    >Mới</span
+                  >
+                </div>
+                <div class="text-xs text-gray-500">
+                  Quét mã QR bằng app PayPal hoặc đăng nhập PayPal
+                </div>
+              </div>
+              <img
+                src="https://www.paypalobjects.com/webstatic/icon/pp258.png"
+                class="h-7 object-contain"
+              />
             </label>
           </div>
         </div>
@@ -419,6 +476,7 @@
             :class="{
               'bg-pink-600 hover:bg-pink-700': paymentMethod === 'MOMO',
               'bg-blue-600 hover:bg-blue-700': paymentMethod === 'VNPAY',
+              'bg-yellow-500 hover:bg-yellow-600': paymentMethod === 'PAYPAL',
               'bg-black hover:bg-gray-800': paymentMethod === 'COD',
             }"
             :disabled="loading"
@@ -429,8 +487,10 @@
                 paymentMethod === "MOMO"
                   ? "Thanh toán MoMo"
                   : paymentMethod === "VNPAY"
-                  ? "Thanh toán VNPay"
-                  : "Đặt đơn ngay"
+                    ? "Thanh toán VNPay"
+                    : paymentMethod === "PAYPAL"
+                      ? "Thanh toán PayPal"
+                      : "Đặt đơn ngay"
               }}
             </span>
           </button>
@@ -446,6 +506,40 @@
       @close="showCouponModal = false"
       @select="applyCoupon"
     />
+
+    <!-- Modal PayPal QR -->
+    <div
+      v-if="showPaypalModal"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+    >
+      <div
+        class="bg-white rounded-lg p-6 max-w-xs w-full flex flex-col items-center"
+      >
+        <h3 class="text-lg font-semibold mb-2 text-yellow-700">
+          Quét mã QR PayPal
+        </h3>
+        <p class="text-xs text-gray-500 mb-2 text-center">
+          Quét mã QR bằng app PayPal trên điện thoại.<br />
+          Trang sẽ tự cập nhật khi thanh toán xong.
+        </p>
+        <img :src="paypalQr" alt="PayPal QR" class="w-48 h-48 mb-3 border" />
+        <div class="flex items-center gap-2 text-xs text-gray-400 mb-2">
+          <span class="animate-spin">⏳</span> Đang chờ thanh toán...
+        </div>
+        <a
+          :href="paypalApprovalUrl"
+          target="_blank"
+          class="text-blue-600 underline mb-2 text-sm"
+          >Hoặc bấm vào đây để thanh toán</a
+        >
+        <button
+          @click="closePaypalModal"
+          class="mt-2 px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+        >
+          Đóng
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -477,9 +571,17 @@ const shipping = reactive({
 const orderInfo = ref(null);
 const loading = ref(false);
 
+// --- PayPal QR Modal ---
+const showPaypalModal = ref(false);
+const paypalQr = ref("");
+const paypalApprovalUrl = ref("");
+const paypalPendingOrderId = ref(null);
+const paypalOrderIdRef = ref(null); // PayPal order ID (khác DB order ID)
+let paypalPollingTimer = null;
+
 // --- Tính toán ---
 const subtotal = computed(() =>
-  checkoutItems.value.reduce((s, i) => s + Number(i.price) * i.quantity, 0)
+  checkoutItems.value.reduce((s, i) => s + Number(i.price) * i.quantity, 0),
 );
 
 const discountTotal = computed(() => {
@@ -497,17 +599,82 @@ const total = computed(() => subtotal.value - discountTotal.value + 20000); // s
 
 const formatPrice = (v) =>
   new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(
-    v || 0
+    v || 0,
   );
+
+// --- PayPal Polling: kiểm tra đơn hàng đã thanh toán chưa (khi quét QR trên điện thoại) ---
+const stopPaypalPolling = () => {
+  if (paypalPollingTimer) {
+    clearInterval(paypalPollingTimer);
+    paypalPollingTimer = null;
+  }
+};
+
+const closePaypalModal = () => {
+  showPaypalModal.value = false;
+  paypalOrderIdRef.value = null;
+  stopPaypalPolling();
+};
+
+const startPaypalPolling = (dbOrderId, resOrder) => {
+  stopPaypalPolling();
+  paypalPollingTimer = setInterval(async () => {
+    try {
+      // Gửi paypalOrderId để backend tự kiểm tra PayPal API & auto-capture
+      const queryParams = paypalOrderIdRef.value
+        ? `?paypalOrderId=${paypalOrderIdRef.value}`
+        : "";
+      const statusRes = await $fetch(
+        `/payment/paypal/check-status/${dbOrderId}${queryParams}`,
+        {
+          baseURL: config.public.apiBase,
+        },
+      );
+      if (statusRes.isPaid) {
+        // Đã thanh toán xong! Đóng modal, hiện bill thành công
+        stopPaypalPolling();
+        showPaypalModal.value = false;
+
+        // Lấy chi tiết đơn hàng mới nhất
+        const orderDetail = await $fetch(`/orders/${dbOrderId}`, {
+          baseURL: config.public.apiBase,
+          headers: { Authorization: `Bearer ${auth.accessToken}` },
+        });
+
+        orderInfo.value = {
+          message: "Thanh toán PayPal thành công!",
+          order: orderDetail,
+          orderItems: orderDetail.items,
+        };
+
+        if (fromCart.value && process.client) {
+          window.dispatchEvent(new CustomEvent("cart-updated"));
+        }
+        cleanUpCart();
+        loading.value = false;
+      }
+    } catch (e) {
+      console.warn("Polling PayPal status error:", e);
+    }
+  }, 3000); // Kiểm tra mỗi 3 giây
+};
+
+// Dọn dẹp khi rời trang
+onUnmounted(() => {
+  stopPaypalPolling();
+});
 
 // --- Load data từ localStorage ---
 onMounted(async () => {
-  // await new Promise((r) => setTimeout(r, 500));
   // 1. Kiểm tra nếu là VNPay redirect về
   if (route.query.vnp_ResponseCode) {
     await handleVnpayCallback();
+  }
+  // 2. Kiểm tra nếu là PayPal redirect về
+  else if (route.query.token && route.query.PayerID) {
+    await handlePaypalCallback();
   } else {
-    // 2. Nếu không phải, load giỏ hàng để khách mua
+    // 3. Nếu không phải, load giỏ hàng để khách mua
     initCart();
   }
 });
@@ -591,10 +758,40 @@ const checkout = async () => {
       } catch (errMomo) {
         console.error("Lỗi tạo link MoMo:", errMomo);
         alert(
-          "Hệ thống thanh toán MoMo đang gặp sự cố. Vui lòng chọn 'COD' hoặc thử lại sau."
+          "Hệ thống thanh toán MoMo đang gặp sự cố. Vui lòng chọn 'COD' hoặc thử lại sau.",
         );
       }
-    } // --- VNPAY ---
+    }
+    // --- PAYPAL ---
+    else if (paymentMethod.value === "PAYPAL") {
+      try {
+        const resPayment = await $fetch("/payment/paypal/create", {
+          method: "POST",
+          baseURL: config.public.apiBase,
+          headers: { Authorization: `Bearer ${auth.accessToken}` },
+          body: {
+            orderId: resOrder.order.id,
+            amount: Math.round(resOrder.order.total),
+          },
+        });
+        if (resPayment.qrUrl && resPayment.approvalUrl) {
+          // Hiển thị modal QR cho user quét hoặc click
+          paypalQr.value = resPayment.qrUrl;
+          paypalApprovalUrl.value = resPayment.approvalUrl;
+          paypalPendingOrderId.value = resOrder.order.id;
+          paypalOrderIdRef.value = resPayment.paypalOrderId; // Lưu PayPal order ID cho polling
+          showPaypalModal.value = true;
+          // Bắt đầu polling kiểm tra trạng thái (khi user quét QR trên ĐT)
+          startPaypalPolling(resOrder.order.id, resOrder);
+        } else {
+          throw new Error("Không nhận được link thanh toán từ PayPal");
+        }
+      } catch (errPaypal) {
+        console.error("Lỗi tạo link PayPal:", errPaypal);
+        alert("Lỗi kết nối PayPal. Vui lòng thử phương thức khác.");
+      }
+    }
+    // --- VNPAY ---
     else if (paymentMethod.value === "VNPAY") {
       try {
         const resPayment = await $fetch("/payment/vnpay/create", {
@@ -620,16 +817,15 @@ const checkout = async () => {
       // Thanh toán COD
       // Gán orderInfo để hiện thông báo thành công
       orderInfo.value = resOrder;
-
-      if (fromCart.value && process.client) {
-        window.dispatchEvent(new CustomEvent("cart-updated"));
-      }
-      cleanUpCart();
     }
+
+    // Kết thúc checkout
   } catch (e) {
     console.error("Checkout error:", e);
     if (e.response?._data?.error) {
       alert(e.response._data.error);
+    } else if (e.data?.error) {
+      alert(e.data.error);
     } else {
       alert("Có lỗi khi tạo đơn hàng, vui lòng thử lại.");
     }
@@ -676,6 +872,44 @@ const handleVnpayCallback = async () => {
   }
 };
 
+// Xử lý khi PayPal trả về
+const handlePaypalCallback = async () => {
+  loading.value = true;
+  try {
+    const verifyRes = await $fetch("/payment/paypal/return", {
+      method: "GET",
+      baseURL: config.public.apiBase,
+      params: route.query,
+    });
+
+    if (verifyRes.code === "00") {
+      // orderId trả về từ backend là DB order ID thật (không phải PayPal token)
+      const orderId = verifyRes.orderId;
+      const orderDetail = await $fetch(`/orders/${orderId}`, {
+        baseURL: config.public.apiBase,
+        headers: { Authorization: `Bearer ${auth.accessToken}` },
+      });
+
+      orderInfo.value = {
+        message: "Thanh toán PayPal thành công!",
+        order: orderDetail,
+        orderItems: orderDetail.items,
+      };
+
+      cleanUpCart();
+    } else {
+      alert(`Thanh toán thất bại: ${verifyRes.message}`);
+      initCart();
+    }
+  } catch (e) {
+    console.error(e);
+    alert("Có lỗi khi xác thực thanh toán PayPal.");
+    initCart();
+  } finally {
+    loading.value = false;
+  }
+};
+
 // Khởi tạo giỏ hàng
 const initCart = async () => {
   checkoutItems.value = JSON.parse(localStorage.getItem("checkoutItems")) || [];
@@ -695,7 +929,7 @@ const initCart = async () => {
         {
           headers: { Authorization: `Bearer ${auth.accessToken}` },
           baseURL: config.public.apiBase,
-        }
+        },
       );
     } catch (e) {}
   }

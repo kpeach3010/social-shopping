@@ -1,3 +1,229 @@
+import paypalConfig from "../config/paypal.js";
+import config from "../config/index.js";
+// Lấy tỷ giá VND -> USD realtime, fallback 25500 nếu lỗi
+const getVndToUsdRate = async () => {
+  try {
+    const res = await axios.get("https://open.er-api.com/v6/latest/USD");
+    const vndRate = res.data?.rates?.VND;
+    if (vndRate && vndRate > 0) return vndRate; // VD: 25500 (1 USD = 25500 VND)
+  } catch (e) {
+    console.warn("Không lấy được tỷ giá realtime, dùng fallback:", e.message);
+  }
+  return 25500; // Fallback
+};
+
+// PAYPAL QR/APPROVAL URL SERVICE
+export const createPaypalPaymentUrlService = async ({ orderId, amount }) => {
+  // Lấy access token từ PayPal
+  const baseUrl = paypalConfig.sandbox
+    ? "https://api-m.sandbox.paypal.com"
+    : "https://api-m.paypal.com";
+  try {
+    // 0. Lấy tỷ giá VND -> USD realtime
+    const vndPerUsd = await getVndToUsdRate();
+    const amountUsd = (amount / vndPerUsd).toFixed(2);
+    console.log(
+      `PayPal: ${amount} VND = ${amountUsd} USD (rate: 1 USD = ${vndPerUsd} VND)`,
+    );
+
+    // 1. Get access token
+    const basicAuth = Buffer.from(
+      `${paypalConfig.clientId}:${paypalConfig.clientSecret}`,
+    ).toString("base64");
+    const tokenRes = await axios.post(
+      `${baseUrl}/v1/oauth2/token`,
+      "grant_type=client_credentials",
+      {
+        headers: {
+          Authorization: `Basic ${basicAuth}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      },
+    );
+    const accessToken = tokenRes.data.access_token;
+
+    // 2. Create order
+    const orderRes = await axios.post(
+      `${baseUrl}/v2/checkout/orders`,
+      {
+        intent: "CAPTURE",
+        purchase_units: [
+          {
+            reference_id: orderId,
+            amount: {
+              currency_code: "USD",
+              value: amountUsd,
+            },
+            description: `Đơn hàng ${orderId} — ${new Intl.NumberFormat("vi-VN").format(amount)} VND`,
+            payee: { email_address: paypalConfig.businessEmail },
+          },
+        ],
+        application_context: {
+          // return_url chỉ về backend API — quan trọng cho phone scanning QR
+          // Khi user approve trên ĐT, PayPal redirect về backend → backend capture + cập nhật DB
+          return_url: `${config.backendUrl}/api/payment/paypal/return`,
+          cancel_url: `${config.frontendUrl}/checkout?paypal_cancel=1`,
+        },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+      },
+    );
+    const approvalUrl = orderRes.data.links.find(
+      (l) => l.rel === "approve",
+    )?.href;
+    // 3. Tạo QR từ link approve (dùng dịch vụ bên ngoài hoặc trả về link approve cho FE tự render QR)
+    // Có thể dùng https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=... để tạo QR
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(approvalUrl)}`;
+    return { qrUrl, approvalUrl, orderId: orderRes.data.id };
+  } catch (err) {
+    return { error: err.message, detail: err.response?.data };
+  }
+};
+
+// PAYPAL RETURN SERVICE — Capture payment + lấy orderId thật từ DB
+export const verifyPaypalReturnService = async (params) => {
+  // PayPal redirect về với token (= PayPal order ID) và PayerID
+  if (!params.token || !params.PayerID) {
+    return { isSuccess: false };
+  }
+
+  const paypalOrderId = params.token; // Đây là PayPal order ID, KHÔNG phải DB order ID
+
+  const baseUrl = paypalConfig.sandbox
+    ? "https://api-m.sandbox.paypal.com"
+    : "https://api-m.paypal.com";
+
+  try {
+    // 1. Lấy access token
+    const basicAuth = Buffer.from(
+      `${paypalConfig.clientId}:${paypalConfig.clientSecret}`,
+    ).toString("base64");
+    const tokenRes = await axios.post(
+      `${baseUrl}/v1/oauth2/token`,
+      "grant_type=client_credentials",
+      {
+        headers: {
+          Authorization: `Basic ${basicAuth}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      },
+    );
+    const accessToken = tokenRes.data.access_token;
+
+    // 2. Capture payment (bắt buộc để tiền thực sự chuyển)
+    const captureRes = await axios.post(
+      `${baseUrl}/v2/checkout/orders/${paypalOrderId}/capture`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    const captureData = captureRes.data;
+    console.log(
+      "PayPal Capture Response:",
+      JSON.stringify(captureData, null, 2),
+    );
+
+    if (captureData.status === "COMPLETED") {
+      // 3. Lấy reference_id = DB order ID thật
+      const dbOrderId = captureData.purchase_units?.[0]?.reference_id;
+      return { isSuccess: true, orderId: dbOrderId };
+    }
+
+    return { isSuccess: false, message: `Trạng thái: ${captureData.status}` };
+  } catch (err) {
+    console.error("PayPal Capture Error:", err.response?.data || err.message);
+    return { isSuccess: false, message: err.message };
+  }
+};
+// PAYPAL: Kiểm tra trạng thái order trên PayPal API, nếu APPROVED thì capture luôn
+export const checkAndCapturePaypalOrder = async (paypalOrderId) => {
+  const baseUrl = paypalConfig.sandbox
+    ? "https://api-m.sandbox.paypal.com"
+    : "https://api-m.paypal.com";
+
+  try {
+    // 1. Lấy access token
+    const basicAuth = Buffer.from(
+      `${paypalConfig.clientId}:${paypalConfig.clientSecret}`,
+    ).toString("base64");
+    const tokenRes = await axios.post(
+      `${baseUrl}/v1/oauth2/token`,
+      "grant_type=client_credentials",
+      {
+        headers: {
+          Authorization: `Basic ${basicAuth}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      },
+    );
+    const accessToken = tokenRes.data.access_token;
+
+    // 2. Kiểm tra trạng thái order trên PayPal
+    const orderRes = await axios.get(
+      `${baseUrl}/v2/checkout/orders/${paypalOrderId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    const orderData = orderRes.data;
+    console.log(`PayPal order ${paypalOrderId} status: ${orderData.status}`);
+
+    // Nếu đã COMPLETED (đã capture trước đó)
+    if (orderData.status === "COMPLETED") {
+      const dbOrderId = orderData.purchase_units?.[0]?.reference_id;
+      return { isPaid: true, orderId: dbOrderId };
+    }
+
+    // Nếu APPROVED (user đã approve trên ĐT nhưng chưa capture)
+    if (orderData.status === "APPROVED") {
+      // 3. Capture ngay
+      const captureRes = await axios.post(
+        `${baseUrl}/v2/checkout/orders/${paypalOrderId}/capture`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+
+      const captureData = captureRes.data;
+      console.log(
+        "PayPal Auto-Capture Response:",
+        JSON.stringify(captureData, null, 2),
+      );
+
+      if (captureData.status === "COMPLETED") {
+        const dbOrderId = captureData.purchase_units?.[0]?.reference_id;
+        return { isPaid: true, orderId: dbOrderId };
+      }
+    }
+
+    // Chưa approve (CREATED, SAVED, ...) hoặc lỗi
+    return { isPaid: false, status: orderData.status };
+  } catch (err) {
+    console.error(
+      "PayPal Check/Capture Error:",
+      err.response?.data || err.message,
+    );
+    return { isPaid: false, error: err.message };
+  }
+};
+
 // backend/app/services/momo.service.js
 import crypto from "crypto";
 import axios from "axios";
@@ -12,7 +238,7 @@ import { vnpayConfig } from "../config/vnpay.js";
 export const createMomoPaymentRequest = async (
   orderId,
   amount,
-  clientRedirectUrl
+  clientRedirectUrl,
 ) => {
   const {
     partnerCode,
@@ -61,7 +287,7 @@ export const createMomoPaymentRequest = async (
     return response.data; // Trả về data từ MoMo (bao gồm payUrl)
   } catch (error) {
     throw new Error(
-      `MoMo API Error: ${JSON.stringify(error.response?.data || error.message)}`
+      `MoMo API Error: ${JSON.stringify(error.response?.data || error.message)}`,
     );
   }
 };

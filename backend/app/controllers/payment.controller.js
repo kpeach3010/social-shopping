@@ -11,6 +11,7 @@ import { db } from "../db/client.js";
 import { orders } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import paypalConfig from "../config/paypal.js";
+import { sendOrderStatusNotification } from "../services/orderNotification.service.js";
 // 1. API TẠO LINK THANH TOÁN PAYPAL
 export const createPaypalPaymentUrl = async (req, res) => {
   try {
@@ -47,7 +48,11 @@ export const checkPaypalOrderStatus = async (req, res) => {
 
     // 1. Kiểm tra DB trước
     const [order] = await db
-      .select({ isPaid: orders.isPaid, paymentMethod: orders.paymentMethod })
+      .select({
+        isPaid: orders.isPaid,
+        paymentMethod: orders.paymentMethod,
+        userId: orders.userId,
+      })
       .from(orders)
       .where(eq(orders.id, orderId))
       .limit(1);
@@ -76,6 +81,13 @@ export const checkPaypalOrderStatus = async (req, res) => {
             status: "pending",
           })
           .where(eq(orders.id, paypalResult.orderId));
+
+        // Gửi thông báo thanh toán thành công
+        await sendOrderStatusNotification({
+          orderId: paypalResult.orderId,
+          userId: order.userId,
+          newStatus: "pending",
+        });
 
         return res.json({ isPaid: true, paymentMethod: "PAYPAL" });
       }
@@ -111,7 +123,7 @@ export const paypalReturn = async (req, res) => {
       `);
     }
     // Cập nhật DB: Đã trả tiền, chuyển awaiting_payment → pending để nhân viên duyệt
-    await db
+    const [updatedPaypalOrder] = await db
       .update(orders)
       .set({
         isPaid: true,
@@ -119,7 +131,17 @@ export const paypalReturn = async (req, res) => {
         paymentMethod: "PAYPAL",
         status: "pending",
       })
-      .where(eq(orders.id, orderId));
+      .where(eq(orders.id, orderId))
+      .returning({ userId: orders.userId });
+
+    // Gửi thông báo thanh toán thành công
+    if (updatedPaypalOrder?.userId) {
+      await sendOrderStatusNotification({
+        orderId,
+        userId: updatedPaypalOrder.userId,
+        newStatus: "pending",
+      });
+    }
 
     // Trả HTML thành công cho phone browser
     return res.send(`
@@ -186,7 +208,7 @@ export const checkMomoReturn = async (req, res) => {
     // 2. Xử lý trạng thái đơn hàng
     if (data.resultCode == 0) {
       // Logic Update DB: awaiting_payment → pending
-      await db
+      const [updatedMomoOrder] = await db
         .update(orders)
         .set({
           paymentMethod: "MOMO",
@@ -195,7 +217,17 @@ export const checkMomoReturn = async (req, res) => {
           paidAt: new Date(),
           status: "pending",
         })
-        .where(eq(orders.id, data.orderId));
+        .where(eq(orders.id, data.orderId))
+        .returning({ userId: orders.userId });
+
+      // Gửi thông báo thanh toán thành công
+      if (updatedMomoOrder?.userId) {
+        await sendOrderStatusNotification({
+          orderId: data.orderId,
+          userId: updatedMomoOrder.userId,
+          newStatus: "pending",
+        });
+      }
 
       return res.json({ code: "00", message: "Giao dịch thành công" });
     } else {
@@ -255,16 +287,25 @@ export const vnpayReturn = async (req, res) => {
     // Kiểm tra mã lỗi (00 là thành công)
     if (responseCode === "00") {
       // Cập nhật DB: awaiting_payment → pending để nhân viên duyệt
-      await db
+      const [updatedVnpayOrder] = await db
         .update(orders)
         .set({
           isPaid: true,
           paidAt: new Date(),
           paymentMethod: "VNPAY",
           status: "pending",
-          // status: "pending" (Giữ nguyên)
         })
-        .where(eq(orders.id, orderId));
+        .where(eq(orders.id, orderId))
+        .returning({ userId: orders.userId });
+
+      // Gửi thông báo thanh toán thành công
+      if (updatedVnpayOrder?.userId) {
+        await sendOrderStatusNotification({
+          orderId,
+          userId: updatedVnpayOrder.userId,
+          newStatus: "pending",
+        });
+      }
 
       return res.json({ code: "00", message: "Giao dịch thành công" });
     } else {

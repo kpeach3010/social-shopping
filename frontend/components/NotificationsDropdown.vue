@@ -33,8 +33,13 @@
             @click="handleNotificationClick(n)"
           >
             <div class="flex items-start gap-2">
+              <img
+                v-if="n.imageUrl"
+                :src="n.imageUrl"
+                class="w-10 h-10 rounded object-cover border flex-shrink-0 mt-0.5"
+              />
               <div
-                v-if="!n.isRead"
+                v-else-if="!n.isRead"
                 class="w-2 h-2 bg-blue-600 rounded-full mt-1.5 flex-shrink-0"
               ></div>
               <div class="flex-1 min-w-0">
@@ -120,7 +125,7 @@ const fetchNotifications = async () => {
       api("/notifications/unread-count"),
     ]);
     notifications.value = (list?.data || list || []).filter(
-      (n) => n.type !== "friend_request"
+      (n) => n.type !== "friend_request",
     );
     unreadCount.value = count?.data?.count ?? 0;
   } catch (err) {
@@ -148,6 +153,11 @@ const handleNotificationClick = async (n) => {
   }
   // Phát sự kiện để trang khác mở modal thay vì điều hướng
   window.dispatchEvent(new CustomEvent("notification-open", { detail: n }));
+
+  // Điều hướng nếu có actionUrl
+  if (n.actionUrl) {
+    router.push(n.actionUrl);
+  }
   open.value = false;
 };
 

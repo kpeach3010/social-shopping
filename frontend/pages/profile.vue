@@ -146,6 +146,31 @@
           </div>
 
           <!-- Danh sách đơn -->
+          <!-- Thông báo cho tab chờ thanh toán -->
+          <div
+            v-if="selectedStatus === 'awaiting_payment'"
+            class="mb-4 flex items-start gap-2 bg-orange-50 border border-orange-200 rounded-lg px-4 py-3 text-sm text-orange-700"
+          >
+            <svg
+              class="w-5 h-5 flex-shrink-0 mt-0.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <span
+              >Trong trường hợp chờ thanh toán, Shop chỉ giữ đơn trong
+              <strong>30 phút</strong> kể từ khi đặt đơn. Sau thời gian này, đơn
+              hàng sẽ tự động bị hủy.</span
+            >
+          </div>
+
           <div v-if="paginatedOrders.length" class="space-y-6">
             <div
               v-for="o in paginatedOrders"
@@ -493,7 +518,20 @@ const statuses = [
 const currentPage = ref(1);
 const perPage = 5;
 
+const route = useRoute();
+
 onMounted(async () => {
+  // Đọc query params để chuyển đúng tab (vd: từ thông báo click vào)
+  if (route.query.tab === "orders") {
+    currentTab.value = "orders";
+  }
+  if (route.query.status) {
+    const validStatus = statuses.find((s) => s.value === route.query.status);
+    if (validStatus) {
+      selectedStatus.value = validStatus.value;
+    }
+  }
+
   try {
     const res = await $fetch("/orders/my-orders", {
       baseURL: config.public.apiBase,

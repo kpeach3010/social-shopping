@@ -17,6 +17,7 @@ import {
 import { sql, eq, and, ne, inArray, desc, ilike } from "drizzle-orm";
 import { getAvailableCouponsForProductsService } from "./coupon.service.js";
 import supabase from "../../services/supbase/client.js";
+import { sendOrderStatusNotification } from "./orderNotification.service.js";
 
 export const restoreStockForItems = async (tx, items) => {
   for (const item of items) {
@@ -364,6 +365,14 @@ export const cancelOrderService = async (orderId, userId) => {
       .where(eq(productVariants.id, item.variantId));
   }
 
+  // 6) Gửi thông báo hủy đơn cho user
+  await sendOrderStatusNotification({
+    orderId,
+    userId,
+    newStatus: "cancelled",
+    customContent: `Đơn hàng #${orderId.slice(0, 8)} đã được hủy theo yêu cầu của bạn.`,
+  });
+
   return updated;
 };
 
@@ -573,6 +582,13 @@ export const updateOrderStatusService = async (orderId, action, staffId) => {
       .where(eq(orders.id, orderId))
       .returning();
 
+    // Gửi thông báo cho user
+    await sendOrderStatusNotification({
+      orderId,
+      userId: order.userId,
+      newStatus,
+    });
+
     // Auto-complete
     if (newStatus === "confirmed") {
       setTimeout(async () => {
@@ -589,6 +605,13 @@ export const updateOrderStatusService = async (orderId, action, staffId) => {
             .update(orders)
             .set({ status: "completed", updatedAt: new Date() })
             .where(eq(orders.id, orderId));
+
+          // Gửi thông báo hoàn thành
+          await sendOrderStatusNotification({
+            orderId,
+            userId: order.userId,
+            newStatus: "completed",
+          });
 
           if (order.groupOrderId) {
             await checkGroupOrderComplete(order.groupOrderId);
@@ -660,6 +683,20 @@ export const updateOrderStatusService = async (orderId, action, staffId) => {
 
         if (conv) updatedCurrentOrder.conversationId = conv.id;
 
+        // Gửi thông báo từ chối cho tất cả user trong nhóm
+        const groupOrdersList = await tx
+          .select({ id: orders.id, userId: orders.userId })
+          .from(orders)
+          .where(eq(orders.groupOrderId, order.groupOrderId));
+
+        for (const go of groupOrdersList) {
+          await sendOrderStatusNotification({
+            orderId: go.id,
+            userId: go.userId,
+            newStatus: "rejected",
+          });
+        }
+
         return updatedCurrentOrder;
       });
     }
@@ -679,6 +716,13 @@ export const updateOrderStatusService = async (orderId, action, staffId) => {
 
     //  Hoàn kho
     await restoreStockForItems(db, items);
+
+    // Gửi thông báo từ chối cho user
+    await sendOrderStatusNotification({
+      orderId,
+      userId: order.userId,
+      newStatus: "rejected",
+    });
 
     return updated;
   } else {

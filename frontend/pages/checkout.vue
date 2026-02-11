@@ -509,44 +509,14 @@
       @select="applyCoupon"
     />
 
-    <!-- Modal PayPal QR -->
-    <div
-      v-if="showPaypalModal"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-    >
-      <div
-        class="bg-white rounded-lg p-6 max-w-xs w-full flex flex-col items-center"
-      >
-        <h3 class="text-lg font-semibold mb-2 text-yellow-700">
-          Quét mã QR PayPal
-        </h3>
-        <p class="text-xs text-gray-500 mb-2 text-center">
-          Quét mã QR bằng app PayPal trên điện thoại.<br />
-          Trang sẽ tự cập nhật khi thanh toán xong.
-        </p>
-        <img :src="paypalQr" alt="PayPal QR" class="w-48 h-48 mb-3 border" />
-        <div class="flex items-center gap-2 text-xs text-gray-400 mb-2">
-          <span class="animate-spin">⏳</span> Đang chờ thanh toán...
-        </div>
-        <a
-          :href="paypalApprovalUrl"
-          target="_blank"
-          class="text-blue-600 underline mb-2 text-sm"
-          >Hoặc bấm vào đây để thanh toán</a
-        >
-        <button
-          @click="closePaypalModal"
-          class="mt-2 px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
-        >
-          Đóng
-        </button>
-      </div>
-    </div>
+    <!-- Modal thanh toán QR (tái sử dụng) -->
+    <PaymentQrModal ref="paymentModalRef" @paid="onCheckoutPaymentSuccess" />
   </div>
 </template>
 
 <script setup>
 import CouponModal from "@/components/modals/couponModal.vue";
+import PaymentQrModal from "@/components/modals/PaymentQrModal.vue";
 import { useAuthStore } from "@/stores/auth";
 
 const config = useRuntimeConfig();
@@ -573,13 +543,9 @@ const shipping = reactive({
 const orderInfo = ref(null);
 const loading = ref(false);
 
-// --- PayPal QR Modal ---
-const showPaypalModal = ref(false);
-const paypalQr = ref("");
-const paypalApprovalUrl = ref("");
+// --- Payment Modal (reusable) ---
+const paymentModalRef = ref(null);
 const paypalPendingOrderId = ref(null);
-const paypalOrderIdRef = ref(null); // PayPal order ID (khác DB order ID)
-let paypalPollingTimer = null;
 
 // --- Tính toán ---
 const subtotal = computed(() =>
@@ -604,67 +570,33 @@ const formatPrice = (v) =>
     v || 0,
   );
 
-// --- PayPal Polling: kiểm tra đơn hàng đã thanh toán chưa (khi quét QR trên điện thoại) ---
-const stopPaypalPolling = () => {
-  if (paypalPollingTimer) {
-    clearInterval(paypalPollingTimer);
-    paypalPollingTimer = null;
+// Callback khi PaymentQrModal báo đã thanh toán
+const onCheckoutPaymentSuccess = async ({ orderId, paymentMethod: pm }) => {
+  try {
+    const orderDetail = await $fetch(`/orders/${orderId}`, {
+      baseURL: config.public.apiBase,
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+    });
+    orderInfo.value = {
+      message:
+        pm === "PAYPAL"
+          ? "Thanh toán PayPal thành công!"
+          : pm === "MOMO"
+            ? "Thanh toán MoMo thành công!"
+            : "Thanh toán thành công!",
+      order: orderDetail,
+      orderItems: orderDetail.items,
+    };
+    if (fromCart.value && process.client) {
+      window.dispatchEvent(new CustomEvent("cart-updated"));
+    }
+    cleanUpCart();
+  } catch (e) {
+    console.warn("Lỗi lấy chi tiết đơn hàng sau thanh toán:", e);
+  } finally {
+    loading.value = false;
   }
 };
-
-const closePaypalModal = () => {
-  showPaypalModal.value = false;
-  paypalOrderIdRef.value = null;
-  stopPaypalPolling();
-};
-
-const startPaypalPolling = (dbOrderId, resOrder) => {
-  stopPaypalPolling();
-  paypalPollingTimer = setInterval(async () => {
-    try {
-      // Gửi paypalOrderId để backend tự kiểm tra PayPal API & auto-capture
-      const queryParams = paypalOrderIdRef.value
-        ? `?paypalOrderId=${paypalOrderIdRef.value}`
-        : "";
-      const statusRes = await $fetch(
-        `/payment/paypal/check-status/${dbOrderId}${queryParams}`,
-        {
-          baseURL: config.public.apiBase,
-        },
-      );
-      if (statusRes.isPaid) {
-        // Đã thanh toán xong! Đóng modal, hiện bill thành công
-        stopPaypalPolling();
-        showPaypalModal.value = false;
-
-        // Lấy chi tiết đơn hàng mới nhất
-        const orderDetail = await $fetch(`/orders/${dbOrderId}`, {
-          baseURL: config.public.apiBase,
-          headers: { Authorization: `Bearer ${auth.accessToken}` },
-        });
-
-        orderInfo.value = {
-          message: "Thanh toán PayPal thành công!",
-          order: orderDetail,
-          orderItems: orderDetail.items,
-        };
-
-        if (fromCart.value && process.client) {
-          window.dispatchEvent(new CustomEvent("cart-updated"));
-        }
-        cleanUpCart();
-        loading.value = false;
-      }
-    } catch (e) {
-      console.warn("Polling PayPal status error:", e);
-    }
-  }, 3000); // Kiểm tra mỗi 3 giây
-};
-
-// Dọn dẹp khi rời trang
-onUnmounted(() => {
-  stopPaypalPolling();
-});
 
 // --- Load data từ localStorage ---
 onMounted(async () => {
@@ -766,32 +698,12 @@ const checkout = async () => {
     }
     // --- PAYPAL ---
     else if (paymentMethod.value === "PAYPAL") {
-      try {
-        const resPayment = await $fetch("/payment/paypal/create", {
-          method: "POST",
-          baseURL: config.public.apiBase,
-          headers: { Authorization: `Bearer ${auth.accessToken}` },
-          body: {
-            orderId: resOrder.order.id,
-            amount: Math.round(resOrder.order.total),
-          },
-        });
-        if (resPayment.qrUrl && resPayment.approvalUrl) {
-          // Hiển thị modal QR cho user quét hoặc click
-          paypalQr.value = resPayment.qrUrl;
-          paypalApprovalUrl.value = resPayment.approvalUrl;
-          paypalPendingOrderId.value = resOrder.order.id;
-          paypalOrderIdRef.value = resPayment.paypalOrderId; // Lưu PayPal order ID cho polling
-          showPaypalModal.value = true;
-          // Bắt đầu polling kiểm tra trạng thái (khi user quét QR trên ĐT)
-          startPaypalPolling(resOrder.order.id, resOrder);
-        } else {
-          throw new Error("Không nhận được link thanh toán từ PayPal");
-        }
-      } catch (errPaypal) {
-        console.error("Lỗi tạo link PayPal:", errPaypal);
-        alert("Lỗi kết nối PayPal. Vui lòng thử phương thức khác.");
-      }
+      paypalPendingOrderId.value = resOrder.order.id;
+      paymentModalRef.value?.startPayment({
+        orderId: resOrder.order.id,
+        amount: Math.round(resOrder.order.total),
+        paymentMethod: "PAYPAL",
+      });
     }
     // --- VNPAY ---
     else if (paymentMethod.value === "VNPAY") {

@@ -228,6 +228,13 @@
                     Xem chi tiết
                   </button>
                   <button
+                    v-if="o.status === 'awaiting_payment'"
+                    class="px-4 py-2 rounded bg-yellow-500 text-white hover:bg-yellow-600 font-medium"
+                    @click="openPaymentModal(o)"
+                  >
+                    Thanh toán
+                  </button>
+                  <button
                     v-if="
                       (o.status === 'pending' ||
                         o.status === 'awaiting_payment') &&
@@ -378,6 +385,13 @@
         <!-- Footer -->
         <div class="sticky bottom-0 bg-white border-t px-6s py-4 text-right">
           <button
+            v-if="orderDetail?.status === 'awaiting_payment'"
+            class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 mr-2"
+            @click="openPaymentModal(orderDetail)"
+          >
+            Thanh toán
+          </button>
+          <button
             v-if="
               (orderDetail?.status === 'pending' ||
                 orderDetail?.status === 'awaiting_payment') &&
@@ -400,12 +414,38 @@
   />
 
   <ReviewModal ref="reviewModalRef" />
+
+  <PaymentQrModal ref="paymentModalRef" @paid="onPaymentSuccess" />
+
+  <!-- Toast thông báo thanh toán thành công -->
+  <Transition name="fade">
+    <div
+      v-if="paymentSuccessMessage"
+      class="fixed top-6 left-1/2 -translate-x-1/2 z-[100] bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 text-sm font-medium"
+    >
+      <svg
+        class="w-5 h-5 flex-shrink-0"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M5 13l4 4L19 7"
+        />
+      </svg>
+      {{ paymentSuccessMessage }}
+    </div>
+  </Transition>
 </template>
 
 <script setup>
 import { useAuthStore } from "@/stores/auth";
 import ProfileModal from "@/components/modals/ProfileModal.vue";
 import ReviewModal from "@/components/modals/ReviewModal.vue";
+import PaymentQrModal from "@/components/modals/PaymentQrModal.vue";
 
 const auth = useAuthStore();
 const config = useRuntimeConfig();
@@ -426,6 +466,9 @@ const showEditProfile = ref(false);
 
 // Modal đánh giá
 const reviewModalRef = ref(null);
+
+// Modal thanh toán QR
+const paymentModalRef = ref(null);
 
 // Mở/đóng modal cập nhật
 const openEditProfile = () => {
@@ -535,6 +578,37 @@ const formatPrice = (v) =>
 const orderTypeLabel = (order) =>
   order?.couponKind === "group" ? "Đơn nhóm" : "Đơn cá nhân";
 
+// Thanh toán đơn awaiting_payment
+const openPaymentModal = (order) => {
+  if (!paymentModalRef.value) return;
+  paymentModalRef.value.startPayment({
+    orderId: order.id,
+    amount: order.total,
+    paymentMethod: order.paymentMethod,
+  });
+};
+
+const paymentSuccessMessage = ref("");
+
+const onPaymentSuccess = ({ orderId }) => {
+  orders.value = orders.value.map((o) =>
+    o.id === orderId ? { ...o, status: "pending", isPaid: true } : o,
+  );
+  if (orderDetail.value?.id === orderId) {
+    orderDetail.value = {
+      ...orderDetail.value,
+      status: "pending",
+      isPaid: true,
+    };
+  }
+  // Hiển thị thông báo thành công
+  paymentSuccessMessage.value =
+    "Thanh toán thành công! Đơn hàng đã chuyển sang trạng thái chờ xử lý.";
+  setTimeout(() => {
+    paymentSuccessMessage.value = "";
+  }, 6000);
+};
+
 // hàm mở modal đánh giá
 const openReviewModal = (item) => {
   if (!reviewModalRef.value) return;
@@ -548,3 +622,14 @@ const openReviewModal = (item) => {
   });
 };
 </script>
+
+<style scoped>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>

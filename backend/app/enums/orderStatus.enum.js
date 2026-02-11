@@ -1,5 +1,6 @@
 export const orderStatus = Object.freeze({
-  PENDING: "pending",
+  AWAITING_PAYMENT: "awaiting_payment", // Chờ thanh toán
+  PENDING: "pending", // Chờ nhân viên xác nhận
   CONFIRMED: "confirmed",
   REJECTED: "rejected",
   COMPLETED: "completed",

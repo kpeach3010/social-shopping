@@ -33,6 +33,7 @@ export const conversationTypesEnum = pgEnum("conversation_types", [
   "group",
 ]);
 export const orderStatusEnum = pgEnum("order_status", [
+  "awaiting_payment",
   "pending",
   "confirmed",
   "rejected",
@@ -142,7 +143,7 @@ export const products = pgTable(
   (table) => ({
     idxProductCategory: index("idx_products_category_id").on(table.categoryId),
     idxProductCreatedAt: index("idx_products_created_at").on(table.createdAt),
-  })
+  }),
 );
 
 export const colors = pgTable(
@@ -160,9 +161,9 @@ export const colors = pgTable(
     idxColorsProduct: index("idx_colors_product_id").on(table.productId),
     idxColorsProductName: index("idx_colors_product_name").on(
       table.productId,
-      table.name
+      table.name,
     ),
-  })
+  }),
 );
 
 export const sizes = pgTable(
@@ -178,9 +179,9 @@ export const sizes = pgTable(
     idxSizesProduct: index("idx_sizes_product_id").on(table.productId),
     idxSizesProductName: index("idx_sizes_product_name").on(
       table.productId,
-      table.name
+      table.name,
     ),
-  })
+  }),
 );
 
 export const productVariants = pgTable(
@@ -205,17 +206,17 @@ export const productVariants = pgTable(
   (table) => {
     return {
       uqProductVariantColorSize: uniqueIndex(
-        "uq_product_variant_color_size"
+        "uq_product_variant_color_size",
       ).on(table.productId, table.colorId, table.sizeId),
       idxVariantProduct: index("idx_variants_product_id").on(table.productId),
       idxVariantProductColor: index("idx_variants_product_color").on(
         table.productId,
-        table.colorId
+        table.colorId,
       ),
       idxVariantPrice: index("idx_variants_price").on(table.price),
       idxVariantStock: index("idx_variants_stock").on(table.stock),
     };
-  }
+  },
 );
 
 export const coupons = pgTable(
@@ -239,7 +240,7 @@ export const coupons = pgTable(
   (table) => ({
     idxCouponsStartsAt: index("idx_coupons_starts_at").on(table.startsAt),
     idxCouponsEndsAt: index("idx_coupons_ends_at").on(table.endsAt),
-  })
+  }),
 );
 
 export const couponProducts = pgTable(
@@ -262,10 +263,10 @@ export const couponProducts = pgTable(
   (table) => ({
     pk: primaryKey({ columns: [table.couponId, table.productId] }),
     idxCouponProduct: index("idx_coupon_products_product_id").on(
-      table.productId
+      table.productId,
     ),
     idxCouponCoupon: index("idx_coupon_products_coupon_id").on(table.couponId),
-  })
+  }),
 );
 
 export const carts = pgTable(
@@ -276,7 +277,7 @@ export const carts = pgTable(
   },
   (table) => ({
     idxCartUser: index("idx_carts_user_id").on(table.userId),
-  })
+  }),
 );
 
 export const cartItems = pgTable(
@@ -292,10 +293,10 @@ export const cartItems = pgTable(
     return {
       upCartVariant: uniqueIndex("uq_cart_variant").on(
         table.cartId,
-        table.variantId
+        table.variantId,
       ),
     };
-  }
+  },
 );
 
 export const orders = pgTable(
@@ -321,7 +322,7 @@ export const orders = pgTable(
       scale: 2,
     }).default("0"), // Tổng tiền giảm giá áp dụng
     shippingFee: decimal("shipping_fee", { precision: 12, scale: 2 }).default(
-      "0"
+      "0",
     ), // Tiền ship
 
     couponCode: varchar("coupon_code", { length: 40 }), // snapshot mã coupon
@@ -347,7 +348,7 @@ export const orders = pgTable(
     idxOrdersUser: index("idx_orders_user_id").on(table.userId),
     idxOrdersGroup: index("idx_orders_group_order_id").on(table.groupOrderId),
     idxOrdersCreatedAt: index("idx_orders_created_at").on(table.createdAt),
-  })
+  }),
 );
 
 export const orderItems = pgTable(
@@ -369,12 +370,12 @@ export const orderItems = pgTable(
   (table) => ({
     idxOrderItemsOrder: index("idx_order_items_order_id").on(table.orderId),
     idxOrderItemsProduct: index("idx_order_items_product_id").on(
-      table.productId
+      table.productId,
     ),
     idxOrderItemsVariant: index("idx_order_items_variant_id").on(
-      table.variantId
+      table.variantId,
     ),
-  })
+  }),
 );
 
 // Thong tin nhom mua chung, status
@@ -393,16 +394,16 @@ export const groupOrders = pgTable(
   },
   (table) => ({
     idxGroupOrdersProduct: index("idx_group_orders_product_id").on(
-      table.productId
+      table.productId,
     ),
     idxGroupOrdersCreator: index("idx_group_orders_creator_id").on(
-      table.creatorId
+      table.creatorId,
     ),
     idxGroupOrdersStatusCreated: index("idx_group_orders_status_created").on(
       table.status,
-      table.createdAt
+      table.createdAt,
     ),
-  })
+  }),
 );
 
 // Chi tiết thành viên trong nhóm mua chung, chọn variant, qty
@@ -426,14 +427,14 @@ export const groupOrderMembers = pgTable(
     return {
       uqGroupOrderUser: uniqueIndex("uq_group_order_user").on(
         table.groupOrderId,
-        table.userId
+        table.userId,
       ),
 
       idxGroupOrderMembersGroup: index("idx_group_order_members_group_id").on(
-        table.groupOrderId
+        table.groupOrderId,
       ),
     };
-  }
+  },
 );
 
 export const groupOrderMemberItems = pgTable(
@@ -456,12 +457,12 @@ export const groupOrderMemberItems = pgTable(
     // 1 member chỉ có đúng 1 dòng cho mỗi variant
     uqMemberVariant: uniqueIndex("uq_member_variant").on(
       table.memberId,
-      table.variantId
+      table.variantId,
     ),
     idxMemberItemsMember: index("idx_group_order_member_items_member_id").on(
-      table.memberId
+      table.memberId,
     ),
-  })
+  }),
 );
 
 // chat schema
@@ -491,13 +492,13 @@ export const inviteLinks = pgTable(
     uqInviteToken: uniqueIndex("uq_invite_links_token").on(table.token),
 
     idxInviteCreatorProductCoupon: index(
-      "idx_invite_creator_product_coupon"
+      "idx_invite_creator_product_coupon",
     ).on(table.creatorId, table.productId, table.couponId),
 
     idxInviteExpiresAt: index("idx_invite_links_expires_at").on(
-      table.expiresAt
+      table.expiresAt,
     ),
-  })
+  }),
 );
 
 // room chat (1-1, group)
@@ -527,12 +528,12 @@ export const conversations = pgTable(
   (table) => ({
     idxConversationsType: index("idx_conversations_type").on(table.type),
     idxConversationsGroupOrder: index("idx_conversations_group_order_id").on(
-      table.groupOrderId
+      table.groupOrderId,
     ),
     idxConversationsInviteToken: index("idx_conversations_invite_token").on(
-      table.inviteToken
+      table.inviteToken,
     ),
-  })
+  }),
 );
 
 // ai thuoc ve conversation nao
@@ -554,16 +555,16 @@ export const conversationMembers = pgTable(
     return {
       uqConversationUser: uniqueIndex("uq_conversation_user").on(
         table.conversationId,
-        table.userId
+        table.userId,
       ),
       idxConversationMembersUser: index("idx_conversation_members_user_id").on(
-        table.userId
+        table.userId,
       ),
       idxConversationMembersConversation: index(
-        "idx_conversation_members_conversation_id"
+        "idx_conversation_members_conversation_id",
       ).on(table.conversationId),
     };
-  }
+  },
 );
 
 // tin nhan trong conversation
@@ -588,11 +589,11 @@ export const messages = pgTable(
   },
   (table) => ({
     idxMessagesConversationCreated: index(
-      "idx_messages_conversation_created"
+      "idx_messages_conversation_created",
     ).on(table.conversationId, table.createdAt),
 
     idxMessagesSender: index("idx_messages_sender_id").on(table.senderId),
-  })
+  }),
 );
 
 // thời điểm người dùng đọc tin nhắn trong conversation
@@ -619,7 +620,7 @@ export const messageReads = pgTable(
   },
   (table) => ({
     pk: primaryKey({ columns: [table.userId, table.conversationId] }),
-  })
+  }),
 );
 
 // Đánh giá sản phẩm sau khi mua
@@ -644,17 +645,17 @@ export const reviews = pgTable(
   (table) => ({
     // Ràng buộc: Mỗi order item chỉ được review 1 lần
     uniqueOrderItem: uniqueIndex("unique_review_per_order_item").on(
-      table.orderItemId
+      table.orderItemId,
     ),
     idxReviewsOrderItem: index("idx_reviews_order_item_id").on(
-      table.orderItemId
+      table.orderItemId,
     ),
 
     idxReviewsCreatedAt: index("idx_reviews_created_at").on(table.createdAt),
 
     idxReviewsUser: index("idx_reviews_user_id").on(table.userId),
     idxReviewsProduct: index("idx_reviews_product_id").on(table.productId),
-  })
+  }),
 );
 
 export const reviewMedia = pgTable("review_media", {
@@ -698,7 +699,7 @@ export const posts = pgTable(
   },
   (table) => ({
     idxPostsAuthor: index("idx_posts_author_id").on(table.authorId),
-  })
+  }),
 );
 
 export const postMedia = pgTable(
@@ -720,7 +721,7 @@ export const postMedia = pgTable(
   },
   (table) => ({
     idxPostMediaPost: index("idx_post_media_post_id").on(table.postId),
-  })
+  }),
 );
 
 export const postProducts = pgTable(
@@ -738,9 +739,9 @@ export const postProducts = pgTable(
     pk: primaryKey({ columns: [t.postId, t.productId] }),
     idxPostProductsPost: index("idx_post_products_post_id").on(t.postId),
     idxPostProductsProduct: index("idx_post_products_product_id").on(
-      t.productId
+      t.productId,
     ),
-  })
+  }),
 );
 
 // Like, cmt bài viết
@@ -761,7 +762,7 @@ export const postLikes = pgTable(
   (table) => ({
     // Mỗi user chỉ like 1 lần trên 1 bài viết
     uqPostLike: uniqueIndex("uq_post_like").on(table.postId, table.userId),
-  })
+  }),
 );
 
 export const postComments = pgTable(
@@ -773,7 +774,7 @@ export const postComments = pgTable(
       .references(() => posts.id, { onDelete: "cascade" }),
     parentCommentId: uuid("parent_comment_id").references(
       () => postComments.id,
-      { onDelete: "cascade" } // Xóa comment cha cũng xóa reply
+      { onDelete: "cascade" }, // Xóa comment cha cũng xóa reply
     ), // Null nếu là bình luận chính, có ID nếu là reply
     authorId: uuid("author_id")
       .notNull()
@@ -789,9 +790,9 @@ export const postComments = pgTable(
   (table) => ({
     idxPostCommentsPost: index("idx_post_comments_post_id").on(table.postId),
     idxPostCommentsParent: index("idx_post_comments_parent_id").on(
-      table.parentCommentId
+      table.parentCommentId,
     ),
-  })
+  }),
 );
 
 export const postCommentLikes = pgTable(
@@ -811,9 +812,9 @@ export const postCommentLikes = pgTable(
   (table) => ({
     uqCommentLike: uniqueIndex("uq_comment_like").on(
       table.commentId,
-      table.userId
+      table.userId,
     ),
-  })
+  }),
 );
 
 // Kết bạn giữa các user
@@ -843,9 +844,9 @@ export const friendRequests = pgTable(
     // Không cho gửi trùng request
     uqFriendRequest: uniqueIndex("uq_friend_request").on(
       t.senderId,
-      t.receiverId
+      t.receiverId,
     ),
-  })
+  }),
 );
 
 // Danh sách bạn bè
@@ -866,7 +867,7 @@ export const friendships = pgTable(
   },
   (t) => ({
     pk: primaryKey({ columns: [t.userId, t.friendId] }),
-  })
+  }),
 );
 
 // Thông báo

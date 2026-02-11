@@ -23,9 +23,11 @@
             <p>
               <strong>Trạng thái:</strong>
               {{
-                orderInfo.order.status === "pending"
-                  ? "Chờ xác nhận"
-                  : orderInfo.order.status
+                orderInfo.order.status === "awaiting_payment"
+                  ? "Chờ thanh toán"
+                  : orderInfo.order.status === "pending"
+                    ? "Chờ xác nhận"
+                    : orderInfo.order.status
               }}
             </p>
             <p>

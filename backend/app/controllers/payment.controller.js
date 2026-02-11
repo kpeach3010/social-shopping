@@ -66,13 +66,14 @@ export const checkPaypalOrderStatus = async (req, res) => {
       const paypalResult = await checkAndCapturePaypalOrder(paypalOrderId);
 
       if (paypalResult.isPaid && paypalResult.orderId) {
-        // Capture thành công → cập nhật DB
+        // Capture thành công → cập nhật DB: awaiting_payment → pending
         await db
           .update(orders)
           .set({
             isPaid: true,
             paidAt: new Date(),
             paymentMethod: "PAYPAL",
+            status: "pending",
           })
           .where(eq(orders.id, paypalResult.orderId));
 
@@ -109,13 +110,14 @@ export const paypalReturn = async (req, res) => {
         <p style="color:#666;margin-top:1rem">Bạn có thể đóng trang này.</p></div></body></html>
       `);
     }
-    // Cập nhật DB: Đã trả tiền, giữ status Pending để nhân viên duyệt
+    // Cập nhật DB: Đã trả tiền, chuyển awaiting_payment → pending để nhân viên duyệt
     await db
       .update(orders)
       .set({
         isPaid: true,
         paidAt: new Date(),
         paymentMethod: "PAYPAL",
+        status: "pending",
       })
       .where(eq(orders.id, orderId));
 
@@ -183,7 +185,7 @@ export const checkMomoReturn = async (req, res) => {
 
     // 2. Xử lý trạng thái đơn hàng
     if (data.resultCode == 0) {
-      // Logic Update DB vẫn để ở đây hoặc tách ra order.service.js tùy bạn
+      // Logic Update DB: awaiting_payment → pending
       await db
         .update(orders)
         .set({
@@ -191,6 +193,7 @@ export const checkMomoReturn = async (req, res) => {
           updatedAt: new Date(),
           isPaid: true,
           paidAt: new Date(),
+          status: "pending",
         })
         .where(eq(orders.id, data.orderId));
 
@@ -251,13 +254,14 @@ export const vnpayReturn = async (req, res) => {
 
     // Kiểm tra mã lỗi (00 là thành công)
     if (responseCode === "00") {
-      // Cập nhật DB: Đã trả tiền, nhưng vẫn giữ status Pending để nhân viên duyệt
+      // Cập nhật DB: awaiting_payment → pending để nhân viên duyệt
       await db
         .update(orders)
         .set({
           isPaid: true,
           paidAt: new Date(),
           paymentMethod: "VNPAY",
+          status: "pending",
           // status: "pending" (Giữ nguyên)
         })
         .where(eq(orders.id, orderId));

@@ -97,8 +97,8 @@
                   auth.user?.gender === "male"
                     ? "Nam"
                     : auth.user?.gender === "female"
-                    ? "Nữ"
-                    : ""
+                      ? "Nữ"
+                      : ""
                 }}
               </p>
             </div>
@@ -158,6 +158,8 @@
                 <span
                   class="px-3 py-1 rounded-full text-sm"
                   :class="{
+                    'bg-orange-100 text-orange-700':
+                      o.status === 'awaiting_payment',
                     'bg-yellow-100 text-yellow-700': o.status === 'pending',
                     'bg-blue-100 text-blue-700': o.status === 'confirmed',
                     'bg-red-100 text-red-700': o.status === 'rejected',
@@ -226,7 +228,11 @@
                     Xem chi tiết
                   </button>
                   <button
-                    v-if="o.status === 'pending' && o.couponKind !== 'group'"
+                    v-if="
+                      (o.status === 'pending' ||
+                        o.status === 'awaiting_payment') &&
+                      o.couponKind !== 'group'
+                    "
                     class="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700"
                     @click="cancelOrder(o.id)"
                   >
@@ -373,7 +379,8 @@
         <div class="sticky bottom-0 bg-white border-t px-6s py-4 text-right">
           <button
             v-if="
-              orderDetail?.status === 'pending' &&
+              (orderDetail?.status === 'pending' ||
+                orderDetail?.status === 'awaiting_payment') &&
               orderDetail?.couponKind !== 'group'
             "
             class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 mr-2"
@@ -431,6 +438,7 @@ const closeEditProfile = () => {
 };
 
 const statuses = [
+  { value: "awaiting_payment", label: "Chờ thanh toán" },
   { value: "pending", label: "Đang chờ xác nhận" },
   { value: "confirmed", label: "Đã xác nhận" },
   { value: "rejected", label: "Bị từ chối" },
@@ -455,11 +463,11 @@ onMounted(async () => {
 });
 
 const filteredOrders = computed(() =>
-  orders.value.filter((o) => o.status === selectedStatus.value)
+  orders.value.filter((o) => o.status === selectedStatus.value),
 );
 
 const totalPages = computed(() =>
-  Math.ceil(filteredOrders.value.length / perPage)
+  Math.ceil(filteredOrders.value.length / perPage),
 );
 
 const paginatedOrders = computed(() => {
@@ -468,7 +476,7 @@ const paginatedOrders = computed(() => {
 });
 
 const pages = computed(() =>
-  Array.from({ length: totalPages.value }, (_, i) => i + 1)
+  Array.from({ length: totalPages.value }, (_, i) => i + 1),
 );
 
 const goToPage = (p) => {
@@ -510,7 +518,7 @@ const cancelOrder = async (orderId) => {
       headers: { Authorization: `Bearer ${auth.accessToken}` },
     });
     orders.value = orders.value.map((o) =>
-      o.id === orderId ? { ...o, status: "cancelled" } : o
+      o.id === orderId ? { ...o, status: "cancelled" } : o,
     );
     alert("Đơn hàng đã được hủy");
   } catch (e) {
@@ -521,7 +529,7 @@ const cancelOrder = async (orderId) => {
 
 const formatPrice = (v) =>
   new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(
-    Number(v) || 0
+    Number(v) || 0,
   );
 
 const orderTypeLabel = (order) =>

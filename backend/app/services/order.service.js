@@ -75,7 +75,7 @@ export const checkoutService = async (
   shipping,
   paymentMethod = "COD",
   fromCart = true,
-  groupOrderId = null
+  groupOrderId = null,
 ) => {
   if (!items || items.length === 0) {
     throw new Error("Đơn hàng phải có ít nhất 1 sản phẩm");
@@ -160,7 +160,7 @@ export const checkoutService = async (
 
     console.log(
       "VariantIds gửi coupon service:",
-      items.map((i) => i.variantId)
+      items.map((i) => i.variantId),
     );
     console.log("Valid coupons:", validCoupons);
 
@@ -180,12 +180,12 @@ export const checkoutService = async (
         })
         .from(orders)
         .where(
-          and(eq(orders.userId, userId), eq(orders.couponCode, couponCode))
+          and(eq(orders.userId, userId), eq(orders.couponCode, couponCode)),
         );
 
       if (count >= coupon.perUserLimit) {
         throw new Error(
-          `Coupon đã vượt quá số lần sử dụng cho mỗi người (${coupon.perUserLimit} lần)`
+          `Coupon đã vượt quá số lần sử dụng cho mỗi người (${coupon.perUserLimit} lần)`,
         );
       }
     }
@@ -193,7 +193,7 @@ export const checkoutService = async (
     // Kiểm tra giá trị đơn hàng
     if (coupon.minOrderTotal && subtotal < coupon.minOrderTotal) {
       throw new Error(
-        `Đơn hàng phải đạt tối thiểu ${coupon.minOrderTotal} mới được áp mã`
+        `Đơn hàng phải đạt tối thiểu ${coupon.minOrderTotal} mới được áp mã`,
       );
     }
 
@@ -207,13 +207,19 @@ export const checkoutService = async (
   const shippingFee = 20000; // demo
   const total = subtotal - discountTotal + shippingFee;
 
-  // 6) Insert order
+  // 6) Xác định status ban đầu dựa trên phương thức thanh toán
+  // COD → pending (chờ nhân viên duyệt luôn)
+  // Online (MOMO, VNPAY, PAYPAL) → awaiting_payment (chờ thanh toán xong mới chuyển pending)
+  const initialStatus =
+    paymentMethod === "COD" ? "pending" : "awaiting_payment";
+
+  // 7) Insert order
   const [order] = await db
     .insert(orders)
     .values({
       userId,
       groupOrderId,
-      status: "pending",
+      status: initialStatus,
       paymentMethod,
       subtotal,
       discountTotal,
@@ -297,8 +303,8 @@ export const checkoutService = async (
         .where(
           and(
             eq(cartItems.cartId, cart.id),
-            inArray(cartItems.variantId, variantIds)
-          )
+            inArray(cartItems.variantId, variantIds),
+          ),
         );
     }
   }
@@ -331,9 +337,11 @@ export const cancelOrderService = async (orderId, userId) => {
     throw new Error("Không có quyền hủy đơn hàng này");
   }
 
-  // 3) Chỉ cho phép hủy khi pending
-  if (order.status !== "pending") {
-    throw new Error("Chỉ có thể hủy đơn khi đang ở trạng thái pending");
+  // 3) Chỉ cho phép hủy khi pending hoặc awaiting_payment
+  if (order.status !== "pending" && order.status !== "awaiting_payment") {
+    throw new Error(
+      "Chỉ có thể hủy đơn khi đang ở trạng thái chờ thanh toán hoặc chờ xác nhận",
+    );
   }
 
   // 4) Cập nhật trạng thái thành cancelled
@@ -453,7 +461,7 @@ export const getOrdersOverviewForStaffService = async () => {
     .from(orders)
     .leftJoin(
       conversations,
-      eq(conversations.groupOrderId, orders.groupOrderId)
+      eq(conversations.groupOrderId, orders.groupOrderId),
     )
     .orderBy(desc(orders.createdAt));
 
@@ -601,8 +609,10 @@ export const updateOrderStatusService = async (orderId, action, staffId) => {
 
   // Nếu từ chối đơn
   else if (action === "reject") {
-    if (order.status !== "pending") {
-      throw new Error("Chỉ có thể từ chối đơn khi đang pending");
+    if (order.status !== "pending" && order.status !== "awaiting_payment") {
+      throw new Error(
+        "Chỉ có thể từ chối đơn khi đang chờ thanh toán hoặc chờ xác nhận",
+      );
     }
 
     // A. Nếu là ĐƠN NHÓM -> Dùng Transaction hủy cả nhóm

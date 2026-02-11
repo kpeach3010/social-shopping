@@ -24,6 +24,7 @@ const config = useRuntimeConfig();
 
 const statusOptions = [
   { value: "all", label: "Tất cả" },
+  { value: "awaiting_payment", label: "Chờ thanh toán" },
   { value: "pending", label: "Đang chờ xác nhận" },
   { value: "confirmed", label: "Đã xác nhận" },
   { value: "rejected", label: "Bị từ chối" },
@@ -33,6 +34,8 @@ const statusOptions = [
 
 const statusLabel = (status) => {
   switch (status) {
+    case "awaiting_payment":
+      return "Chờ thanh toán";
     case "pending":
       return "Đang chờ xác nhận";
     case "confirmed":
@@ -79,7 +82,7 @@ const filteredOrders = computed(() => {
 });
 
 const totalPages = computed(() =>
-  Math.ceil(filteredOrders.value.length / perPage)
+  Math.ceil(filteredOrders.value.length / perPage),
 );
 const paginatedOrders = computed(() => {
   const start = (currentPage.value - 1) * perPage;
@@ -305,6 +308,8 @@ const searchOrders = async () => {
                 <td class="px-4 py-3">
                   <span
                     :class="{
+                      'bg-orange-100 text-orange-700 px-2 py-1 rounded-full':
+                        o.status === 'awaiting_payment',
                       'bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full':
                         o.status === 'pending',
                       'bg-blue-100 text-blue-700 px-2 py-1 rounded-full':
@@ -346,6 +351,11 @@ const searchOrders = async () => {
                 <!-- Hành động -->
                 <td class="px-4 py-3 text-right">
                   <div class="flex justify-end gap-2">
+                    <span
+                      v-if="o.status === 'awaiting_payment'"
+                      class="text-sm text-orange-600 italic"
+                      >Chờ thanh toán...</span
+                    >
                     <button
                       v-if="o.status === 'pending'"
                       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-green-600 bg-green-600 text-white text-base font-medium hover:bg-green-700 active:bg-green-800 transition"
@@ -355,7 +365,10 @@ const searchOrders = async () => {
                       <span class="text-sm font-medium">Xác nhận</span>
                     </button>
                     <button
-                      v-if="o.status === 'pending'"
+                      v-if="
+                        o.status === 'pending' ||
+                        o.status === 'awaiting_payment'
+                      "
                       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-red-600 bg-red-600 text-white text-base font-medium hover:bg-red-700 active:bg-red-800 transition"
                       @click.stop="rejectOrder(o.id)"
                     >

@@ -8,7 +8,7 @@ import {
   checkAndCapturePaypalOrder,
 } from "../services/payment.service.js";
 import { db } from "../db/client.js";
-import { orders } from "../db/schema.js";
+import { orders, groupOrders, conversations } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import paypalConfig from "../config/paypal.js";
 import { sendOrderStatusNotification } from "../services/orderNotification.service.js";
@@ -320,3 +320,276 @@ export const vnpayReturn = async (req, res) => {
     res.status(500).json({ code: "99", message: "Lỗi Server" });
   }
 };
+
+// GROUP ORDER PAYMENT ENDPOINTS
+
+// 1. API TẠO LINK THANH TOÁN PAYPAL CHO GROUP ORDER
+export const createGroupOrderPaypalPayment = async (req, res) => {
+  try {
+    const { groupOrderId, amount } = req.body;
+    const userId = req.user?.id;
+
+    if (!groupOrderId || !amount || !userId) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    // Verify user is the leader of this group order
+    const [groupOrder] = await db
+      .select({
+        id: groupOrders.id,
+        creatorId: groupOrders.creatorId,
+        status: groupOrders.status,
+      })
+      .from(groupOrders)
+      .where(eq(groupOrders.id, groupOrderId))
+      .limit(1);
+
+    if (!groupOrder) {
+      return res.status(404).json({ error: "Group order not found" });
+    }
+
+    if (groupOrder.creatorId !== userId) {
+      return res
+        .status(403)
+        .json({ error: "Only group leader can make payment" });
+    }
+
+    if (groupOrder.status !== "awaiting_payment") {
+      return res
+        .status(400)
+        .json({ error: "Group order is not awaiting payment" });
+    }
+
+    // Create PayPal payment using group order ID as reference
+    const result = await createPaypalPaymentUrlService({
+      orderId: `group_${groupOrderId}`, // Prefix to differentiate from regular orders
+      amount,
+      redirectUrl: req.body.redirectUrl || "",
+    });
+
+    if (result && result.qrUrl) {
+      return res.json({
+        qrUrl: result.qrUrl,
+        approvalUrl: result.approvalUrl,
+        paypalOrderId: result.orderId,
+      });
+    } else {
+      return res
+        .status(400)
+        .json({ error: "Could not create PayPal payment", detail: result });
+    }
+  } catch (err) {
+    console.error("Group Order PayPal Payment Controller Error:", err.message);
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+// 2. API KIỂM TRA TRẠNG THÁI THANH TOÁN GROUP ORDER
+export const checkGroupOrderPaymentStatus = async (req, res) => {
+  try {
+    const { groupOrderId } = req.params;
+    const { paypalOrderId } = req.query;
+    const userId = req.user?.id;
+
+    // Verify user is the leader
+    const [groupOrder] = await db
+      .select({
+        id: groupOrders.id,
+        creatorId: groupOrders.creatorId,
+        status: groupOrders.status,
+      })
+      .from(groupOrders)
+      .where(eq(groupOrders.id, groupOrderId))
+      .limit(1);
+
+    if (!groupOrder) {
+      return res.status(404).json({ error: "Group order not found" });
+    }
+
+    if (groupOrder.creatorId !== userId) {
+      return res
+        .status(403)
+        .json({ error: "Only group leader can check payment status" });
+    }
+
+    // If already paid (ordering or completed), return success
+    if (groupOrder.status === "ordering" || groupOrder.status === "completed") {
+      return res.json({ isPaid: true });
+    }
+
+    // Check PayPal payment status
+    if (paypalOrderId) {
+      try {
+        const captured = await checkAndCapturePaypalOrder(paypalOrderId);
+        console.log(
+          `PayPal capture result for group order ${groupOrderId}:`,
+          captured,
+        );
+
+        if (captured && captured.isPaid === true) {
+          // Payment captured successfully
+          console.log(
+            `PayPal payment COMPLETED for group order ${groupOrderId}`,
+          );
+
+          // Check if already processed to avoid double processing
+          const [currentGroupOrder] = await db
+            .select({ status: groupOrders.status })
+            .from(groupOrders)
+            .where(eq(groupOrders.id, groupOrderId))
+            .limit(1);
+
+          if (
+            currentGroupOrder?.status !== "ordering" &&
+            currentGroupOrder?.status !== "completed"
+          ) {
+            // Process payment success - wrap in try-catch to ensure we return isPaid even if processing fails
+            try {
+              await processGroupOrderPaymentSuccess(groupOrderId);
+              console.log(
+                `Group order ${groupOrderId} payment processing completed successfully`,
+              );
+            } catch (processingError) {
+              console.error(
+                `Error processing group order ${groupOrderId} payment success:`,
+                processingError,
+              );
+              // Continue to return isPaid: true since PayPal payment was successful
+            }
+          } else {
+            console.log(
+              `Group order ${groupOrderId} already processed (status: ${currentGroupOrder?.status}), skipping processing`,
+            );
+          }
+
+          return res.json({ isPaid: true });
+        } else {
+          console.log(
+            `PayPal payment for group order ${groupOrderId} not yet completed. Captured:`,
+            captured,
+          );
+        }
+      } catch (paypalError) {
+        console.warn("PayPal capture error:", paypalError);
+      }
+    }
+
+    return res.json({ isPaid: false });
+  } catch (err) {
+    console.error("Check Group Order Payment Status Error:", err);
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+// Helper function to process successful group order payment
+async function processGroupOrderPaymentSuccess(groupOrderId) {
+  try {
+    console.log(
+      `Starting payment success processing for group order ${groupOrderId}`,
+    );
+
+    // Get all orders for this group order
+    const groupOrderOrders = await db
+      .select()
+      .from(orders)
+      .where(eq(orders.groupOrderId, groupOrderId));
+
+    console.log(
+      `Found ${groupOrderOrders.length} orders for group order ${groupOrderId}`,
+    );
+
+    // Update all orders to paid status
+    for (const order of groupOrderOrders) {
+      await db
+        .update(orders)
+        .set({ status: "pending", updatedAt: new Date() })
+        .where(eq(orders.id, order.id));
+
+      console.log(`Updated order ${order.id} to pending status`);
+
+      // Send notification for each user's order
+      try {
+        await sendOrderStatusNotification({
+          orderId: order.id,
+          userId: order.userId,
+          newStatus: "pending",
+        });
+        console.log(
+          `Sent notification for order ${order.id} to user ${order.userId}`,
+        );
+      } catch (notifError) {
+        console.warn(
+          `Failed to send notification for order ${order.id}:`,
+          notifError,
+        );
+      }
+    }
+
+    // Update group order status to ordering (payment completed, orders ready for processing)
+    await db
+      .update(groupOrders)
+      .set({ status: "ordering", updatedAt: new Date() })
+      .where(eq(groupOrders.id, groupOrderId));
+
+    console.log(`Updated group order ${groupOrderId} to ordering status`);
+
+    // Get conversationId to emit socket
+    const [conv] = await db
+      .select({ id: conversations.id })
+      .from(conversations)
+      .where(eq(conversations.groupOrderId, groupOrderId))
+      .limit(1);
+
+    const conversationId = conv?.id;
+    console.log(
+      `Found conversation ${conversationId} for group order ${groupOrderId}`,
+    );
+
+    // Emit socket event to update UI
+    if (global.io && conversationId) {
+      global.io.to(conversationId).emit("group-status-updated", {
+        conversationId,
+        groupOrderId,
+        status: "ordering",
+        paymentMethod: "PAYPAL",
+      });
+
+      console.log(
+        `Emitted group-status-updated for conversation ${conversationId}`,
+      );
+
+      // Send system message
+      try {
+        const { createSystemMessage } = await import(
+          "../services/message.service.js"
+        );
+        const content =
+          "Thanh toán nhóm hoàn tất! Đơn hàng đã được gửi đến shop.";
+        const sysMsg = await createSystemMessage(conversationId, content);
+
+        global.io.to(conversationId).emit("message", {
+          id: sysMsg.id,
+          conversationId,
+          content,
+          type: "system",
+          senderId: "00000000-0000-0000-0000-000000000000",
+          senderFullName: "Hệ thống",
+          createdAt: sysMsg.createdAt,
+        });
+
+        console.log(`Sent system message for conversation ${conversationId}`);
+      } catch (err) {
+        console.error("Error sending system message:", err);
+      }
+    } else {
+      console.warn(
+        `Cannot emit socket - global.io: ${!!global.io}, conversationId: ${conversationId}`,
+      );
+    }
+
+    console.log(`Group order ${groupOrderId} payment processed successfully`);
+  } catch (error) {
+    console.error("Error processing group order payment success:", error);
+    throw error;
+  }
+}

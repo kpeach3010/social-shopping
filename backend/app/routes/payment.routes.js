@@ -7,7 +7,10 @@ import {
   createPaypalPaymentUrl,
   paypalReturn,
   checkPaypalOrderStatus,
+  createGroupOrderPaypalPayment,
+  checkGroupOrderPaymentStatus,
 } from "../controllers/payment.controller.js";
+import { authenticate } from "../middlewares/auth.middleware.js";
 
 const router = Router();
 
@@ -21,5 +24,17 @@ router.get("/vnpay/return", vnpayReturn);
 router.post("/paypal/create", createPaypalPaymentUrl);
 router.get("/paypal/return", paypalReturn);
 router.get("/paypal/check-status/:orderId", checkPaypalOrderStatus);
+
+// Group Order Payment
+router.post(
+  "/group-order/paypal/create",
+  authenticate,
+  createGroupOrderPaypalPayment,
+);
+router.get(
+  "/group-order/paypal/check-status/:groupOrderId",
+  authenticate,
+  checkGroupOrderPaymentStatus,
+);
 
 export default router;

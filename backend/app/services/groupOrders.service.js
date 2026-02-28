@@ -14,6 +14,8 @@ import {
   couponProducts,
   orders,
   orderItems,
+  colors,
+  sizes,
 } from "../db/schema.js";
 import { checkoutService } from "./order.service.js";
 import { groupOrderStatusEnum } from "../enums/groupOrderStatus.enum.js";
@@ -108,6 +110,9 @@ export const getGroupOrderDetailService = async (userId, conversationId) => {
       memberId: groupOrderMembers.id,
       variantId: groupOrderMemberItems.variantId,
       quantity: groupOrderMemberItems.quantity,
+      colorName: colors.name,
+      colorImageUrl: colors.imageUrl,
+      sizeName: sizes.name,
     })
     .from(conversationMembers)
     .innerJoin(users, eq(conversationMembers.userId, users.id))
@@ -122,6 +127,12 @@ export const getGroupOrderDetailService = async (userId, conversationId) => {
       groupOrderMemberItems,
       eq(groupOrderMemberItems.memberId, groupOrderMembers.id),
     )
+    .leftJoin(
+      productVariants,
+      eq(groupOrderMemberItems.variantId, productVariants.id),
+    )
+    .leftJoin(colors, eq(productVariants.colorId, colors.id))
+    .leftJoin(sizes, eq(productVariants.sizeId, sizes.id))
     .where(eq(conversationMembers.conversationId, conversationId));
 
   const memberMap = new Map();
@@ -142,6 +153,9 @@ export const getGroupOrderDetailService = async (userId, conversationId) => {
       memberMap.get(row.userId).items.push({
         variantId: row.variantId,
         quantity: row.quantity,
+        colorName: row.colorName,
+        colorImageUrl: row.colorImageUrl,
+        sizeName: row.sizeName,
       });
     }
   }
@@ -172,7 +186,11 @@ export const getGroupOrderDetailService = async (userId, conversationId) => {
 };
 
 // Truong nhom dat don cho tat ca thanh vien
-export const groupOrderCheckoutService = async (creatorId, groupOrderId) => {
+export const groupOrderCheckoutService = async (
+  creatorId,
+  groupOrderId,
+  paymentMethod = "COD",
+) => {
   // 1) Lấy group order
   const [groupOrder] = await db
     .select({
@@ -260,7 +278,7 @@ export const groupOrderCheckoutService = async (creatorId, groupOrderId) => {
       couponCode,
 
       null, // dùng địa chỉ mặc định
-      "COD",
+      paymentMethod, // COD hoặc PAYPAL
       false, // không phải từ giỏ hàng
       groupOrderId,
     );
@@ -268,13 +286,26 @@ export const groupOrderCheckoutService = async (creatorId, groupOrderId) => {
     createdOrders.push(order);
   }
 
-  // 5) Cập nhật trạng thái group order -> "ordering"
+  // 5) Cập nhật trạng thái group order
+  // COD → "ordering" (trực tiếp gửi shop)
+  // PAYPAL → "awaiting_payment" (chờ trưởng nhóm thanh toán trong 30p)
+  const newGroupStatus =
+    paymentMethod === "COD" ? "ordering" : "awaiting_payment";
+
   await db
     .update(groupOrders)
-    .set({ status: "ordering" })
+    .set({
+      status: newGroupStatus,
+      updatedAt: new Date(), // track thời gian để timeout
+    })
     .where(eq(groupOrders.id, groupOrderId));
 
-  return { orders: createdOrders, groupOrderId };
+  return {
+    orders: createdOrders,
+    groupOrderId,
+    paymentMethod,
+    status: newGroupStatus,
+  };
 };
 
 // Roi nhom khi nhom o trang thai pending

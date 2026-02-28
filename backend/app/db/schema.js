@@ -44,6 +44,7 @@ export const groupOrderStatusEnum = pgEnum("group_order_status", [
   "pending",
   "locked",
   "ordering",
+  "awaiting_payment",
   "completed",
   "cancelled",
 ]);

@@ -11,8 +11,16 @@ import {
 
 import { createSystemMessage } from "../services/message.service.js";
 import { db } from "../db/client.js";
-import { users, conversations, groupOrders, messages } from "../db/schema.js";
-import { eq } from "drizzle-orm";
+import {
+  users,
+  conversations,
+  groupOrders,
+  messages,
+  productVariants,
+  colors,
+  sizes,
+} from "../db/schema.js";
+import { eq, inArray } from "drizzle-orm";
 
 export const getGroupOrderDetailController = async (req, res) => {
   try {
@@ -32,6 +40,7 @@ export const groupOrderCheckoutController = async (req, res) => {
   try {
     // 1. Lấy ID an toàn (Check cả groupOrderId và id đề phòng route đặt tên khác)
     const groupOrderId = req.params.groupOrderId || req.params.id;
+    const { paymentMethod = "COD" } = req.body; // Lấy paymentMethod từ body
     const userId = req.user?.id;
 
     if (!groupOrderId) {
@@ -39,7 +48,11 @@ export const groupOrderCheckoutController = async (req, res) => {
     }
 
     // 2. Gọi Service xử lý DB (Update status, tạo đơn hàng)
-    const result = await groupOrderCheckoutService(userId, groupOrderId);
+    const result = await groupOrderCheckoutService(
+      userId,
+      groupOrderId,
+      paymentMethod,
+    );
 
     // 3. Lấy conversationId để bắn Socket
     // (Vì service không trả về conversationId nên ta query nhẹ ở đây)
@@ -53,16 +66,20 @@ export const groupOrderCheckoutController = async (req, res) => {
 
     // 4. Bắn Socket thông báo cho mọi người
     if (global.io && conversationId) {
-      // a. Cập nhật trạng thái UI (Lock -> Ordering)
+      // a. Cập nhật trạng thái UI (Lock -> Ordering hoặc Awaiting Payment)
       global.io.to(conversationId).emit("group-status-updated", {
         conversationId,
         groupOrderId,
-        status: "ordering",
+        status: result.status, // "ordering" hoặc "awaiting_payment"
+        paymentMethod: result.paymentMethod,
       });
 
       // b. Gửi tin nhắn hệ thống vào khung chat
       try {
-        const content = "Trưởng nhóm đã đặt đơn.";
+        const content =
+          paymentMethod === "COD"
+            ? "Trưởng nhóm đã đặt đơn."
+            : "Trưởng nhóm đã khởi tạo đơn hàng, đang chờ thanh toán trong 30 phút.";
         const sysMsg = await createSystemMessage(conversationId, content);
 
         global.io.to(conversationId).emit("message", {
@@ -260,11 +277,41 @@ export const selectItemsController = async (req, res) => {
         createdAt: sysMsg.createdAt,
       });
 
+      // Enrich items with color/size names before emitting
+      let enrichedItems = items;
+      try {
+        const variantIds = items.map((i) => i.variantId);
+        const variants = await db
+          .select({
+            id: productVariants.id,
+            colorName: colors.name,
+            colorImageUrl: colors.imageUrl,
+            sizeName: sizes.name,
+          })
+          .from(productVariants)
+          .leftJoin(colors, eq(productVariants.colorId, colors.id))
+          .leftJoin(sizes, eq(productVariants.sizeId, sizes.id))
+          .where(inArray(productVariants.id, variantIds));
+
+        const variantMap = new Map(variants.map((v) => [v.id, v]));
+        enrichedItems = items.map((item) => {
+          const v = variantMap.get(item.variantId);
+          return {
+            ...item,
+            colorName: v?.colorName || null,
+            colorImageUrl: v?.colorImageUrl || null,
+            sizeName: v?.sizeName || null,
+          };
+        });
+      } catch (err) {
+        console.error("Error enriching items for socket:", err);
+      }
+
       // Emit thông tin chọn sản phẩm
       global.io.to(conversationId).emit("group-order-choice", {
         userId,
         fullName,
-        items,
+        items: enrichedItems,
         isUpdate,
         totalQty,
         conversationId,

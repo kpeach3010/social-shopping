@@ -69,7 +69,7 @@
               </div>
             </label>
 
-            <label
+            <!-- <label
               v-if="orderInfo.order.paymentMethod === 'MOMO'"
               class="flex items-center gap-3 p-3 border rounded-lg border-pink-500 bg-pink-50 ring-1 ring-pink-500 cursor-default"
             >
@@ -114,7 +114,7 @@
                 </div>
               </div>
               <img src="/cdnlogo.com_vnpay.png" class="h-6 object-contain" />
-            </label>
+            </label> -->
 
             <label
               v-if="orderInfo.order.paymentMethod === 'PAYPAL'"
@@ -130,7 +130,7 @@
                 <div
                   class="font-semibold text-yellow-700 flex items-center gap-2"
                 >
-                  PayPal / Quét QR
+                  PayPal
                 </div>
                 <div class="text-xs text-gray-500">
                   Đã thanh toán qua PayPal
@@ -307,7 +307,7 @@
               </div>
             </label>
 
-            <label
+            <!-- <label
               class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-all"
               :class="
                 paymentMethod === 'MOMO'
@@ -366,7 +366,7 @@
                 </div>
               </div>
               <img src="/cdnlogo.com_vnpay.png" class="h-6 object-contain" />
-            </label>
+            </label> -->
 
             <!-- PayPal QR -->
             <label
@@ -387,7 +387,7 @@
                 <div
                   class="font-semibold text-yellow-700 flex items-center gap-2"
                 >
-                  PayPal / Quét QR
+                  PayPal
                   <span
                     class="bg-yellow-100 text-yellow-800 text-xs px-2 py-0.5 rounded"
                     >Mới</span

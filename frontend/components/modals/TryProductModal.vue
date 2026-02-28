@@ -182,7 +182,15 @@
             <!-- Right: result ALWAYS fits popup (no scroll) -->
             <div class="lg:col-span-3 p-5 sm:p-7 h-full flex flex-col min-h-0">
               <div class="flex items-center justify-between mb-3 shrink-0">
-                <h3 class="font-semibold text-gray-900">Kết quả</h3>
+                <div>
+                  <h3 class="font-semibold text-gray-900">Kết quả</h3>
+                  <p
+                    v-if="processingTime"
+                    class="text-xs text-green-600 mt-0.5"
+                  >
+                    ⏱️ Hoàn thành trong {{ processingTime }}s
+                  </p>
+                </div>
 
                 <button
                   v-if="resultUrl"
@@ -250,6 +258,8 @@ const personPreview = ref("");
 const resultUrl = ref("");
 const loading = ref(false);
 const errorMsg = ref("");
+const startTime = ref(null);
+const processingTime = ref(null);
 
 function revoke(url) {
   if (url && url.startsWith("blob:")) URL.revokeObjectURL(url);
@@ -268,6 +278,8 @@ function clearPerson() {
 function resetAll() {
   errorMsg.value = "";
   loading.value = false;
+  startTime.value = null;
+  processingTime.value = null;
   clearPerson();
   clearResult();
 }
@@ -279,6 +291,8 @@ watch(
       selectedColor.value = props.initialColor || props.colors?.[0] || "";
       errorMsg.value = "";
       loading.value = false;
+      startTime.value = null;
+      processingTime.value = null;
       clearPerson();
       clearResult();
     }
@@ -332,6 +346,8 @@ async function tryOn() {
 
   errorMsg.value = "";
   loading.value = true;
+  startTime.value = Date.now();
+  processingTime.value = null;
   clearResult();
 
   try {
@@ -370,6 +386,11 @@ async function tryOn() {
 
     const blob = await res.blob();
     resultUrl.value = URL.createObjectURL(blob);
+
+    // Tính thời gian xử lý
+    if (startTime.value) {
+      processingTime.value = ((Date.now() - startTime.value) / 1000).toFixed(1);
+    }
   } catch (err) {
     console.error(err);
     errorMsg.value = "Không thể tạo ảnh thử đồ. Vui lòng thử lại.";

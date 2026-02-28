@@ -281,6 +281,22 @@
             <span v-if="groupOrderActionLoading">Đang huỷ...</span>
             <span v-else>Hủy đơn</span>
           </button>
+
+          <!-- Button thanh toán cho trưởng nhóm khi awaiting_payment -->
+          <button
+            v-if="
+              isGroupChat &&
+              groupDetail?.groupOrder?.creatorId === currentUserId &&
+              groupDetail?.groupOrder?.status === 'awaiting_payment'
+            "
+            @click="openGroupPaymentModal"
+            :disabled="groupOrderActionLoading"
+            class="bg-yellow-500 hover:bg-yellow-600 text-white text-[10px] font-medium px-2.5 py-1 rounded-md transition flex items-center justify-center min-w-[90px]"
+          >
+            <span v-if="groupOrderActionLoading" class="loader mr-1"></span>
+            <span v-if="groupOrderActionLoading">Đang thanh...</span>
+            <span v-else>Thanh toán ngay</span>
+          </button>
         </div>
       </div>
 
@@ -441,6 +457,20 @@
       :startIndex="selectedMediaIndex"
       @close="closeMediaModal"
     />
+
+    <!-- Payment Modal for Group Order Leader -->
+    <PaymentQrModal
+      ref="paymentModalRef"
+      @close="handlePaymentModalClose"
+      @paid="handleGroupPaymentSuccess"
+    />
+
+    <!-- Payment Method Selection Modal -->
+    <PaymentMethodModal
+      :open="showPaymentMethodModal"
+      @close="showPaymentMethodModal = false"
+      @select="processGroupCheckout"
+    />
   </div>
 </template>
 
@@ -461,6 +491,8 @@ import MediaGalleryModal from "@/components/MediaGalleryModal.vue";
 import ChatImage from "@/components/chat/ChatImage.vue";
 import ChatFile from "@/components/chat/ChatFile.vue";
 import ChatVideo from "@/components/chat/ChatVideo.vue";
+import PaymentQrModal from "@/components/modals/PaymentQrModal.vue";
+import PaymentMethodModal from "@/components/modals/PaymentMethodModal.vue";
 
 const chatStore = useChatStore();
 const router = useRouter();
@@ -472,6 +504,8 @@ const showChooseModal = ref(false);
 const showSelectProduct = ref(false);
 const showMediaModal = ref(false);
 const selectedMediaIndex = ref(0);
+const showPaymentMethodModal = ref(false);
+const paymentModalRef = ref(null);
 let supabaseChannel;
 // Thêm biến cho upload
 const fileInput = ref(null);
@@ -544,6 +578,193 @@ function openChooseModal() {
     return;
   }
   showChooseModal.value = true;
+}
+
+async function openGroupPaymentModal() {
+  try {
+    const groupOrderId = groupDetail.value?.groupOrder?.id;
+    if (!groupOrderId) {
+      console.error("Không tìm thấy groupOrderId");
+      useNuxtApp().$toast.error("Không thể mở modal thanh toán");
+      return;
+    }
+
+    // Tính tổng tiền cho toàn bộ nhóm (lấy từ groupDetail)
+    const members = groupDetail.value?.members || [];
+    const product = groupDetail.value?.product;
+    const coupon = groupDetail.value?.coupon;
+
+    const chosenMembers = members.filter((m) => m.hasChosen);
+
+    // Tính toán số tiền cho từng thành viên VÀ áp dụng coupon cho từng đơn
+    const memberDetails = [];
+    let totalBeforeDiscount = 0;
+    let totalAfterDiscount = 0;
+    let totalDiscountAmount = 0;
+    let totalShippingFee = 0;
+    const shippingFeePerOrder = 20000; // phí ship mỗi đơn (cố định)
+
+    for (let member of chosenMembers) {
+      let memberSubtotal = 0;
+      const memberItems = [];
+
+      // Tính subtotal cho thành viên này (chưa trừ coupon)
+      for (let item of member.items) {
+        const itemPrice = product.price_default;
+        const itemTotal = itemPrice * item.quantity;
+        memberSubtotal += itemTotal;
+
+        memberItems.push({
+          colorName: item.colorName,
+          colorImageUrl: item.colorImageUrl,
+          sizeName: item.sizeName,
+          quantity: item.quantity,
+          price: itemPrice,
+          total: itemTotal,
+        });
+      }
+
+      totalBeforeDiscount += memberSubtotal;
+
+      // Áp dụng coupon cho ĐƠN này
+      let memberDiscount = 0;
+      let memberTotal = memberSubtotal;
+
+      if (coupon) {
+        if (coupon.type === "percent") {
+          // Percent: áp dụng % cho đơn này
+          memberDiscount = (memberSubtotal * coupon.value) / 100;
+          memberTotal = memberSubtotal - memberDiscount;
+        } else if (coupon.type === "fixed") {
+          // Fixed: mỗi đơn giảm số tiền cố định này
+          memberDiscount = Math.min(memberSubtotal, coupon.value);
+          memberTotal = Math.max(0, memberSubtotal - memberDiscount);
+        }
+      }
+
+      // Thêm phí ship
+      const memberTotalWithShipping = memberTotal + shippingFeePerOrder;
+
+      totalDiscountAmount += memberDiscount;
+      totalShippingFee += shippingFeePerOrder;
+      totalAfterDiscount += memberTotalWithShipping;
+
+      memberDetails.push({
+        fullName: member.fullName,
+        items: memberItems,
+        subtotal: memberSubtotal,
+        discount: memberDiscount,
+        shippingFee: shippingFeePerOrder,
+        total: memberTotalWithShipping,
+      });
+    }
+
+    // Gọi startPayment với custom payment for group order
+    if (paymentModalRef.value) {
+      await paymentModalRef.value.startGroupPayment({
+        groupOrderId,
+        amount: totalAfterDiscount,
+        paymentMethod: "PAYPAL",
+        memberCount: chosenMembers.length,
+        product: {
+          name: product.name,
+          thumbnailUrl: product.thumbnailUrl,
+        },
+        memberDetails,
+        coupon: coupon
+          ? {
+              code: coupon.code,
+              type: coupon.type,
+              value: coupon.value,
+              discountAmount: totalDiscountAmount,
+            }
+          : null,
+        totalBeforeDiscount,
+        totalShippingFee,
+      });
+    }
+  } catch (error) {
+    console.error("Lỗi khi mở modal thanh toán:", error);
+    useNuxtApp().$toast.error("Không thể mở modal thanh toán");
+  }
+}
+
+// Fetch group detail data
+const fetchGroupDetail = async () => {
+  if (!props.conversationId) {
+    console.log("[ChatBox] Cannot fetch group detail - no conversationId");
+    return;
+  }
+
+  console.log(
+    `[ChatBox] Fetching group detail for conversation ${props.conversationId}...`,
+  );
+
+  try {
+    const res = await $fetch(`/group-orders/${props.conversationId}`, {
+      method: "GET",
+      baseURL: config.public.apiBase,
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+    });
+
+    console.log("[ChatBox] Group detail fetched:", res);
+
+    if (res?.groupOrder) {
+      groupDetail.value = res;
+      console.log(
+        `[ChatBox] ✅ Group order status updated to: ${res.groupOrder.status}`,
+      );
+    } else {
+      groupDetail.value = null;
+      console.log("[ChatBox] ⚠️ No group order found in response");
+    }
+  } catch (error) {
+    console.error("[ChatBox] ❌ Error fetching group detail:", error);
+    groupDetail.value = null;
+  }
+};
+
+// Track processed payment IDs to prevent duplicate toasts
+const handledPaymentIds = new Set();
+
+function handleGroupPaymentSuccess(data) {
+  // data có thể chứa { groupOrderId, paymentMethod } từ group payment
+  // hoặc { orderId, paymentMethod } từ regular payment
+  console.log("[ChatBox] 🎉 Group payment success event received:", data);
+
+  const groupOrderId = data.groupOrderId || data.orderId;
+
+  // Nếu cùng một groupOrderId/orderId đã được xử lý trước đó -> bỏ qua
+  if (groupOrderId && handledPaymentIds.has(groupOrderId)) {
+    console.log(
+      "[ChatBox] Duplicate payment success event ignored for",
+      groupOrderId,
+    );
+    return;
+  }
+
+  if (groupOrderId) {
+    handledPaymentIds.add(groupOrderId);
+  }
+
+  // Làm mới dữ liệu group detail để cập nhật trạng thái
+  console.log("[ChatBox] Fetching updated group detail...");
+  fetchGroupDetail();
+
+  // Hiển thị thông báo thành công
+  console.log("[ChatBox] Showing success toast notification");
+  const nuxtApp = useNuxtApp();
+  if (nuxtApp.$toast) {
+    nuxtApp.$toast.success("Thanh toán nhóm thành công!");
+  } else {
+    console.warn("[ChatBox] Toast plugin not available, showing alert instead");
+    alert("Thanh toán nhóm thành công!");
+  }
+}
+
+function handlePaymentModalClose() {
+  // Modal tự đóng, chỉ cần cleanup nếu cần
+  console.log("Payment modal closed");
 }
 
 const showGroupBox = ref(false);
@@ -657,8 +878,10 @@ async function checkoutGroupOrder() {
   if (!groupOrder?.id) return;
 
   // Nếu nhóm đã được đặt hoặc hoàn tất -> chặn
-  if (["ordering", "completed"].includes(groupOrder.status)) {
-    alert("Nhóm này đã được đặt đơn hoặc đã hoàn tất.");
+  if (
+    ["ordering", "completed", "awaiting_payment"].includes(groupOrder.status)
+  ) {
+    alert("Nhóm này đã được đặt đơn hoặc đang chờ thanh toán.");
     return;
   }
 
@@ -674,9 +897,13 @@ async function checkoutGroupOrder() {
     return;
   }
 
-  //  Xác nhận đặt đơn
-  const ok = confirm("Xác nhận đặt đơn nhóm cho tất cả thành viên?");
-  if (!ok) return;
+  //  Hiển thị modal chọn phương thức thanh toán thay vì xác nhận đặt đơn ngay
+  showPaymentMethodModal.value = true;
+}
+
+async function processGroupCheckout(paymentMethod) {
+  const groupOrder = groupDetail.value?.groupOrder;
+  if (!groupOrder?.id) return;
 
   groupOrderActionLoading.value = true;
   try {
@@ -684,10 +911,25 @@ async function checkoutGroupOrder() {
       method: "PATCH",
       baseURL: config.public.apiBase,
       headers: { Authorization: `Bearer ${auth.accessToken}` },
+      body: { paymentMethod },
     });
 
-    alert("Đặt đơn nhóm thành công!");
-    groupDetail.value.groupOrder.status = "ordering"; // cập nhật local
+    // Update local group status - fix access to status
+    if (res && res.status) {
+      groupDetail.value.groupOrder.status = res.status;
+    }
+
+    if (paymentMethod === "COD") {
+      alert("Đặt đơn nhóm thanh toán COD thành công!");
+      // Refresh group detail to get updated state
+      await fetchGroupDetail();
+    } else {
+      // For PAYPAL payment, open payment modal
+      alert("Đã tạo đơn hàng! Vui lòng thanh toán trong vòng 30 phút.");
+      // Re-fetch group detail to ensure member items have full data (colorName, sizeName)
+      await fetchGroupDetail();
+      await openGroupPaymentModal();
+    }
   } catch (err) {
     console.error("Lỗi khi đặt đơn nhóm:", err);
     alert(err?.data?.error || "Đặt đơn thất bại, vui lòng thử lại.");
@@ -1164,19 +1406,8 @@ onMounted(() => {
       groupDetail.value.groupOrder.status = payload.status;
     }
 
-    if (isGroupChat.value) {
-      try {
-        // Thêm timestamp để chống cache
-        const res = await $fetch(`/group-orders/${props.conversationId}`, {
-          method: "GET",
-          baseURL: config.public.apiBase,
-          headers: { Authorization: `Bearer ${auth.accessToken}` },
-        });
-        groupDetail.value = res;
-      } catch (err) {
-        console.error("Lỗi reload status nhóm:", err);
-      }
-    }
+    // 3. Re-fetch full group detail to ensure data consistency
+    await fetchGroupDetail();
   });
 });
 
@@ -1209,6 +1440,7 @@ function statusText(status) {
     pending: "Đang mở",
     locked: "Đã đủ thành viên",
     ordering: "Đang đặt hàng",
+    awaiting_payment: "Chờ trưởng nhóm thanh toán",
     completed: "Đã hoàn tất",
     cancelled: "Đã huỷ",
   };

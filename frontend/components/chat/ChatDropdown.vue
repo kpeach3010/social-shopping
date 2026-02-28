@@ -53,13 +53,21 @@
               </div>
             </div>
           </div>
-        </div>
 
-        <div
-          v-if="conversations.length === 0"
-          class="p-4 text-center text-gray-400 text-sm"
-        >
-          Không có cuộc trò chuyện nào
+          <!-- Loading state -->
+          <div v-if="loading" class="p-6 text-center">
+            <div
+              class="animate-spin rounded-full h-6 w-6 border-b-2 border-black mx-auto"
+            ></div>
+          </div>
+
+          <!-- Empty state -->
+          <div
+            v-else-if="conversations.length === 0"
+            class="p-4 text-center text-gray-400 text-sm"
+          >
+            Không có cuộc trò chuyện nào
+          </div>
         </div>
       </div>
     </transition>
@@ -87,6 +95,7 @@ const config = useRuntimeConfig();
 const { $socket } = useNuxtApp();
 const dropdownOpen = ref(false);
 const conversations = ref([]);
+const loading = ref(false);
 
 function toggleDropdown() {
   emit("toggle");
@@ -112,6 +121,7 @@ function formatTime(t) {
 }
 
 async function fetchConversations() {
+  loading.value = true;
   try {
     const data = await $fetch("/conversations/last-messages", {
       baseURL: config.public.apiBase,
@@ -120,6 +130,8 @@ async function fetchConversations() {
     conversations.value = data;
   } catch (err) {
     console.error("Lỗi tải danh sách hội thoại:", err);
+  } finally {
+    loading.value = false;
   }
 }
 

@@ -73,7 +73,7 @@
             <p class="text-gray-600 font-medium">
               {{
                 Number(product.price_default || product.price).toLocaleString(
-                  "vi-VN"
+                  "vi-VN",
                 )
               }}
               đ
@@ -92,7 +92,7 @@
     </section>
     <!-- Phân trang FE -->
     <!-- Pagination -->
-    <div class="flex justify-center items-center gap-2 mt-12 select-none">
+    <div class="flex justify-center items-center gap-2 mt-12 pb-8 select-none">
       <!-- Prev -->
       <button
         @click="page > 1 && page--"

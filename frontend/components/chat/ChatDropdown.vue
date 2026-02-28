@@ -76,6 +76,11 @@ import {
   UserGroupIcon,
 } from "@heroicons/vue/24/outline";
 
+const props = defineProps({
+  open: { type: Boolean, default: false },
+});
+const emit = defineEmits(["toggle"]);
+
 const auth = useAuthStore();
 const chatStore = useChatStore();
 const config = useRuntimeConfig();
@@ -84,10 +89,7 @@ const dropdownOpen = ref(false);
 const conversations = ref([]);
 
 function toggleDropdown() {
-  dropdownOpen.value = !dropdownOpen.value;
-  if (dropdownOpen.value) {
-    fetchConversations();
-  }
+  emit("toggle");
 }
 
 function formatTime(t) {
@@ -139,16 +141,19 @@ function openChat(conv) {
             }
           : null,
       },
-    })
+    }),
   );
 }
 
 onMounted(() => {
+  // sync internal state with controlled prop
+  dropdownOpen.value = props.open;
+
   const __markAsReadHandler = (e) => {
     if (!auth.user) return;
     const convId = e?.detail?.conversationId;
     const idx = conversations.value.findIndex(
-      (c) => c.conversationId === convId
+      (c) => c.conversationId === convId,
     );
     if (idx !== -1) {
       // Xóa chấm xanh
@@ -160,7 +165,7 @@ onMounted(() => {
   $socket.on("message", (raw) => {
     const convId = raw.conversationId || raw.conversation_id;
     const idx = conversations.value.findIndex(
-      (c) => c.conversationId === convId
+      (c) => c.conversationId === convId,
     );
 
     if (idx !== -1) {
@@ -186,6 +191,14 @@ onMounted(() => {
     $socket.off("message");
   });
 });
+
+watch(
+  () => props.open,
+  (v) => {
+    dropdownOpen.value = v;
+    if (v) fetchConversations();
+  },
+);
 </script>
 
 <style scoped>

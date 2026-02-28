@@ -77,10 +77,15 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from "vue";
+import { ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { BellIcon } from "@heroicons/vue/24/outline";
 import { useAuthStore } from "~/stores/auth";
 import { useRouter } from "vue-router";
+
+const props = defineProps({
+  open: { type: Boolean, default: false },
+});
+const emit = defineEmits(["toggle"]);
 
 const auth = useAuthStore();
 const config = useRuntimeConfig();
@@ -137,10 +142,7 @@ const fetchNotifications = async () => {
 
 // Toggle dropdown (không auto mark-read toàn bộ)
 const toggleDropdown = async () => {
-  open.value = !open.value;
-  if (!open.value) return;
-
-  await fetchNotifications();
+  emit("toggle");
 };
 
 // Click vào thông báo: mark read + navigate
@@ -164,6 +166,8 @@ const handleNotificationClick = async (n) => {
 onMounted(() => {
   if (!auth.isLoggedIn) return;
 
+  open.value = props.open;
+
   // Fetch count ban đầu
   api("/notifications/unread-count")
     .then((r) => (unreadCount.value = r?.data?.count ?? 0))
@@ -179,6 +183,16 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => $socket?.off("notification:new"));
+
+watch(
+  () => props.open,
+  async (v) => {
+    open.value = v;
+    if (v) {
+      await fetchNotifications();
+    }
+  },
+);
 </script>
 
 <style scoped>

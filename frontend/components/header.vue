@@ -98,9 +98,18 @@
 
           <!-- Chat, Notifications, Friends -->
           <div class="relative flex items-center space-x-4">
-            <ChatDropdown />
-            <FriendsDropdown />
-            <NotificationsDropdown />
+            <ChatDropdown
+              :open="activeDropdown === 'chat'"
+              @toggle="onDropdownToggle('chat')"
+            />
+            <FriendsDropdown
+              :open="activeDropdown === 'friends'"
+              @toggle="onDropdownToggle('friends')"
+            />
+            <NotificationsDropdown
+              :open="activeDropdown === 'notifications'"
+              @toggle="onDropdownToggle('notifications')"
+            />
           </div>
 
           <!-- Dropdown user -->
@@ -194,7 +203,7 @@ const auth = useAuthStore();
 const config = useRuntimeConfig();
 
 const headerKey = computed(() =>
-  auth.isLoggedIn ? "logged-in" : "logged-out"
+  auth.isLoggedIn ? "logged-in" : "logged-out",
 );
 // Prefer full name display but fall back to other available fields
 const userDisplayName = computed(() => {
@@ -214,6 +223,13 @@ const chatStore = useChatStore();
 const friendStore = useFriendStore();
 let __authChangedHandler = null;
 
+// Chỉ cho phép 1 dropdown (chat / friends / notifications) mở tại 1 thời điểm
+const activeDropdown = ref(null); // 'chat' | 'friends' | 'notifications' | null
+
+const onDropdownToggle = (name) => {
+  activeDropdown.value = activeDropdown.value === name ? null : name;
+};
+
 const loadCartCount = async () => {
   if (!auth.isLoggedIn || auth.user?.role === "staff") return;
   try {
@@ -232,7 +248,7 @@ watch(
   async (loggedIn) => {
     cartCount.value = 0;
     if (loggedIn) await loadCartCount();
-  }
+  },
 );
 
 const handleLogout = () => {

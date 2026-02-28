@@ -101,6 +101,11 @@ import { useAuthStore } from "~/stores/auth";
 import { useFriendStore } from "~/stores/friend";
 import { UsersIcon, CheckIcon, XMarkIcon } from "@heroicons/vue/24/outline";
 
+const props = defineProps({
+  open: { type: Boolean, default: false },
+});
+const emit = defineEmits(["toggle"]);
+
 const auth = useAuthStore();
 const friendStore = useFriendStore();
 const config = useRuntimeConfig();
@@ -112,10 +117,7 @@ const loading = ref(false);
 const processingId = ref(null);
 
 function toggleDropdown() {
-  dropdownOpen.value = !dropdownOpen.value;
-  if (dropdownOpen.value && friendRequests.value.length === 0) {
-    fetchPendingRequests();
-  }
+  emit("toggle");
 }
 
 function getInitial(name = "?") {
@@ -180,7 +182,7 @@ async function acceptRequest(request) {
 
     // Remove từ list
     friendRequests.value = friendRequests.value.filter(
-      (r) => r.id !== request.id
+      (r) => r.id !== request.id,
     );
     friendStore.decrementUnread();
   } catch (err) {
@@ -202,7 +204,7 @@ async function rejectRequest(request) {
 
     // Remove từ list
     friendRequests.value = friendRequests.value.filter(
-      (r) => r.id !== request.id
+      (r) => r.id !== request.id,
     );
     friendStore.decrementUnread();
   } catch (err) {
@@ -215,6 +217,8 @@ async function rejectRequest(request) {
 
 onMounted(() => {
   if (!auth.isLoggedIn) return;
+
+  dropdownOpen.value = props.open;
 
   // Listen socket event từ friend request
   if ($socket) {
@@ -241,6 +245,16 @@ onBeforeUnmount(() => {
     $socket.off("friend_request_received");
   }
 });
+
+watch(
+  () => props.open,
+  (v) => {
+    dropdownOpen.value = v;
+    if (v && friendRequests.value.length === 0) {
+      fetchPendingRequests();
+    }
+  },
+);
 </script>
 
 <style scoped>

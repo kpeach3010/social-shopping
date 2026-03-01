@@ -8,7 +8,11 @@
       </h2>
 
       <!-- Loading -->
-      <div v-if="loading" class="text-center text-gray-500">Đang tải...</div>
+      <div v-if="loading" class="flex items-center justify-center py-10">
+        <div
+          class="animate-spin rounded-full h-6 w-6 border-b-2 border-black mx-auto"
+        ></div>
+      </div>
 
       <!-- Bộ lọc -->
       <div

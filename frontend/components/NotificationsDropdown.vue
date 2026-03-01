@@ -190,6 +190,17 @@ watch(
     open.value = v;
     if (v) {
       await fetchNotifications();
+      // Khi người dùng mở dropdown, đánh dấu tất cả thông báo là đã đọc
+      try {
+        await api("/notifications/mark-all-read", { method: "PATCH" });
+        notifications.value = notifications.value.map((n) => ({
+          ...n,
+          isRead: true,
+        }));
+        unreadCount.value = 0;
+      } catch (e) {
+        console.error("Lỗi mark all notifications as read:", e);
+      }
     }
   },
 );

@@ -68,22 +68,40 @@
 
     <nav class="flex-1 space-y-1 px-2 py-2 overflow-y-auto" @mousedown.stop>
       <template v-if="activeTab === 'direct'">
-        <button
-          v-for="user in users"
-          :key="user.id"
-          @click="$emit('openChat', { type: 'direct', partner: user })"
-          class="flex items-center gap-2 w-full px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 transition"
-          :title="!isOpen ? user.fullName : ''"
+        <template v-if="users.length">
+          <button
+            v-for="user in users"
+            :key="user.id"
+            @click="$emit('openChat', { type: 'direct', partner: user })"
+            class="flex items-center gap-2 w-full px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 transition"
+            :title="!isOpen ? user.fullName : ''"
+          >
+            <img
+              v-if="user.avatar"
+              :src="user.avatar"
+              alt="avatar"
+              class="w-8 h-8 rounded-full object-cover"
+            />
+            <UserCircle v-else class="w-6 h-6 text-gray-500" />
+            <span v-if="isOpen" class="truncate">{{ user.fullName }}</span>
+          </button>
+
+          <!-- Nếu chỉ có staff (không có bạn bè) thì vẫn hiển thị thông điệp khuyến khích kết bạn -->
+          <div
+            v-if="isOpen && !hasFriends && auth.user?.role === 'customer'"
+            class="mt-2 px-3 py-2 text-xs text-gray-500 text-center"
+          >
+            Bạn chưa có bạn bè nào. Hãy thêm bạn bè để cùng trò chuyện nhé!
+          </div>
+        </template>
+        <div
+          v-else
+          class="flex items-center justify-center w-full px-3 py-4 text-sm text-gray-500"
         >
-          <img
-            v-if="user.avatar"
-            :src="user.avatar"
-            alt="avatar"
-            class="w-8 h-8 rounded-full object-cover"
-          />
-          <UserCircle v-else class="w-6 h-6 text-gray-500" />
-          <span v-if="isOpen" class="truncate">{{ user.fullName }}</span>
-        </button>
+          <span v-if="isOpen" class="text-center">
+            Bạn chưa có bạn bè nào. Hãy thêm bạn bè để cùng trò chuyện nhé!
+          </span>
+        </div>
       </template>
 
       <template v-else>
@@ -122,6 +140,7 @@ const emit = defineEmits(["openChat", "toggle"]);
 const config = useRuntimeConfig();
 const auth = useAuthStore();
 const users = ref([]);
+const hasFriends = ref(false);
 const groupConversations = ref([]);
 const { $socket } = useNuxtApp();
 
@@ -200,15 +219,37 @@ const stopDrag = () => {
 
 async function loadSidebarData() {
   try {
-    // Danh sách user
-    const res = await $fetch("/users", {
+    // Danh sách bạn bè
+    const res = await $fetch("/friends", {
       baseURL: config.public.apiBase,
       headers: { Authorization: `Bearer ${auth.accessToken}` },
     });
 
-    users.value = Array.isArray(res)
-      ? res.filter((u) => u.id !== props.currentUserId)
-      : [];
+    const friendList = Array.isArray(res?.data) ? res.data : [];
+    let directUsers = friendList.filter((u) => u.id !== props.currentUserId);
+    hasFriends.value = directUsers.length > 0;
+
+    // Nếu là khách hàng, hiển thị thêm tất cả user có role = staff
+    if (auth.user?.role === "customer") {
+      const allUsers = await $fetch("/users", {
+        baseURL: config.public.apiBase,
+        headers: { Authorization: `Bearer ${auth.accessToken}` },
+      });
+
+      const allUsersArr = Array.isArray(allUsers) ? allUsers : [];
+      const staffUsers = allUsersArr.filter(
+        (u) =>
+          u.role === "staff" &&
+          u.id !== props.currentUserId &&
+          !directUsers.some((ex) => ex.id === u.id),
+      );
+
+      if (staffUsers.length > 0) {
+        directUsers = [...directUsers, ...staffUsers];
+      }
+    }
+
+    users.value = directUsers;
 
     // Nhóm chat
     const resGroups = await $fetch("/conversations/group?type=group", {
@@ -232,7 +273,7 @@ async function loadSidebarData() {
     // 4️Khi nhóm được kích hoạt mới
     $socket.on("group-activated", async ({ conversationId }) => {
       const exists = groupConversations.value.some(
-        (g) => g.id === conversationId
+        (g) => g.id === conversationId,
       );
       if (!exists) {
         const newGroup = await $fetch(`/conversations/${conversationId}`, {
@@ -248,7 +289,7 @@ async function loadSidebarData() {
     $socket.on("force-close-chat", ({ conversationId }) => {
       // Ép kiểu String để so sánh chính xác
       groupConversations.value = groupConversations.value.filter(
-        (g) => String(g.id) !== String(conversationId)
+        (g) => String(g.id) !== String(conversationId),
       );
     });
 
@@ -256,7 +297,7 @@ async function loadSidebarData() {
     $socket.on("group-deleted", ({ conversationId }) => {
       // Ép kiểu String
       groupConversations.value = groupConversations.value.filter(
-        (g) => String(g.id) !== String(conversationId)
+        (g) => String(g.id) !== String(conversationId),
       );
     });
   } catch (e) {

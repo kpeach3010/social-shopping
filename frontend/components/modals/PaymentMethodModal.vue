@@ -28,8 +28,8 @@
       <!-- Content -->
       <div class="p-6">
         <p class="text-sm text-gray-600 mb-6">
-          Bạn có muốn thanh toán trực tuyến ngay hoặc chọn thanh toán khi nhận
-          hàng?
+          Hãy chọn phương thức thanh toán mà bạn muốn sử dụng cho đơn hàng của
+          mình
         </p>
 
         <div class="space-y-3">

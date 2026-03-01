@@ -266,10 +266,10 @@
                     mediaOf(post.id).length === 1
                       ? 'grid-cols-1'
                       : mediaOf(post.id).length === 2
-                      ? 'grid-cols-2'
-                      : mediaOf(post.id).length === 3
-                      ? 'grid-cols-3'
-                      : 'grid-cols-2',
+                        ? 'grid-cols-2'
+                        : mediaOf(post.id).length === 3
+                          ? 'grid-cols-3'
+                          : 'grid-cols-2',
                   ]"
                 >
                   <div
@@ -480,22 +480,22 @@ const {
   data: feedData,
   pending,
   error,
-} = await useAsyncData("feed", () => $fetch("/posts"), { server: false });
+} = useAsyncData("feed", () => $fetch("/posts"), { server: false });
 
 const posts = computed(() => feedData.value?.data || feedData.value || []);
 const errorMessage = computed(
-  () => error?.value?.data?.message || error?.value?.message
+  () => error?.value?.data?.message || error?.value?.message,
 );
 
 // Lấy danh sách sản phẩm cho modal
-const { data: productsData } = await useAsyncData(
+const { data: productsData } = useAsyncData(
   "products-for-post",
   () => $fetch("/product/all-products"),
-  { server: false }
+  { server: false },
 );
 
 const productList = computed(
-  () => productsData.value?.data || productsData.value || []
+  () => productsData.value?.data || productsData.value || [],
 );
 
 // Cache visual media per post to avoid repeated filters in template
@@ -513,7 +513,7 @@ const mediaOf = (postId) => mediaVisualMap.value.get(postId) || [];
 const { postStats, bumpLike } = usePostStats(
   posts,
   config.public.apiBase,
-  computed(() => auth.accessToken)
+  computed(() => auth.accessToken),
 );
 
 // Kiểm tra đăng nhập trước khi mở modal tạo bài
@@ -538,8 +538,8 @@ const handleCreated = (newPost) => {
   const current = Array.isArray(feedData.value?.data)
     ? feedData.value.data
     : Array.isArray(feedData.value)
-    ? feedData.value
-    : [];
+      ? feedData.value
+      : [];
   current.unshift(newPostFormatted);
   if (Array.isArray(feedData.value?.data)) {
     feedData.value.data = current;
@@ -554,7 +554,7 @@ const mapPrivacy = (v) =>
     public: "Công khai",
     friends: "Bạn bè",
     private: "Riêng tư",
-  }[v] || v);
+  })[v] || v;
 
 // Định dạng thời gian bài viết
 const formatDate = (iso) => {
@@ -668,8 +668,8 @@ const fetchDiscover = async () => {
     const rawList = Array.isArray(res?.data)
       ? res.data
       : Array.isArray(res)
-      ? res
-      : [];
+        ? res
+        : [];
     const normalized = rawList
       .map((u) => normalizeUserRecord(u))
       .filter((u) => u.id);
@@ -704,11 +704,11 @@ const fetchDiscover = async () => {
             requestId: null,
           };
         }
-      })
+      }),
     );
 
     discoverUsers.value = enriched.filter(
-      (u) => u.friendshipStatus !== "friends"
+      (u) => u.friendshipStatus !== "friends",
     );
   } catch (err) {
     console.error("Không thể tải danh sách người dùng:", err);

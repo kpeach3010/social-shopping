@@ -105,16 +105,30 @@
       </template>
 
       <template v-else>
-        <button
-          v-for="conv in groupConversations"
-          :key="conv.id"
-          @click="$emit('openChat', { type: 'group', conversation: conv })"
-          class="flex items-center gap-2 w-full px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 transition"
-          :title="!isOpen ? conv.name : ''"
+        <template v-if="groupConversations.length">
+          <button
+            v-for="conv in groupConversations"
+            :key="conv.id"
+            @click="$emit('openChat', { type: 'group', conversation: conv })"
+            class="flex items-center gap-2 w-full px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 transition"
+            :title="!isOpen ? conv.name : ''"
+          >
+            <UserGroupIcon class="w-6 h-6" />
+            <span v-if="isOpen" class="truncate">{{ conv.name }}</span>
+          </button>
+        </template>
+        <div
+          v-else
+          class="flex items-center justify-center w-full px-3 py-4 text-sm text-gray-500"
         >
-          <UserGroupIcon class="w-6 h-6" />
-          <span v-if="isOpen" class="truncate">{{ conv.name }}</span>
-        </button>
+          <span
+            v-if="isOpen && auth.user?.role === 'customer'"
+            class="text-center"
+          >
+            Bạn chưa có nhóm mua hàng nào. Tạo nhóm để cùng bạn bè mua với giá
+            ưu đãi hơn.
+          </span>
+        </div>
       </template>
     </nav>
   </aside>
@@ -247,6 +261,15 @@ async function loadSidebarData() {
       if (staffUsers.length > 0) {
         directUsers = [...directUsers, ...staffUsers];
       }
+    } else if (auth.user?.role === "staff" || auth.user?.role === "admin") {
+      // Staff hoặc Admin: hiển thị tất cả người dùng (trừ chính mình)
+      const allUsers = await $fetch("/users", {
+        baseURL: config.public.apiBase,
+        headers: { Authorization: `Bearer ${auth.accessToken}` },
+      });
+
+      const allUsersArr = Array.isArray(allUsers) ? allUsers : [];
+      directUsers = allUsersArr.filter((u) => u.id !== props.currentUserId);
     }
 
     users.value = directUsers;

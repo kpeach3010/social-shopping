@@ -182,6 +182,15 @@ export async function createSystemMessage(conversationId, content) {
     })
     .returning();
 
+  // Cập nhật lastMessage / lastMessageAt để dropdown hiển thị đúng tin hệ thống mới nhất
+  await db
+    .update(conversations)
+    .set({
+      lastMessage: content,
+      lastMessageAt: new Date(),
+    })
+    .where(eq(conversations.id, conversationId));
+
   return {
     ...msg,
     type: "system",

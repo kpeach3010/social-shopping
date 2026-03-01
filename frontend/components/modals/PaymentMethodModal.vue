@@ -36,7 +36,7 @@
           <button
             @click="selectMethod('PAYPAL')"
             :disabled="onlineLoading"
-            class="w-full px-4 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center text-sm font-medium"
+            class="w-full px-4 py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-sm hover:shadow-md hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:from-gray-300 disabled:to-gray-400 disabled:text-gray-100 disabled:cursor-not-allowed flex items-center justify-center text-sm font-semibold transition-all duration-150"
           >
             <span v-if="onlineLoading" class="loader mr-2"></span>
             {{ onlineLoading ? "Đang xử lý..." : "Thanh toán trực tuyến" }}
@@ -45,20 +45,12 @@
           <button
             @click="selectMethod('COD')"
             :disabled="codLoading"
-            class="w-full px-4 py-4 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center text-sm font-medium"
+            class="w-full px-4 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-sm hover:shadow-md hover:from-emerald-600 hover:to-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:from-gray-300 disabled:to-gray-400 disabled:text-gray-100 disabled:cursor-not-allowed flex items-center justify-center text-sm font-semibold transition-all duration-150"
           >
             <span v-if="codLoading" class="loader mr-2"></span>
             {{
               codLoading ? "Đang xử lý..." : "Thanh toán khi nhận hàng (COD)"
             }}
-          </button>
-
-          <button
-            @click="$emit('close')"
-            :disabled="onlineLoading || codLoading"
-            class="w-full px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition disabled:bg-gray-100 text-sm font-medium"
-          >
-            Hủy
           </button>
         </div>
       </div>

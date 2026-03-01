@@ -184,6 +184,9 @@
               <div class="flex items-center justify-between mb-3 shrink-0">
                 <div>
                   <h3 class="font-semibold text-gray-900">Kết quả</h3>
+                  <!-- <p v-if="loading" class="text-xs text-blue-600 mt-0.5">
+                    ⏱️ Đang xử lý {{ elapsedTime }}s
+                  </p> -->
                   <p
                     v-if="processingTime"
                     class="text-xs text-green-600 mt-0.5"
@@ -210,7 +213,9 @@
                   <div
                     class="mx-auto w-12 h-12 border-4 border-gray-300 border-t-transparent rounded-full animate-spin"
                   />
-                  <p class="text-sm text-gray-600 mt-3">Đang ghép ảnh…</p>
+                  <p class="text-sm text-gray-600 mt-3">
+                    Đang ghép ảnh… ({{ elapsedTime }}s)
+                  </p>
                 </div>
 
                 <img
@@ -260,6 +265,9 @@ const loading = ref(false);
 const errorMsg = ref("");
 const startTime = ref(null);
 const processingTime = ref(null);
+const elapsedTime = ref("0.0");
+
+let timerId = null;
 
 function revoke(url) {
   if (url && url.startsWith("blob:")) URL.revokeObjectURL(url);
@@ -280,6 +288,8 @@ function resetAll() {
   loading.value = false;
   startTime.value = null;
   processingTime.value = null;
+  elapsedTime.value = "0.0";
+  stopTimer();
   clearPerson();
   clearResult();
 }
@@ -293,6 +303,8 @@ watch(
       loading.value = false;
       startTime.value = null;
       processingTime.value = null;
+      elapsedTime.value = "0.0";
+      stopTimer();
       clearPerson();
       clearResult();
     }
@@ -302,6 +314,7 @@ watch(
 onBeforeUnmount(() => {
   clearPerson();
   clearResult();
+  stopTimer();
 });
 
 const currentClothImage = computed(() => {
@@ -340,6 +353,23 @@ function onPersonFileChange(e) {
   reader.readAsDataURL(file);
 }
 
+function startTimer() {
+  stopTimer();
+  elapsedTime.value = "0.0";
+  timerId = setInterval(() => {
+    if (startTime.value) {
+      elapsedTime.value = ((Date.now() - startTime.value) / 1000).toFixed(1);
+    }
+  }, 100);
+}
+
+function stopTimer() {
+  if (timerId) {
+    clearInterval(timerId);
+    timerId = null;
+  }
+}
+
 async function tryOn() {
   console.log("CLICK TRYON - fired");
   if (!canRun.value || loading.value) return;
@@ -348,7 +378,9 @@ async function tryOn() {
   loading.value = true;
   startTime.value = Date.now();
   processingTime.value = null;
+  elapsedTime.value = "0.0";
   clearResult();
+  startTimer();
 
   try {
     const form = new FormData();
@@ -396,6 +428,7 @@ async function tryOn() {
     errorMsg.value = "Không thể tạo ảnh thử đồ. Vui lòng thử lại.";
   } finally {
     loading.value = false;
+    stopTimer();
   }
 }
 

@@ -2,8 +2,14 @@
   <div>
     <main class="container mx-auto px-4 py-8">
       <h1 class="text-2xl font-bold mb-6">Giỏ hàng của bạn</h1>
+      <!-- Loading state -->
+      <div v-if="loading" class="flex items-center justify-center py-10">
+        <div
+          class="animate-spin rounded-full h-6 w-6 border-b-2 border-black mx-auto"
+        ></div>
+      </div>
 
-      <div v-if="!cart?.items?.length" class="text-gray-500">
+      <div v-else-if="!cart?.items?.length" class="text-gray-500">
         Giỏ hàng trống.
       </div>
 
@@ -138,6 +144,7 @@ import CouponModal from "@/components/modals/couponModal.vue";
 const config = useRuntimeConfig();
 const auth = useAuthStore();
 const cart = ref({ items: [] });
+const loading = ref(true);
 
 // --- State ---
 const selectedItems = ref([]);
@@ -151,7 +158,7 @@ const loadingCoupons = ref(false);
 // --- Helpers ---
 const formatPrice = (v) =>
   new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(
-    v || 0
+    v || 0,
   );
 
 // Tính tổng số lượng items hiện tại trong giỏ
@@ -162,7 +169,7 @@ const totalCartItems = computed(() => {
 const totalSelected = computed(() =>
   cart.value.items
     .filter((i) => selectedItems.value.includes(i.id))
-    .reduce((s, i) => s + Number(i.price) * i.quantity, 0)
+    .reduce((s, i) => s + Number(i.price) * i.quantity, 0),
 );
 
 const totalSelectedAfterDiscount = computed(() => {
@@ -199,7 +206,7 @@ const updateQuantity = async (item, action) => {
       window.dispatchEvent(
         new CustomEvent("cart-updated", {
           detail: { count: newTotal },
-        })
+        }),
       );
     }
   } catch (e) {
@@ -220,6 +227,8 @@ onMounted(async () => {
     cart.value = res;
   } catch (e) {
     console.error("Lỗi lấy giỏ hàng:", e);
+  } finally {
+    loading.value = false;
   }
 });
 
@@ -299,7 +308,7 @@ const goToCheckout = () => {
   } else {
     localStorage.setItem(
       "checkoutCoupon",
-      JSON.stringify(selectedCoupon.value)
+      JSON.stringify(selectedCoupon.value),
     );
   }
 

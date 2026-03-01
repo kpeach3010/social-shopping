@@ -16,6 +16,7 @@
         v-for="item in results"
         :key="item.id"
         :to="`/product/${item.id}`"
+        @click="handleResultClick"
         class="flex flex-row items-center border border-black rounded-lg m-2 px-2 py-1 hover:bg-gray-100 transition cursor-pointer group min-w-0"
         style="text-decoration: none; min-height: 56px"
       >
@@ -77,8 +78,8 @@ async function fetchResults() {
   try {
     const res = await $fetch(
       `${config.public.apiBase}/product/search?name=${encodeURIComponent(
-        query.value
-      )}`
+        query.value,
+      )}`,
     );
     results.value = Array.isArray(res) ? res.slice(0, 5) : [];
     showDropdown.value = results.value.length > 0;
@@ -98,6 +99,10 @@ function goToSearchPage() {
     router.push(`/search?name=${encodeURIComponent(query.value)}`);
     showDropdown.value = false;
   }
+}
+
+function handleResultClick() {
+  showDropdown.value = false;
 }
 
 // Đóng dropdown khi click ngoài

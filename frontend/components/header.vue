@@ -97,7 +97,10 @@
           </NuxtLink>
 
           <!-- Chat, Notifications, Friends -->
-          <div class="relative flex items-center space-x-4">
+          <div
+            ref="dropdownContainer"
+            class="relative flex items-center space-x-4"
+          >
             <ChatDropdown
               :open="activeDropdown === 'chat'"
               @toggle="onDropdownToggle('chat')"
@@ -222,12 +225,20 @@ const cartCount = ref(0);
 const chatStore = useChatStore();
 const friendStore = useFriendStore();
 let __authChangedHandler = null;
+const dropdownContainer = ref(null);
 
 // Chỉ cho phép 1 dropdown (chat / friends / notifications) mở tại 1 thời điểm
 const activeDropdown = ref(null); // 'chat' | 'friends' | 'notifications' | null
 
 const onDropdownToggle = (name) => {
   activeDropdown.value = activeDropdown.value === name ? null : name;
+};
+
+const handleClickOutside = (event) => {
+  if (!dropdownContainer.value) return;
+  if (!dropdownContainer.value.contains(event.target)) {
+    activeDropdown.value = null;
+  }
 };
 
 const loadCartCount = async () => {
@@ -375,12 +386,19 @@ onMounted(async () => {
     if (process.client && __cartUpdatedHandler)
       window.removeEventListener("cart-updated", __cartUpdatedHandler);
   });
+
+  if (process.client) {
+    document.addEventListener("click", handleClickOutside);
+  }
 });
 
 onBeforeUnmount(() => {
   if (process.client && __authChangedHandler) {
     window.removeEventListener("auth-changed", __authChangedHandler);
     __authChangedHandler = null;
+  }
+  if (process.client) {
+    document.removeEventListener("click", handleClickOutside);
   }
 });
 </script>

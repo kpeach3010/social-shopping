@@ -18,6 +18,7 @@ import { sql, eq, and, ne, inArray, desc, ilike } from "drizzle-orm";
 import { getAvailableCouponsForProductsService } from "./coupon.service.js";
 import supabase from "../../services/supbase/client.js";
 import { sendOrderStatusNotification } from "./orderNotification.service.js";
+import { createSystemMessage } from "./message.service.js";
 
 export const restoreStockForItems = async (tx, items) => {
   for (const item of items) {
@@ -589,9 +590,32 @@ export const getOrderByIdService = async (orderId) => {
   return { ...order, items };
 };
 
-// Heper kiểm tra tất cả đơn của thành viên đã complete chưa
+// Helper kiểm tra tất cả đơn của thành viên đã complete chưa
+// Nếu tất cả order trong nhóm đều "completed" thì:
+//  - Cập nhật groupOrders.status = "completed"
+//  - Tạo system message vào cuộc trò chuyện nhóm (nếu có)
+//  - Emit socket để frontend cập nhật trạng thái
 const checkGroupOrderComplete = async (groupOrderId) => {
   console.log(`Kiểm tra groupOrder ${groupOrderId} có hoàn thành chưa...`);
+
+  // Nếu group đã ở trạng thái completed thì bỏ qua, tránh tạo trùng system message
+  const [group] = await db
+    .select({ id: groupOrders.id, status: groupOrders.status })
+    .from(groupOrders)
+    .where(eq(groupOrders.id, groupOrderId))
+    .limit(1);
+
+  if (!group) {
+    console.log(`GroupOrder ${groupOrderId} không tồn tại, bỏ qua.`);
+    return;
+  }
+
+  if (group.status === "completed") {
+    console.log(
+      `GroupOrder ${groupOrderId} đã ở trạng thái completed, bỏ qua.`,
+    );
+    return group;
+  }
 
   const list = await db
     .select({ status: orders.status })
@@ -603,22 +627,66 @@ const checkGroupOrderComplete = async (groupOrderId) => {
 
   if (list.length === 0) {
     console.log(`GroupOrder ${groupOrderId} không có đơn nào, bỏ qua.`);
-    return;
+    return group;
   }
 
   const allCompleted = list.every((o) => o.status === "completed");
 
   if (!allCompleted) {
     console.log(`GroupOrder ${groupOrderId} chưa hoàn tất.`);
-    return;
+    return group;
   }
 
-  await db
+  const [updatedGroup] = await db
     .update(groupOrders)
     .set({ status: "completed", updatedAt: new Date() })
-    .where(eq(groupOrders.id, groupOrderId));
+    .where(eq(groupOrders.id, groupOrderId))
+    .returning();
 
   console.log(`GroupOrder ${groupOrderId} đã hoàn thành (completed)!`);
+
+  // Sau khi nhóm hoàn tất, tạo system message + emit socket (nếu có conversation)
+  try {
+    const [conv] = await db
+      .select({ id: conversations.id })
+      .from(conversations)
+      .where(eq(conversations.groupOrderId, groupOrderId))
+      .limit(1);
+
+    const conversationId = conv?.id;
+
+    if (conversationId) {
+      const content =
+        "Tất cả đơn trong nhóm đã hoàn thành. Nhóm mua chung đã hoàn tất.";
+
+      const sysMsg = await createSystemMessage(conversationId, content);
+
+      if (global.io) {
+        global.io.to(conversationId).emit("message", {
+          id: sysMsg.id,
+          conversationId,
+          content,
+          type: "system",
+          senderId: "00000000-0000-0000-0000-000000000000",
+          createdAt: sysMsg.createdAt,
+        });
+
+        global.io.to(conversationId).emit("group-status-updated", {
+          conversationId,
+          groupOrderId,
+          status: "completed",
+        });
+      }
+    }
+  } catch (error) {
+    console.error(
+      "Lỗi tạo system message khi groupOrder hoàn tất trong checkGroupOrderComplete:",
+      error,
+    );
+  }
+
+  // trả về thông tin group đã được cập nhật
+  return updatedGroup;
 };
 
 // STAFF: duyệt hoặc hủy đơn hàng (auto sang complete)

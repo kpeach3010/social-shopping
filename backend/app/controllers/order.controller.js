@@ -10,7 +10,9 @@ import {
   changeMyOrderPaymentMethodToCodService,
 } from "../services/order.service.js";
 import { db } from "../db/client.js";
-import { messages } from "../db/schema.js";
+import { conversations, messages, orders } from "../db/schema.js";
+import { eq } from "drizzle-orm";
+import { createSystemMessage } from "../services/message.service.js";
 
 export const checkoutController = async (req, res) => {
   try {
@@ -117,6 +119,76 @@ export const approveOrderController = async (req, res) => {
   }
 };
 
+// STAFF: xác nhận tất cả đơn trong một groupOrder
+export const approveGroupOrdersController = async (req, res) => {
+  try {
+    const { groupOrderId } = req.params;
+
+    if (!groupOrderId) {
+      return res.status(400).json({ error: "Thiếu groupOrderId" });
+    }
+
+    // Lấy tất cả đơn thuộc nhóm
+    const groupOrdersList = await db
+      .select({ id: orders.id, status: orders.status })
+      .from(orders)
+      .where(eq(orders.groupOrderId, groupOrderId));
+
+    if (groupOrdersList.length === 0) {
+      return res
+        .status(404)
+        .json({ error: "Không tìm thấy đơn nào trong nhóm này" });
+    }
+
+    // Chỉ xử lý các đơn đang pending
+    const pendingOrders = groupOrdersList.filter((o) => o.status === "pending");
+
+    const updatedOrders = [];
+    for (const o of pendingOrders) {
+      const updated = await updateOrderStatusService(o.id, "approve");
+      updatedOrders.push(updated);
+    }
+
+    // Tạo system message cho nhóm
+    const [conv] = await db
+      .select({ id: conversations.id })
+      .from(conversations)
+      .where(eq(conversations.groupOrderId, groupOrderId))
+      .limit(1);
+
+    const conversationId = conv?.id;
+
+    if (conversationId) {
+      try {
+        const content =
+          "Nhân viên đã xác nhận đơn nhóm. Đơn hàng của mọi thành viên sẽ được xử lý.";
+        const sysMsg = await createSystemMessage(conversationId, content);
+
+        if (global.io) {
+          global.io.to(conversationId).emit("message", {
+            id: sysMsg.id,
+            conversationId,
+            content,
+            type: "system",
+            senderId: "00000000-0000-0000-0000-000000000000",
+            createdAt: sysMsg.createdAt,
+          });
+        }
+      } catch (e) {
+        console.error(
+          "Lỗi tạo system message khi xác nhận đơn nhóm (approveGroupOrdersController):",
+          e,
+        );
+      }
+    }
+
+    return res.json({ success: true, updatedOrders });
+  } catch (err) {
+    console.error("Approve group orders error:", err);
+    return res.status(400).json({ error: err.message });
+  }
+};
+
 export const rejectOrderController = async (req, res) => {
   try {
     const { id } = req.params;
@@ -124,25 +196,16 @@ export const rejectOrderController = async (req, res) => {
 
     if (updatedOrder.groupOrderId && updatedOrder.conversationId && global.io) {
       const conversationId = updatedOrder.conversationId;
-      const reason = `Đơn hàng #${id.slice(0, 8)} bị từ chối. Nhóm mua chung đã bị hủy.`;
-
-      const [sysMsg] = await db
-        .insert(messages)
-        .values({
-          conversationId: conversationId,
-          content: reason,
-          type: "system",
-          senderId: "00000000-0000-0000-0000-000000000000",
-          createdAt: new Date(),
-        })
-        .returning();
+      const reason = `Đơn hàng nhóm bị từ chối. Nhóm mua chung đã bị hủy`;
+      // Dùng createSystemMessage để đồng bộ cả bảng conversations (lastMessage + lastMessageAt)
+      const sysMsg = await createSystemMessage(conversationId, reason);
 
       global.io.to(conversationId).emit("message", {
         id: sysMsg.id,
         conversationId: conversationId,
-        content: sysMsg.content,
-        type: sysMsg.type,
-        senderId: sysMsg.senderId,
+        content: reason,
+        type: "system",
+        senderId: "00000000-0000-0000-0000-000000000000",
         createdAt: sysMsg.createdAt,
       });
 

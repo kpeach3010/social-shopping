@@ -89,6 +89,45 @@ const paginatedOrders = computed(() => {
   return filteredOrders.value.slice(start, start + perPage);
 });
 
+// Xác định order đầu tiên của mỗi nhóm để chỉ hiển thị 1 nút hành động
+const groupFirstOrderIds = computed(() => {
+  const firstIds = new Set();
+  const seenGroups = new Set();
+
+  for (const o of paginatedOrders.value) {
+    if (!o.groupOrderId) continue;
+    if (!seenGroups.has(o.groupOrderId)) {
+      seenGroups.add(o.groupOrderId);
+      firstIds.add(o.id);
+    }
+  }
+
+  return firstIds;
+});
+
+// Gán màu (border + nền) khác nhau cho từng groupOrderId trong trang hiện tại
+const groupColorMap = computed(() => {
+  const colors = [
+    // Các màu trung tính, ít sặc sỡ nhưng vẫn giúp phân biệt từng nhóm
+    "border-l-4 border-gray-400 bg-gray-50",
+    "border-l-4 border-gray-500 bg-gray-50",
+    "border-l-4 border-gray-300 bg-gray-50",
+  ];
+
+  const map = new Map();
+  let idx = 0;
+
+  for (const o of paginatedOrders.value) {
+    if (!o.groupOrderId) continue;
+    if (!map.has(o.groupOrderId)) {
+      map.set(o.groupOrderId, colors[idx % colors.length]);
+      idx++;
+    }
+  }
+
+  return map;
+});
+
 const approveOrder = async (id) => {
   if (!confirm("Xác nhận đơn hàng này?")) return;
   try {
@@ -105,6 +144,23 @@ const approveOrder = async (id) => {
   }
 };
 
+// Xác nhận tất cả đơn trong một nhóm
+const approveGroup = async (groupOrderId) => {
+  if (!confirm("Xác nhận tất cả đơn trong nhóm này?")) return;
+  try {
+    await $fetch(`/orders/approve-group/${groupOrderId}`, {
+      method: "PATCH",
+      baseURL: config.public.apiBase,
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+    });
+    await fetchOrders();
+    alert("Đã xác nhận toàn bộ đơn trong nhóm!");
+  } catch (err) {
+    alert("Lỗi xác nhận đơn nhóm!");
+    console.error(err);
+  }
+};
+
 const rejectOrder = async (id) => {
   if (!confirm("Từ chối đơn hàng này?")) return;
   try {
@@ -117,6 +173,23 @@ const rejectOrder = async (id) => {
     alert("Đã từ chối đơn hàng!");
   } catch (err) {
     alert("Lỗi từ chối đơn hàng!");
+    console.error(err);
+  }
+};
+
+// Từ chối cả nhóm: dùng 1 order bất kỳ trong nhóm (service đã xử lý cả nhóm)
+const rejectGroup = async (orderId) => {
+  if (!confirm("Từ chối toàn bộ đơn trong nhóm này?")) return;
+  try {
+    await $fetch(`/orders/reject/${orderId}`, {
+      method: "PATCH",
+      baseURL: config.public.apiBase,
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+    });
+    await fetchOrders();
+    alert("Đã từ chối toàn bộ đơn trong nhóm!");
+  } catch (err) {
+    alert("Lỗi từ chối đơn nhóm!");
     console.error(err);
   }
 };
@@ -246,7 +319,10 @@ const searchOrders = async () => {
               <tr
                 v-for="o in paginatedOrders"
                 :key="o.id"
-                class="border-b hover:bg-gray-200 transition-colors cursor-pointer odd:bg-gray-100 even:bg-white"
+                :class="[
+                  'border-b hover:bg-gray-200 transition-colors cursor-pointer odd:bg-gray-100 even:bg-white',
+                  o.groupOrderId ? groupColorMap.get(o.groupOrderId) : '',
+                ]"
                 @click="openDetail(o)"
               >
                 <!-- Ảnh -->
@@ -351,31 +427,65 @@ const searchOrders = async () => {
                 <!-- Hành động -->
                 <td class="px-4 py-3 text-right">
                   <div class="flex justify-end gap-2">
-                    <span
-                      v-if="o.status === 'awaiting_payment'"
-                      class="text-sm text-orange-600 italic"
-                      >Chờ thanh toán...</span
-                    >
-                    <button
-                      v-if="o.status === 'pending'"
-                      class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-green-600 bg-green-600 text-white text-base font-medium hover:bg-green-700 active:bg-green-800 transition"
-                      @click.stop="approveOrder(o.id)"
-                    >
-                      <Check class="w-4 h-4" />
-                      <span class="text-sm font-medium">Xác nhận</span>
-                    </button>
-                    <button
-                      v-if="
-                        o.status === 'pending' ||
-                        o.status === 'awaiting_payment'
-                      "
-                      class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-red-600 bg-red-600 text-white text-base font-medium hover:bg-red-700 active:bg-red-800 transition"
-                      @click.stop="rejectOrder(o.id)"
-                    >
-                      <X class="w-4 h-4" />
-                      <span class="text-sm font-medium">Từ chối</span>
-                    </button>
-                    <span v-else class="text-sm text-gray-500 italic">-</span>
+                    <!-- Đơn nhóm: chỉ hiển thị 1 cặp nút cho order đầu tiên trong nhóm -->
+                    <template v-if="o.groupOrderId">
+                      <span
+                        v-if="o.status === 'awaiting_payment'"
+                        class="text-sm text-orange-600 italic"
+                        >Chờ thanh toán...</span
+                      >
+                      <template v-if="groupFirstOrderIds.has(o.id)">
+                        <button
+                          v-if="o.status === 'pending'"
+                          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-green-600 bg-green-600 text-white text-base font-medium hover:bg-green-700 active:bg-green-800 transition"
+                          @click.stop="approveGroup(o.groupOrderId)"
+                        >
+                          <Check class="w-4 h-4" />
+                          <span class="text-sm font-medium">Xác nhận nhóm</span>
+                        </button>
+                        <button
+                          v-if="
+                            o.status === 'pending' ||
+                            o.status === 'awaiting_payment'
+                          "
+                          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-red-600 bg-red-600 text-white text-base font-medium hover:bg-red-700 active:bg-red-800 transition"
+                          @click.stop="rejectGroup(o.id)"
+                        >
+                          <X class="w-4 h-4" />
+                          <span class="text-sm font-medium">Từ chối nhóm</span>
+                        </button>
+                      </template>
+                      <span v-else class="text-sm text-gray-500 italic">-</span>
+                    </template>
+
+                    <!-- Đơn lẻ -->
+                    <template v-else>
+                      <span
+                        v-if="o.status === 'awaiting_payment'"
+                        class="text-sm text-orange-600 italic"
+                        >Chờ thanh toán...</span
+                      >
+                      <button
+                        v-if="o.status === 'pending'"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-green-600 bg-green-600 text-white text-base font-medium hover:bg-green-700 active:bg-green-800 transition"
+                        @click.stop="approveOrder(o.id)"
+                      >
+                        <Check class="w-4 h-4" />
+                        <span class="text-sm font-medium">Xác nhận</span>
+                      </button>
+                      <button
+                        v-if="
+                          o.status === 'pending' ||
+                          o.status === 'awaiting_payment'
+                        "
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-red-600 bg-red-600 text-white text-base font-medium hover:bg-red-700 active:bg-red-800 transition"
+                        @click.stop="rejectOrder(o.id)"
+                      >
+                        <X class="w-4 h-4" />
+                        <span class="text-sm font-medium">Từ chối</span>
+                      </button>
+                      <span v-else class="text-sm text-gray-500 italic">-</span>
+                    </template>
                   </div>
                 </td>
               </tr>

@@ -58,6 +58,12 @@ router.patch(
   OrderController.approveOrderController,
 );
 router.patch(
+  "/approve-group/:groupOrderId",
+  authenticate,
+  hasRoles(Role.STAFF),
+  OrderController.approveGroupOrdersController,
+);
+router.patch(
   "/reject/:id",
   authenticate,
   hasRoles(Role.STAFF),

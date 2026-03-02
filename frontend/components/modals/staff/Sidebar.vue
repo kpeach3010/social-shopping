@@ -12,6 +12,7 @@ const props = defineProps({
 });
 
 const menu = [
+  { to: "/staff/dashboard", label: "Thống kê", icon: BarChart },
   { to: "/staff/products", label: "Sản phẩm", icon: Shirt },
   { to: "/staff/category", label: "Danh mục sản phẩm", icon: ChartBarStacked },
   { to: "/staff/coupons", label: "Mã giảm giá", icon: BadgePercent },

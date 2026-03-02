@@ -49,9 +49,15 @@
                   v-model="form.fullName"
                   type="text"
                   required
-                  class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                  :class="[
+                    'appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500',
+                    fullNameError ? 'border-red-300' : 'border-gray-300',
+                  ]"
                 />
               </div>
+              <p v-if="fullNameError" class="text-sm text-red-600 mt-1">
+                {{ fullNameError }}
+              </p>
             </div>
 
             <!-- Số điện thoại -->
@@ -64,9 +70,15 @@
                   v-model="form.phone"
                   type="tel"
                   required
-                  class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                  :class="[
+                    'appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500',
+                    phoneError ? 'border-red-300' : 'border-gray-300',
+                  ]"
                 />
               </div>
+              <p v-if="phoneError" class="text-sm text-red-600 mt-1">
+                {{ phoneError }}
+              </p>
             </div>
 
             <!-- Giới tính -->
@@ -77,13 +89,19 @@
               <div class="mt-1">
                 <select
                   v-model="form.gender"
-                  class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                  :class="[
+                    'block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500',
+                    genderError ? 'border-red-300' : 'border-gray-300',
+                  ]"
                 >
                   <option value="">Chọn giới tính</option>
                   <option value="male">Nam</option>
                   <option value="female">Nữ</option>
                 </select>
               </div>
+              <p v-if="genderError" class="text-sm text-red-600 mt-1">
+                {{ genderError }}
+              </p>
             </div>
 
             <!-- Ngày sinh -->
@@ -96,9 +114,15 @@
                   v-model="form.dateOfBirth"
                   type="date"
                   required
-                  class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                  :class="[
+                    'appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500',
+                    dateOfBirthError ? 'border-red-300' : 'border-gray-300',
+                  ]"
                 />
               </div>
+              <p v-if="dateOfBirthError" class="text-sm text-red-600 mt-1">
+                {{ dateOfBirthError }}
+              </p>
             </div>
 
             <!-- Email -->
@@ -111,9 +135,15 @@
                   v-model="form.email"
                   type="email"
                   required
-                  class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                  :class="[
+                    'appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500',
+                    emailError ? 'border-red-300' : 'border-gray-300',
+                  ]"
                 />
               </div>
+              <p v-if="emailError" class="text-sm text-red-600 mt-1">
+                {{ emailError }}
+              </p>
             </div>
 
             <!-- Tỉnh/Thành phố -->
@@ -126,9 +156,15 @@
                   v-model="form.province"
                   type="text"
                   placeholder="Nhập Tỉnh/Thành phố"
-                  class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                  :class="[
+                    'appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500',
+                    provinceError ? 'border-red-300' : 'border-gray-300',
+                  ]"
                 />
               </div>
+              <p v-if="provinceError" class="text-sm text-red-600 mt-1">
+                {{ provinceError }}
+              </p>
             </div>
 
             <!-- Mật khẩu -->
@@ -142,9 +178,15 @@
                   type="password"
                   placeholder="Lớn hơn 5 ký tự"
                   required
-                  class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                  :class="[
+                    'appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500',
+                    passwordError ? 'border-red-300' : 'border-gray-300',
+                  ]"
                 />
               </div>
+              <p v-if="passwordError" class="text-sm text-red-600 mt-1">
+                {{ passwordError }}
+              </p>
             </div>
 
             <!-- Quận/Huyện -->
@@ -157,9 +199,15 @@
                   v-model="form.district"
                   type="text"
                   placeholder="Nhập Quận/Huyện"
-                  class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                  :class="[
+                    'appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500',
+                    districtError ? 'border-red-300' : 'border-gray-300',
+                  ]"
                 />
               </div>
+              <p v-if="districtError" class="text-sm text-red-600 mt-1">
+                {{ districtError }}
+              </p>
             </div>
 
             <!-- Nhập lại mật khẩu -->
@@ -172,16 +220,14 @@
                   v-model="form.confirmPassword"
                   type="password"
                   required
-                  class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                  :class="[
+                    'appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500',
+                    confirmPasswordError ? 'border-red-300' : 'border-gray-300',
+                  ]"
                 />
               </div>
-              <p
-                v-if="
-                  form.confirmPassword && form.confirmPassword !== form.password
-                "
-                class="text-sm text-red-600 mt-1"
-              >
-                Mật khẩu không khớp.
+              <p v-if="confirmPasswordError" class="text-sm text-red-600 mt-1">
+                {{ confirmPasswordError }}
               </p>
             </div>
 
@@ -195,9 +241,15 @@
                   v-model="form.ward"
                   type="text"
                   placeholder="Nhập Phường/Xã"
-                  class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                  :class="[
+                    'appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500',
+                    wardError ? 'border-red-300' : 'border-gray-300',
+                  ]"
                 />
               </div>
+              <p v-if="wardError" class="text-sm text-red-600 mt-1">
+                {{ wardError }}
+              </p>
             </div>
 
             <!-- Địa chỉ chi tiết -->
@@ -209,9 +261,15 @@
                 <textarea
                   v-model="form.addressDetail"
                   rows="3"
-                  class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                  :class="[
+                    'appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500',
+                    addressDetailError ? 'border-red-300' : 'border-gray-300',
+                  ]"
                 ></textarea>
               </div>
+              <p v-if="addressDetailError" class="text-sm text-red-600 mt-1">
+                {{ addressDetailError }}
+              </p>
             </div>
           </div>
 
@@ -271,12 +329,22 @@ const form = reactive({
 
 const isFormValid = computed(() => {
   return (
+    !fullNameError.value &&
+    !emailError.value &&
+    !phoneError.value &&
+    !passwordError.value &&
+    !confirmPasswordError.value &&
+    !genderError.value &&
+    !dateOfBirthError.value &&
+    !provinceError.value &&
+    !districtError.value &&
+    !wardError.value &&
+    !addressDetailError.value &&
+    form.fullName.trim() !== "" &&
     form.email.trim() !== "" &&
+    form.phone.trim() !== "" &&
     form.password.trim() !== "" &&
     form.confirmPassword.trim() !== "" &&
-    form.password === form.confirmPassword &&
-    form.fullName.trim() !== "" &&
-    form.phone.trim() !== "" &&
     form.gender.trim() !== "" &&
     form.dateOfBirth.trim() !== "" &&
     form.province.trim() !== "" &&
@@ -284,6 +352,94 @@ const isFormValid = computed(() => {
     form.ward.trim() !== "" &&
     form.addressDetail.trim() !== ""
   );
+});
+
+// Validation computed properties
+const fullNameError = computed(() => {
+  if (!form.fullName.trim()) return "";
+  if (form.fullName.trim().length < 2) return "Họ tên phải có ít nhất 2 ký tự";
+  if (form.fullName.trim().length > 50) return "Họ tên không được quá 50 ký tự";
+  if (!/^[a-zA-ZÀ-ỹ\s]+$/.test(form.fullName.trim()))
+    return "Họ tên chỉ chứa chữ cái và khoảng trắng";
+  return "";
+});
+
+const emailError = computed(() => {
+  if (!form.email.trim()) return "";
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(form.email.trim())) return "Địa chỉ email không hợp lệ";
+  return "";
+});
+
+const phoneError = computed(() => {
+  if (!form.phone.trim()) return "";
+  const phoneRegex = /^(\+84|0)[3-9]\d{8}$/;
+  if (!phoneRegex.test(form.phone.trim().replace(/\s/g, ""))) {
+    return "Số điện thoại không hợp lệ (VD: 0912345678 hoặc +84912345678)";
+  }
+  return "";
+});
+
+const passwordError = computed(() => {
+  if (!form.password.trim()) return "";
+  if (form.password.length < 6) return "Mật khẩu phải có ít nhất 6 ký tự";
+  if (form.password.length > 50) return "Mật khẩu không được quá 50 ký tự";
+  return "";
+});
+
+const confirmPasswordError = computed(() => {
+  if (!form.confirmPassword.trim()) return "";
+  if (form.confirmPassword !== form.password)
+    return "Mật khẩu nhập lại không khớp";
+  return "";
+});
+
+const genderError = computed(() => {
+  // Không hiển thị lỗi khi chưa chọn gì
+  if (!form.gender.trim()) return "";
+  if (!["male", "female"].includes(form.gender))
+    return "Giới tính không hợp lệ";
+  return "";
+});
+
+const dateOfBirthError = computed(() => {
+  if (!form.dateOfBirth.trim()) return "";
+  const birthDate = new Date(form.dateOfBirth);
+  const today = new Date();
+  const age = today.getFullYear() - birthDate.getFullYear();
+
+  if (birthDate > today) return "Ngày sinh không thể là tương lai";
+  if (age < 13) return "Bạn phải ít nhất 13 tuổi";
+  if (age > 120) return "Tuổi không hợp lệ";
+  return "";
+});
+
+const provinceError = computed(() => {
+  if (!form.province.trim()) return "";
+  if (form.province.trim().length < 2) return "Tên tỉnh/thành phố quá ngắn";
+  if (form.province.trim().length > 50) return "Tên tỉnh/thành phố quá dài";
+  return "";
+});
+
+const districtError = computed(() => {
+  if (!form.district.trim()) return "";
+  if (form.district.trim().length < 2) return "Tên quận/huyện quá ngắn";
+  if (form.district.trim().length > 50) return "Tên quận/huyện quá dài";
+  return "";
+});
+
+const wardError = computed(() => {
+  if (!form.ward.trim()) return "";
+  if (form.ward.trim().length < 2) return "Tên phường/xã quá ngắn";
+  if (form.ward.trim().length > 50) return "Tên phường/xã quá dài";
+  return "";
+});
+
+const addressDetailError = computed(() => {
+  if (!form.addressDetail.trim()) return "";
+  if (form.addressDetail.trim().length < 5) return "Địa chỉ chi tiết quá ngắn";
+  if (form.addressDetail.trim().length > 200) return "Địa chỉ chi tiết quá dài";
+  return "";
 });
 
 const onSubmit = async () => {

@@ -43,7 +43,6 @@
             <p class="text-sm text-gray-500">
               Màu: {{ item.colorName }} · Size: {{ item.sizeName }}
             </p>
-            <p class="text-xs text-gray-400">SKU: {{ item.sku }}</p>
             <p class="text-xs text-gray-400">
               Kho: {{ item.stock || 0 }} sản phẩm
             </p>
@@ -82,6 +81,16 @@
               class="w-4 h-4 text-black border-gray-300 rounded"
             />
             <span class="text-gray-600">Chọn tất cả</span>
+
+            <!-- Nút xóa đa chọn -->
+            <button
+              v-if="selectedItems.length > 0"
+              @click="removeSelectedItems"
+              class="ml-4 px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
+              :title="`Xóa ${selectedItems.length} sản phẩm đã chọn`"
+            >
+              Xóa sản phẩm đã chọn ({{ selectedItems.length }})
+            </button>
           </div>
 
           <div class="text-right">
@@ -268,6 +277,90 @@ const dec = (item) => {
   }
 
   updateQuantity(item, "decrease");
+};
+
+// --- Xóa sản phẩm ---
+const removeItem = async (item) => {
+  const confirmed = confirm(
+    `Bạn có chắc chắn muốn xóa "${item.productName}" (${item.colorName} - ${item.sizeName}) khỏi giỏ hàng?`,
+  );
+
+  if (!confirmed) return;
+
+  try {
+    await $fetch(`/cart/remove/${item.variantId}`, {
+      method: "DELETE",
+      baseURL: config.public.apiBase,
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+    });
+
+    // Xóa item khỏi danh sách local
+    cart.value.items = cart.value.items.filter((i) => i.id !== item.id);
+
+    // Xóa khỏi danh sách đã chọn nếu có
+    selectedItems.value = selectedItems.value.filter((id) => id !== item.id);
+
+    // Cập nhật số lượng trong header
+    const newTotal = cart.value.items.reduce((sum, i) => sum + i.quantity, 0);
+    if (process.client) {
+      window.dispatchEvent(
+        new CustomEvent("cart-updated", {
+          detail: { count: newTotal },
+        }),
+      );
+    }
+  } catch (e) {
+    console.error("Lỗi xóa sản phẩm:", e);
+    alert("Không thể xóa sản phẩm. Vui lòng thử lại.");
+  }
+};
+
+const removeSelectedItems = async () => {
+  if (selectedItems.value.length === 0) return;
+
+  const selectedProducts = cart.value.items.filter((item) =>
+    selectedItems.value.includes(item.id),
+  );
+
+  const confirmed = confirm(
+    `Bạn có chắc chắn muốn xóa ${selectedItems.value.length} sản phẩm đã chọn khỏi giỏ hàng?`,
+  );
+
+  if (!confirmed) return;
+
+  try {
+    // Sử dụng API mới để xóa nhiều sản phẩm cùng lúc
+    const variantIds = selectedProducts.map((item) => item.variantId);
+
+    await $fetch("/cart/remove-multiple", {
+      method: "DELETE",
+      baseURL: config.public.apiBase,
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+      body: { variantIds },
+    });
+
+    // Cập nhật danh sách local
+    cart.value.items = cart.value.items.filter(
+      (item) => !selectedItems.value.includes(item.id),
+    );
+
+    // Reset danh sách đã chọn
+    selectedItems.value = [];
+    selectAll.value = false;
+
+    // Cập nhật số lượng trong header
+    const newTotal = cart.value.items.reduce((sum, i) => sum + i.quantity, 0);
+    if (process.client) {
+      window.dispatchEvent(
+        new CustomEvent("cart-updated", {
+          detail: { count: newTotal },
+        }),
+      );
+    }
+  } catch (e) {
+    console.error("Lỗi xóa sản phẩm:", e);
+    alert("Không thể xóa một số sản phẩm. Vui lòng thử lại.");
+  }
 };
 
 // --- Load giỏ hàng ---

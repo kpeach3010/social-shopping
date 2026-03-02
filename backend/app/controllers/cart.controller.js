@@ -1,6 +1,7 @@
 import {
   addToCartService,
   removeFromCartService,
+  removeMultipleFromCartService,
   getCartItemsService,
   updateCartItemQuantityService,
 } from "../services/cart.service.js";
@@ -42,6 +43,23 @@ export const removeFromCartController = async (req, res) => {
   }
 };
 
+// Xóa nhiều variants cùng lúc
+export const removeMultipleFromCartController = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { variantIds } = req.body;
+
+    if (!variantIds || !Array.isArray(variantIds) || variantIds.length === 0) {
+      return res.status(400).json({ error: "variantIds array is required" });
+    }
+
+    const result = await removeMultipleFromCartService(userId, variantIds);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
 export const getCartItemsController = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -66,7 +84,7 @@ export const updateCartItemQuantityController = async (req, res) => {
     const result = await updateCartItemQuantityService(
       userId,
       variantId,
-      action
+      action,
     );
 
     res.status(200).json({

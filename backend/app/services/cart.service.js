@@ -7,7 +7,7 @@ import {
   colors,
   productVariants,
 } from "../db/schema.js";
-import { sql, eq, and, ne } from "drizzle-orm";
+import { sql, eq, and, ne, inArray } from "drizzle-orm";
 import supabase from "../../services/supbase/client.js";
 
 // Thêm variant vào giỏ
@@ -93,6 +93,35 @@ export const removeFromCartService = async (userId, variantId) => {
   }
 
   return { message: "Variant removed successfully", deleted };
+};
+
+// Xóa nhiều variants khỏi giỏ hàng
+export const removeMultipleFromCartService = async (userId, variantIds) => {
+  // Tìm cart của user
+  const [cart] = await db
+    .select()
+    .from(carts)
+    .where(eq(carts.userId, userId))
+    .limit(1);
+
+  if (!cart) throw new Error("Cart not found");
+
+  // Xóa nhiều variants trong cart
+  const deleted = await db
+    .delete(cartItems)
+    .where(
+      and(
+        eq(cartItems.cartId, cart.id),
+        inArray(cartItems.variantId, variantIds),
+      ),
+    )
+    .returning();
+
+  return {
+    message: `${deleted.length} variants removed successfully`,
+    deleted,
+    removedCount: deleted.length,
+  };
 };
 
 // Tăng hoặc giảm variant trong cart

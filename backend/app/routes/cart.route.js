@@ -10,22 +10,27 @@ router.use(authenticate);
 router.post(
   "/add",
   hasRoles(Role.CUSTOMER),
-  CartController.addToCartController
+  CartController.addToCartController,
 );
 router.delete(
   "/remove/:variantId",
   hasRoles(Role.CUSTOMER),
-  CartController.removeFromCartController
+  CartController.removeFromCartController,
+);
+router.delete(
+  "/remove-multiple",
+  hasRoles(Role.CUSTOMER),
+  CartController.removeMultipleFromCartController,
 );
 router.patch(
   "/update-quantity/:variantId",
   hasRoles(Role.CUSTOMER),
-  CartController.updateCartItemQuantityController
+  CartController.updateCartItemQuantityController,
 );
 router.get(
   "/get-cart-items",
   hasRoles(Role.CUSTOMER),
-  CartController.getCartItemsController
+  CartController.getCartItemsController,
 );
 
 export default router;

@@ -139,6 +139,8 @@ export const products = pgTable(
     stock: integer("stock").notNull().default(0),
     thumbnailPath: varchar("thumbnail_path"), // path trong bucket Supabase
     thumbnailUrl: varchar("thumbnail_url"), // public URL
+    backThumbnailPath: varchar("back_thumbnail_path"), // path ảnh mặt sau trong bucket Supabase
+    backThumbnailUrl: varchar("back_thumbnail_url"), // public URL ảnh mặt sau
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

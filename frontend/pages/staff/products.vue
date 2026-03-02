@@ -66,6 +66,7 @@ const openEditModal = async (product) => {
       description: detail.description,
       categoryId: detail.categoryId,
       thumbnailUrl: detail.thumbnailUrl,
+      backThumbnailUrl: detail.backThumbnailUrl,
       colors,
     };
     editProductCategories.value = categories;
@@ -113,7 +114,7 @@ const currentPage = ref(1);
 const perPage = ref(8); // số sp / trang
 
 const totalPages = computed(() =>
-  Math.ceil(products.value.length / perPage.value)
+  Math.ceil(products.value.length / perPage.value),
 );
 
 const paginatedProducts = computed(() => {
@@ -142,19 +143,19 @@ const toggleSelectAllCurrentPage = () => {
   if (isAllCurrentPageSelected.value) {
     // Bỏ chọn tất cả trên trang hiện tại
     selectedProductIds.value = selectedProductIds.value.filter(
-      (id) => !ids.includes(id)
+      (id) => !ids.includes(id),
     );
   } else {
     // Chọn tất cả trên trang hiện tại
     selectedProductIds.value = Array.from(
-      new Set([...selectedProductIds.value, ...ids])
+      new Set([...selectedProductIds.value, ...ids]),
     );
   }
 };
 const toggleSelectProduct = (id) => {
   if (selectedProductIds.value.includes(id)) {
     selectedProductIds.value = selectedProductIds.value.filter(
-      (pid) => pid !== id
+      (pid) => pid !== id,
     );
   } else {
     selectedProductIds.value.push(id);
@@ -180,7 +181,7 @@ const deleteProducts = async (ids) => {
     // Nếu xóa nhiều thì clear hết, xóa 1 thì loại id đó khỏi selectedProductIds
     if (idArr.length === 1) {
       selectedProductIds.value = selectedProductIds.value.filter(
-        (pid) => pid !== idArr[0]
+        (pid) => pid !== idArr[0],
       );
     } else {
       selectedProductIds.value = [];

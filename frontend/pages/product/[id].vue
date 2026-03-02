@@ -468,10 +468,20 @@ const allImages = computed(() => {
   const variantImages = (product.value.variants || [])
     .map((v) => v.imageUrl)
     .filter(Boolean);
+  const images = [product.value.thumbnailUrl];
+  // Thêm ảnh mặt sau nếu có
+  if (product.value.backThumbnailUrl) {
+    images.push(product.value.backThumbnailUrl);
+  }
   return [
-    product.value.thumbnailUrl,
+    ...images,
     ...new Set(
-      variantImages.filter((img) => img && img !== product.value.thumbnailUrl),
+      variantImages.filter(
+        (img) =>
+          img &&
+          img !== product.value.thumbnailUrl &&
+          img !== product.value.backThumbnailUrl,
+      ),
     ),
   ];
 });

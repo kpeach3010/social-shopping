@@ -23,6 +23,8 @@ const product = ref({
   categoryId: "",
   thumbnail: null,
   thumbnailPreview: null,
+  backThumbnail: null,
+  backThumbnailPreview: null,
   colors: [], // [{ colorName, file, preview, sizes: [{ sizeName, price, stock }] }]
 });
 
@@ -35,6 +37,9 @@ watch(
       product.value = JSON.parse(JSON.stringify(val));
       // Nếu có thumbnailUrl thì set preview
       if (val.thumbnailUrl) product.value.thumbnailPreview = val.thumbnailUrl;
+      // Nếu có backThumbnailUrl thì set preview
+      if (val.backThumbnailUrl)
+        product.value.backThumbnailPreview = val.backThumbnailUrl;
       // Nếu có ảnh màu thì set preview cho từng màu
       product.value.colors?.forEach((c, i) => {
         if (c.imageUrl) product.value.colors[i].preview = c.imageUrl;
@@ -57,11 +62,13 @@ watch(
         categoryId: "",
         thumbnail: null,
         thumbnailPreview: null,
+        backThumbnail: null,
+        backThumbnailPreview: null,
         colors: [],
       };
     }
   },
-  { immediate: true }
+  { immediate: true },
 );
 
 // Upload thumbnail
@@ -78,6 +85,22 @@ const handleThumbnail = (e) => {
 const removeThumbnail = () => {
   product.value.thumbnail = null;
   product.value.thumbnailPreview = null;
+};
+
+// Upload/xóa ảnh mặt sau
+const handleBackThumbnail = (e) => {
+  const file = e.target.files[0];
+  if (file) {
+    if (product.value.backThumbnailPreview) {
+      URL.revokeObjectURL(product.value.backThumbnailPreview);
+    }
+    product.value.backThumbnail = file;
+    product.value.backThumbnailPreview = URL.createObjectURL(file);
+  }
+};
+const removeBackThumbnail = () => {
+  product.value.backThumbnail = null;
+  product.value.backThumbnailPreview = null;
 };
 // Thêm màu
 const addColor = () => {
@@ -216,6 +239,17 @@ const submitProduct = async () => {
       formData.append("thumbnail", product.value.thumbnail);
     }
 
+    // 2b. Ảnh mặt sau
+    if (product.value.backThumbnail) {
+      formData.append("backThumbnail", product.value.backThumbnail);
+    } else if (
+      !product.value.backThumbnailPreview &&
+      props.productData?.backThumbnailUrl
+    ) {
+      // Nếu đã xóa ảnh mặt sau (preview null nhưng trước đó có URL) -> gửi flag xóa
+      formData.append("removeBackThumbnail", "true");
+    }
+
     // 3. Loop qua Colors
     product.value.colors.forEach((c, colorIdx) => {
       formData.append(`colors[${colorIdx}][colorName]`, c.colorName);
@@ -224,7 +258,7 @@ const submitProduct = async () => {
       formData.append(`colors[${colorIdx}][id]`, c.id || c.colorId || "");
       formData.append(
         `colors[${colorIdx}][oldColorName]`,
-        c.oldColorName || ""
+        c.oldColorName || "",
       );
 
       // File ảnh màu mới
@@ -236,15 +270,15 @@ const submitProduct = async () => {
       c.sizes.forEach((s, sizeIdx) => {
         formData.append(
           `colors[${colorIdx}][sizes][${sizeIdx}][sizeName]`,
-          s.sizeName
+          s.sizeName,
         );
         formData.append(
           `colors[${colorIdx}][sizes][${sizeIdx}][price]`,
-          s.price
+          s.price,
         );
         formData.append(
           `colors[${colorIdx}][sizes][${sizeIdx}][stock]`,
-          s.stock
+          s.stock,
         );
 
         // === PHẦN SỬA QUAN TRỌNG NHẤT ===
@@ -252,7 +286,7 @@ const submitProduct = async () => {
         // 2. Value ưu tiên lấy s.id (từ DB trả về) rồi mới tới s.variantId
         formData.append(
           `colors[${colorIdx}][sizes][${sizeIdx}][id]`,
-          s.id || s.variantId || ""
+          s.id || s.variantId || "",
         );
       });
     });
@@ -331,7 +365,7 @@ const submitProduct = async () => {
             >
               <label class="flex items-center gap-2 cursor-pointer">
                 <ImageUp class="w-5 h-5" />
-                <span>Chọn ảnh thumbnail</span>
+                <span>Chọn ảnh thumbnail (mặt trước)</span>
                 <input type="file" class="hidden" @change="handleThumbnail" />
               </label>
             </div>
@@ -343,6 +377,37 @@ const submitProduct = async () => {
               />
               <button
                 @click="removeThumbnail"
+                class="absolute -top-2 -right-2 bg-white border rounded-full p-1 shadow hover:bg-gray-100"
+              >
+                <X class="w-4 h-4 text-gray-600" />
+              </button>
+            </div>
+          </div>
+
+          <!-- Upload ảnh mặt sau -->
+          <div class="space-y-2">
+            <div
+              v-if="!product.backThumbnailPreview"
+              class="flex items-center gap-2 cursor-pointer text-gray-700 hover:text-black"
+            >
+              <label class="flex items-center gap-2 cursor-pointer">
+                <ImageUp class="w-5 h-5" />
+                <span>Chọn ảnh mặt sau</span>
+                <input
+                  type="file"
+                  class="hidden"
+                  @change="handleBackThumbnail"
+                />
+              </label>
+            </div>
+            <div v-else class="relative inline-block">
+              <img
+                :src="product.backThumbnailPreview"
+                alt="Preview Ảnh mặt sau"
+                class="w-32 h-32 object-cover rounded border"
+              />
+              <button
+                @click="removeBackThumbnail"
                 class="absolute -top-2 -right-2 bg-white border rounded-full p-1 shadow hover:bg-gray-100"
               >
                 <X class="w-4 h-4 text-gray-600" />

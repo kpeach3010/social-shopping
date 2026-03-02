@@ -17,7 +17,7 @@ async function uploadToBucket(
   fileName,
   categoryPath,
   productId,
-  isVariant = false
+  isVariant = false,
 ) {
   const path = `categories/${categoryPath}/${productId}/${isVariant ? "variants/" : ""}${fileName}`;
 
@@ -26,7 +26,7 @@ async function uploadToBucket(
     ">>> Buffer length:",
     fileBuffer?.length,
     "isBuffer:",
-    Buffer.isBuffer(fileBuffer)
+    Buffer.isBuffer(fileBuffer),
   );
 
   const { data, error } = await supabase.storage
@@ -133,7 +133,7 @@ export async function moveAllFilesRecursive(bucket, oldPrefix, newPrefix) {
       await moveAllFilesRecursive(
         bucket,
         `${oldPrefix}${item.name}/`,
-        `${newPrefix}${item.name}/`
+        `${newPrefix}${item.name}/`,
       );
     } else {
       // file
@@ -171,7 +171,7 @@ export const createProductService = async (data) => {
       // 1.2 Check danh sách size của màu đó
       if (!Array.isArray(c.sizes) || c.sizes.length === 0) {
         throw new Error(
-          `Màu "${c.colorName}" bắt buộc phải có ít nhất một kích cỡ (size).`
+          `Màu "${c.colorName}" bắt buộc phải có ít nhất một kích cỡ (size).`,
         );
       }
 
@@ -208,15 +208,29 @@ export const createProductService = async (data) => {
         data.thumbnailFile.buffer,
         "thumbnail.png",
         categoryPath,
-        product.id
+        product.id,
       );
       thumbnailPath = thumb.path;
       thumbnailUrl = thumb.url;
     }
 
+    // Upload ảnh mặt sau (nếu có)
+    let backThumbnailPath = null;
+    let backThumbnailUrl = null;
+    if (data.backThumbnailFile) {
+      const back = await uploadToBucket(
+        data.backThumbnailFile.buffer,
+        "back-thumbnail.png",
+        categoryPath,
+        product.id,
+      );
+      backThumbnailPath = back.path;
+      backThumbnailUrl = back.url;
+    }
+
     await db
       .update(products)
-      .set({ thumbnailPath, thumbnailUrl })
+      .set({ thumbnailPath, thumbnailUrl, backThumbnailPath, backThumbnailUrl })
       .where(eq(products.id, product.id));
     // 2) Duyệt variants (colors + sizes)
     let totalStock = 0;
@@ -231,7 +245,10 @@ export const createProductService = async (data) => {
         .select()
         .from(colors)
         .where(
-          and(eq(colors.productId, product.id), eq(colors.name, colorNameUpper))
+          and(
+            eq(colors.productId, product.id),
+            eq(colors.name, colorNameUpper),
+          ),
         )
         .limit(1);
 
@@ -244,7 +261,7 @@ export const createProductService = async (data) => {
             `${toSlug(c.colorName)}.png`,
             categoryPath,
             product.id,
-            true
+            true,
           );
           imagePath = uploaded.path;
           imageUrl = uploaded.url;
@@ -272,7 +289,7 @@ export const createProductService = async (data) => {
           .select()
           .from(sizes)
           .where(
-            and(eq(sizes.productId, product.id), eq(sizes.name, sizeNameUpper))
+            and(eq(sizes.productId, product.id), eq(sizes.name, sizeNameUpper)),
           )
           .limit(1);
 
@@ -511,8 +528,8 @@ export const deleteVariantService = async (variantId) => {
           and(
             eq(productVariants.productId, variant.productId),
             eq(productVariants.colorId, variant.colorId),
-            ne(productVariants.id, variant.id) // khác variant đang xóa
-          )
+            ne(productVariants.id, variant.id), // khác variant đang xóa
+          ),
         );
 
       stillHasOtherVariants = otherVariants.length > 0;
@@ -620,14 +637,14 @@ export const updateProductService = async (productId, data) => {
         const newCategoryPath = await buildCategoryPath(data.categoryId);
 
         console.log(
-          `>>> Moving Category: ${oldCategoryPath} -> ${newCategoryPath}`
+          `>>> Moving Category: ${oldCategoryPath} -> ${newCategoryPath}`,
         );
 
         // 3.a Move folder vật lý
         await moveAllFilesRecursive(
           "product-images",
           `categories/${oldCategoryPath}/${productId}/`,
-          `categories/${newCategoryPath}/${productId}/`
+          `categories/${newCategoryPath}/${productId}/`,
         );
 
         // 3.b Cập nhật DB cho tất cả các màu (để lát nữa query lấy được path đúng)
@@ -664,6 +681,17 @@ export const updateProductService = async (productId, data) => {
           payload.thumbnailUrl = publicUrl.publicUrl;
         }
 
+        // 3.d Update Back Thumbnail Path
+        if (product.backThumbnailPath) {
+          const fileName = product.backThumbnailPath.split("/").pop();
+          const newPath = `categories/${newCategoryPath}/${productId}/${fileName}`;
+          const { data: publicUrl } = supabase.storage
+            .from("product-images")
+            .getPublicUrl(newPath);
+          payload.backThumbnailPath = newPath;
+          payload.backThumbnailUrl = publicUrl.publicUrl;
+        }
+
         payload.categoryId = data.categoryId;
       }
 
@@ -676,11 +704,38 @@ export const updateProductService = async (productId, data) => {
           data.thumbnailFile.buffer,
           fileName,
           catPath,
-          productId
+          productId,
         );
 
         payload.thumbnailPath = uploaded.path;
         payload.thumbnailUrl = uploaded.url;
+      }
+
+      // 4b) Upload ảnh mặt sau mới (nếu có)
+      if (data.backThumbnailFile) {
+        const catPath = await buildCategoryPath(currentCategoryId);
+        const uploaded = await uploadToBucket(
+          data.backThumbnailFile.buffer,
+          "back-thumbnail.png",
+          catPath,
+          productId,
+        );
+        payload.backThumbnailPath = uploaded.path;
+        payload.backThumbnailUrl = uploaded.url;
+      }
+
+      // 4c) Xóa ảnh mặt sau (nếu FE gửi flag removeBackThumbnail)
+      if (
+        data.removeBackThumbnail === "true" ||
+        data.removeBackThumbnail === true
+      ) {
+        if (product.backThumbnailPath) {
+          await supabase.storage
+            .from("product-images")
+            .remove([product.backThumbnailPath]);
+        }
+        payload.backThumbnailPath = null;
+        payload.backThumbnailUrl = null;
       }
 
       // 5) Update Product info
@@ -717,7 +772,7 @@ export const updateProductService = async (productId, data) => {
 
             if (isNameChanged && !hasNewFile && oldColor.imagePath) {
               console.log(
-                `>>> Renaming color image: ${oldColor.name} -> ${colorNameUpper}`
+                `>>> Renaming color image: ${oldColor.name} -> ${colorNameUpper}`,
               );
 
               // 1. Xác định ext cũ (.png, .jpg...)
@@ -734,7 +789,7 @@ export const updateProductService = async (productId, data) => {
                 if (oldColor.imagePath !== newPath) {
                   const renamed = await renameFileInBucket(
                     oldColor.imagePath,
-                    newPath
+                    newPath,
                   );
                   updateData.imagePath = renamed.path;
                   updateData.imageUrl = renamed.url;
@@ -742,7 +797,7 @@ export const updateProductService = async (productId, data) => {
               } catch (err) {
                 console.error(
                   "Rename failed, keeping old filename:",
-                  err.message
+                  err.message,
                 );
                 // Nếu rename lỗi (vd file không tồn tại), ta chỉ update tên màu, bỏ qua update path
               }
@@ -756,7 +811,7 @@ export const updateProductService = async (productId, data) => {
                 fileName,
                 catPath,
                 productId,
-                true // isVariant
+                true, // isVariant
               );
               updateData.imagePath = uploaded.path;
               updateData.imageUrl = uploaded.url;
@@ -781,7 +836,7 @@ export const updateProductService = async (productId, data) => {
                 fileName,
                 catPath,
                 productId,
-                true
+                true,
               );
               imagePath = uploaded.path;
               imageUrl = uploaded.url;
@@ -814,8 +869,8 @@ export const updateProductService = async (productId, data) => {
                 .where(
                   and(
                     eq(sizes.productId, productId),
-                    eq(sizes.name, sizeNameUpper)
-                  )
+                    eq(sizes.name, sizeNameUpper),
+                  ),
                 )
                 .limit(1);
 

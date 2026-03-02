@@ -38,11 +38,19 @@ export const createProductController = async (req, res) => {
       body.thumbnailFile = thumbFile; // có .buffer
     }
 
+    // Gán file ảnh mặt sau
+    const backThumbFile = req.files.find(
+      (f) => f.fieldname === "backThumbnail",
+    );
+    if (backThumbFile) {
+      body.backThumbnailFile = backThumbFile;
+    }
+
     // Gán file cho từng variant
     if (Array.isArray(body.colors)) {
       body.colors = body.colors.map((c, idx) => {
         const colorFile = req.files.find(
-          (f) => f.fieldname === `colors[${idx}][file]`
+          (f) => f.fieldname === `colors[${idx}][file]`,
         );
         if (colorFile) c.file = colorFile;
         return c;
@@ -142,11 +150,19 @@ export const updateProductController = async (req, res) => {
       body.thumbnailFile = thumbFile; // có .buffer
     }
 
+    // Lấy ảnh mặt sau mới nếu có
+    const backThumbFile = req.files.find(
+      (f) => f.fieldname === "backThumbnail",
+    );
+    if (backThumbFile) {
+      body.backThumbnailFile = backThumbFile;
+    }
+
     // Gán file cho từng màu
     if (Array.isArray(body.colors)) {
       body.colors = body.colors.map((c, idx) => {
         const colorFile = req.files.find(
-          (f) => f.fieldname === `colors[${idx}][file]`
+          (f) => f.fieldname === `colors[${idx}][file]`,
         );
         if (colorFile) c.file = colorFile;
         return c;

@@ -20,6 +20,8 @@ const product = ref({
   categoryId: "",
   thumbnail: null,
   thumbnailPreview: null,
+  backThumbnail: null,
+  backThumbnailPreview: null,
   colors: [], // [{ colorName, file, preview, sizes: [{ sizeName, price, stock }] }]
 });
 
@@ -38,6 +40,23 @@ const handleThumbnail = (e) => {
 const removeThumbnail = () => {
   product.value.thumbnail = null;
   product.value.thumbnailPreview = null;
+};
+
+// Upload ảnh mặt sau
+const handleBackThumbnail = (e) => {
+  const file = e.target.files[0];
+  if (file) {
+    if (product.value.backThumbnailPreview) {
+      URL.revokeObjectURL(product.value.backThumbnailPreview);
+    }
+    product.value.backThumbnail = file;
+    product.value.backThumbnailPreview = URL.createObjectURL(file);
+  }
+};
+
+const removeBackThumbnail = () => {
+  product.value.backThumbnail = null;
+  product.value.backThumbnailPreview = null;
 };
 
 // Thêm màu
@@ -88,6 +107,9 @@ const cleanupPreviews = () => {
   if (product.value.thumbnailPreview) {
     URL.revokeObjectURL(product.value.thumbnailPreview);
   }
+  if (product.value.backThumbnailPreview) {
+    URL.revokeObjectURL(product.value.backThumbnailPreview);
+  }
   product.value.colors.forEach((c) => {
     if (c.preview) URL.revokeObjectURL(c.preview);
     c.sizes?.forEach?.(() => {}); // nothing to cleanup for sizes
@@ -112,6 +134,9 @@ const submitProduct = async () => {
     formData.append("categoryId", product.value.categoryId);
     if (product.value.thumbnail) {
       formData.append("thumbnail", product.value.thumbnail);
+    }
+    if (product.value.backThumbnail) {
+      formData.append("backThumbnail", product.value.backThumbnail);
     }
 
     product.value.colors.forEach((c, i) => {
@@ -246,7 +271,7 @@ onMounted(fetchCategories);
             >
               <label class="flex items-center gap-2 cursor-pointer">
                 <ImageUp class="w-5 h-5" />
-                <span>Chọn ảnh thumbnail</span>
+                <span>Chọn ảnh thumbnail (mặt trước)</span>
                 <input type="file" class="hidden" @change="handleThumbnail" />
               </label>
             </div>
@@ -259,6 +284,38 @@ onMounted(fetchCategories);
               />
               <button
                 @click="removeThumbnail"
+                class="absolute -top-2 -right-2 bg-white border rounded-full p-1 shadow hover:bg-gray-100"
+              >
+                <X class="w-4 h-4 text-gray-600" />
+              </button>
+            </div>
+          </div>
+
+          <!-- Upload ảnh mặt sau -->
+          <div class="space-y-2">
+            <div
+              v-if="!product.backThumbnailPreview"
+              class="flex items-center gap-2 cursor-pointer text-gray-700 hover:text-black"
+            >
+              <label class="flex items-center gap-2 cursor-pointer">
+                <ImageUp class="w-5 h-5" />
+                <span>Chọn ảnh mặt sau</span>
+                <input
+                  type="file"
+                  class="hidden"
+                  @change="handleBackThumbnail"
+                />
+              </label>
+            </div>
+
+            <div v-else class="relative inline-block">
+              <img
+                :src="product.backThumbnailPreview"
+                alt="Preview Ảnh mặt sau"
+                class="w-32 h-32 object-cover rounded border"
+              />
+              <button
+                @click="removeBackThumbnail"
                 class="absolute -top-2 -right-2 bg-white border rounded-full p-1 shadow hover:bg-gray-100"
               >
                 <X class="w-4 h-4 text-gray-600" />

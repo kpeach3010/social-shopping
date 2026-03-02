@@ -297,6 +297,22 @@
             <span v-if="groupOrderActionLoading">Đang thanh...</span>
             <span v-else>Thanh toán ngay</span>
           </button>
+
+          <!-- Button đổi sang COD cho trưởng nhóm khi đang chờ thanh toán online -->
+          <button
+            v-if="
+              isGroupChat &&
+              groupDetail?.groupOrder?.creatorId === currentUserId &&
+              groupDetail?.groupOrder?.status === 'awaiting_payment'
+            "
+            @click="changeGroupOrderPaymentToCod"
+            :disabled="groupOrderActionLoading"
+            class="bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-medium px-2.5 py-1 rounded-md transition flex items-center justify-center min-w-[110px]"
+          >
+            <span v-if="groupOrderActionLoading" class="loader mr-1"></span>
+            <span v-if="groupOrderActionLoading">Đang đổi...</span>
+            <span v-else>Đổi sang COD</span>
+          </button>
         </div>
       </div>
 
@@ -947,6 +963,45 @@ async function processGroupCheckout(paymentMethod) {
   } catch (err) {
     console.error("Lỗi khi đặt đơn nhóm:", err);
     alert(err?.data?.error || "Đặt đơn thất bại, vui lòng thử lại.");
+  } finally {
+    groupOrderActionLoading.value = false;
+  }
+}
+
+// Trưởng nhóm đổi phương thức thanh toán nhóm từ online -> COD khi đang awaiting_payment
+async function changeGroupOrderPaymentToCod() {
+  const groupOrder = groupDetail.value?.groupOrder;
+  if (!groupOrder?.id) return;
+
+  const ok = confirm(
+    "Bạn chắc chắn muốn đổi phương thức thanh toán của cả nhóm sang COD?",
+  );
+  if (!ok) return;
+
+  groupOrderActionLoading.value = true;
+  try {
+    const res = await $fetch(
+      `/group-orders/${groupOrder.id}/change-payment-method`,
+      {
+        method: "PATCH",
+        baseURL: config.public.apiBase,
+        headers: { Authorization: `Bearer ${auth.accessToken}` },
+        body: { paymentMethod: "COD" },
+      },
+    );
+
+    if (res && res.status) {
+      groupDetail.value.groupOrder.status = res.status;
+    }
+
+    await fetchGroupDetail();
+    alert("Đã đổi phương thức thanh toán sang COD cho nhóm.");
+  } catch (error) {
+    console.error("Lỗi đổi phương thức thanh toán nhóm:", error);
+    alert(
+      error?.data?.error ||
+        "Không thể đổi phương thức thanh toán, vui lòng thử lại.",
+    );
   } finally {
     groupOrderActionLoading.value = false;
   }

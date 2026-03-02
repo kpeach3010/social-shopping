@@ -7,6 +7,7 @@ import {
   leaveConversationAfterDoneService,
   cancelGroupOrderAfterCheckoutService,
   changeGroupOrderProductService,
+  changeGroupOrderPaymentMethodService,
 } from "../services/groupOrders.service.js";
 
 import { createSystemMessage } from "../services/message.service.js";
@@ -451,6 +452,75 @@ export const changeGroupOrderProductController = async (req, res) => {
     return res.json({ success: true });
   } catch (err) {
     console.error("Lỗi đổi sản phẩm groupOrder:", err);
+    return res.status(400).json({ error: err.message });
+  }
+};
+
+// Đổi phương thức thanh toán nhóm (từ online -> COD) khi đang awaiting_payment
+export const changeGroupOrderPaymentMethodController = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const groupOrderId = req.params.groupOrderId || req.params.id;
+    const { paymentMethod } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({ error: "Chưa đăng nhập" });
+    }
+
+    if (!groupOrderId || !paymentMethod) {
+      return res
+        .status(400)
+        .json({ error: "Thiếu groupOrderId hoặc paymentMethod" });
+    }
+
+    const result = await changeGroupOrderPaymentMethodService({
+      userId,
+      groupOrderId,
+      newPaymentMethod: paymentMethod,
+    });
+
+    // Lấy conversationId để bắn socket
+    const [conv] = await db
+      .select({ id: conversations.id })
+      .from(conversations)
+      .where(eq(conversations.groupOrderId, groupOrderId))
+      .limit(1);
+
+    const conversationId = conv?.id;
+
+    const content =
+      "Trưởng nhóm đã đổi phương thức thanh toán sang COD. Đơn nhóm sẽ được xử lý như thanh toán khi nhận hàng.";
+
+    let sysMsg = null;
+    if (conversationId) {
+      sysMsg = await createSystemMessage(conversationId, content);
+    }
+
+    if (global.io && conversationId) {
+      // Cập nhật trạng thái nhóm trên FE
+      global.io.to(conversationId).emit("group-status-updated", {
+        conversationId,
+        groupOrderId,
+        status: result.status,
+        paymentMethod: result.paymentMethod,
+      });
+
+      // Gửi system message vào khung chat
+      if (sysMsg) {
+        global.io.to(conversationId).emit("message", {
+          id: sysMsg.id,
+          conversationId,
+          content,
+          type: "system",
+          senderId: "00000000-0000-0000-0000-000000000000",
+          createdAt: sysMsg.createdAt,
+        });
+      }
+    }
+
+    return res.json(result);
+  } catch (err) {
+    console.error("Lỗi đổi phương thức thanh toán groupOrder:", err);
     return res.status(400).json({ error: err.message });
   }
 };

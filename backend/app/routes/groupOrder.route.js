@@ -46,4 +46,10 @@ router.patch(
   GroupOrderController.changeGroupOrderProductController,
 );
 
+router.patch(
+  "/:groupOrderId/change-payment-method",
+  authenticate,
+  GroupOrderController.changeGroupOrderPaymentMethodController,
+);
+
 export default router;

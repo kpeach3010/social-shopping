@@ -796,6 +796,83 @@ export const cancelGroupOrderAfterCheckoutService = async (
   });
 };
 
+// Trưởng nhóm đổi phương thức thanh toán từ online -> COD khi nhóm đang chờ thanh toán
+export const changeGroupOrderPaymentMethodService = async ({
+  userId,
+  groupOrderId,
+  newPaymentMethod,
+}) => {
+  if (newPaymentMethod !== "COD") {
+    throw new Error("Hiện chỉ hỗ trợ đổi sang thanh toán COD");
+  }
+
+  return await db.transaction(async (tx) => {
+    const [group] = await tx
+      .select()
+      .from(groupOrders)
+      .where(eq(groupOrders.id, groupOrderId))
+      .limit(1);
+
+    if (!group) throw new Error("Nhóm không tồn tại");
+
+    if (group.creatorId !== userId) {
+      throw new Error(
+        "Chỉ trưởng nhóm mới có quyền đổi phương thức thanh toán",
+      );
+    }
+
+    if (group.status !== "awaiting_payment") {
+      throw new Error(
+        "Chỉ có thể đổi phương thức khi nhóm đang chờ thanh toán (awaiting_payment)",
+      );
+    }
+
+    // Đảm bảo chưa có đơn nào đã thanh toán hoặc đã được xử lý
+    const groupOrdersList = await tx
+      .select({
+        id: orders.id,
+        status: orders.status,
+        isPaid: orders.isPaid,
+      })
+      .from(orders)
+      .where(eq(orders.groupOrderId, groupOrderId));
+
+    const hasProcessedOrder = groupOrdersList.some(
+      (o) => o.isPaid || o.status !== "awaiting_payment",
+    );
+
+    if (hasProcessedOrder) {
+      throw new Error(
+        "Không thể đổi phương thức vì đã có đơn trong nhóm được xử lý hoặc thanh toán",
+      );
+    }
+
+    // Cập nhật tất cả đơn trong nhóm sang thanh toán COD, trạng thái pending
+    await tx
+      .update(orders)
+      .set({
+        paymentMethod: "COD",
+        status: "pending",
+        updatedAt: new Date(),
+      })
+      .where(eq(orders.groupOrderId, groupOrderId));
+
+    // Cập nhật trạng thái group order sang "ordering" giống như checkout COD
+    const [updatedGroup] = await tx
+      .update(groupOrders)
+      .set({ status: "ordering", updatedAt: new Date() })
+      .where(eq(groupOrders.id, groupOrderId))
+      .returning();
+
+    return {
+      success: true,
+      groupOrderId,
+      status: updatedGroup.status,
+      paymentMethod: "COD",
+    };
+  });
+};
+
 // Trưởng nhóm đổi sản phẩm mua chung khi nhóm ở trạng thái pending/locked
 export const changeGroupOrderProductService = async ({
   userId,

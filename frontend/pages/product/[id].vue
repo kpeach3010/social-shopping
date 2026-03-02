@@ -43,7 +43,12 @@
           <p class="text-lg text-gray-600">
             {{ formatPrice(product.price_default) }}
           </p>
-          <p class="text-sm text-gray-500">Kho: {{ product.stock }} sản phẩm</p>
+          <p class="text-sm text-gray-500">
+            Kho: {{ availableStock }} sản phẩm
+            <span v-if="selectedVariant" class="text-green-600 font-medium">
+              ({{ selectedColor }} - {{ selectedSize }})
+            </span>
+          </p>
 
           <!-- Chọn màu -->
           <div class="mt-4">
@@ -72,7 +77,7 @@
               <button
                 v-for="size in uniqueSizes"
                 :key="size"
-                @click="!isSizeDisabled(size) && (selectedSize = size)"
+                @click="!isSizeDisabled(size) && selectSize(size)"
                 :disabled="isSizeDisabled(size)"
                 :class="[
                   'px-3 py-1 border rounded cursor-pointer',
@@ -516,6 +521,25 @@ const uniqueSizes = computed(() => {
   });
 });
 
+// Computed để tìm variant hiện tại được chọn
+const selectedVariant = computed(() => {
+  if (!product.value || !selectedColor.value || !selectedSize.value) {
+    return null;
+  }
+  return product.value.variants.find(
+    (v) => v.color === selectedColor.value && v.size === selectedSize.value,
+  );
+});
+
+// Computed để hiển thị số lượng tồn kho
+const availableStock = computed(() => {
+  if (selectedVariant.value) {
+    return selectedVariant.value.stock;
+  }
+  // Nếu chưa chọn variant, hiển thị tổng stock
+  return product.value?.stock || 0;
+});
+
 // api hiển thị đánh giá
 const fetchReviews = async () => {
   try {
@@ -590,6 +614,13 @@ onMounted(async () => {
   }
 });
 
+const incQty = () => {
+  quantity.value++;
+};
+const decQty = () => {
+  if (quantity.value > 1) quantity.value--;
+};
+
 const selectColor = (color) => {
   if (selectedColor.value === color) {
     selectedColor.value = null;
@@ -598,6 +629,14 @@ const selectColor = (color) => {
     selectedColor.value = color;
     const variant = product.value.variants.find((v) => v.color === color);
     selectedImage.value = variant?.imageUrl || product.value.thumbnailUrl;
+  }
+};
+
+const selectSize = (size) => {
+  if (selectedSize.value === size) {
+    selectedSize.value = null;
+  } else {
+    selectedSize.value = size;
   }
 };
 

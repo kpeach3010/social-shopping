@@ -14,6 +14,11 @@ export default defineNuxtConfig({
 
   vite: {
     plugins: [tailwindcss()],
+    server: {
+      hmr: {
+        port: 24679, // Thay đổi cổng WebSocket từ 24678 sang 24679
+      },
+    },
   },
 
   modules: ["@pinia/nuxt", "@nuxtjs/google-fonts"],

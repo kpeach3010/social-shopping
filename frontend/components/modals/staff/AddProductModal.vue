@@ -257,11 +257,19 @@ onMounted(fetchCategories);
             placeholder="Giá mặc định"
             class="w-full border px-3 py-2 rounded"
           />
-          <textarea
-            v-model="product.description"
-            placeholder="Mô tả"
-            class="w-full border px-3 py-2 rounded"
-          ></textarea>
+          <div class="border rounded">
+            <QuillEditor
+              v-model:content="product.description"
+              contentType="html"
+              placeholder="Mô tả sản phẩm..."
+              :toolbar="[
+                ['bold', 'italic', 'underline'],
+                [{ list: 'ordered' }, { list: 'bullet' }],
+                ['clean'],
+              ]"
+              style="min-height: 150px"
+            />
+          </div>
 
           <!-- Upload thumbnail -->
           <div class="space-y-2">

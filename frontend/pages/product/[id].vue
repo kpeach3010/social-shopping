@@ -199,11 +199,14 @@
         </div>
       </div>
       <!-- Mô tả sản phẩm đặt dưới grid -->
-      <div class="mt-10">
-        <h3 class="text-lg font-semibold mb-2">Mô tả chi tiết</h3>
-        <p class="text-gray-700 leading-relaxed">
-          {{ product.description }}
-        </p>
+      <div class="mt-16 border-t pt-10">
+        <h3 class="text-2xl font-bold text-gray-900 mb-8">Mô tả chi tiết</h3>
+        <div class="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-md">
+          <div
+            class="text-gray-700 leading-relaxed product-description"
+            v-html="product.description"
+          ></div>
+        </div>
       </div>
 
       <div class="mt-16 border-t pt-10">
@@ -763,3 +766,44 @@ const formatPrice = (v) =>
     v || 0,
   );
 </script>
+
+<style scoped>
+.product-description {
+  line-height: 1.75;
+}
+
+.product-description :deep(ul) {
+  list-style-type: disc;
+  margin-left: 1.5rem;
+  margin-bottom: 1rem;
+  padding-left: 0.5rem;
+}
+
+.product-description :deep(ol) {
+  list-style-type: decimal;
+  margin-left: 1.5rem;
+  margin-bottom: 1rem;
+  padding-left: 0.5rem;
+}
+
+.product-description :deep(li) {
+  display: list-item;
+  margin-bottom: 0.25rem;
+}
+
+.product-description :deep(p) {
+  margin-bottom: 0.75rem;
+}
+
+.product-description :deep(strong) {
+  font-weight: bold;
+}
+
+.product-description :deep(em) {
+  font-style: italic;
+}
+
+.product-description :deep(u) {
+  text-decoration: underline;
+}
+</style>

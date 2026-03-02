@@ -312,10 +312,10 @@
                     mediaVisual(post).length === 1
                       ? 'grid-cols-1'
                       : mediaVisual(post).length === 2
-                      ? 'grid-cols-2'
-                      : mediaVisual(post).length === 3
-                      ? 'grid-cols-3'
-                      : 'grid-cols-2',
+                        ? 'grid-cols-2'
+                        : mediaVisual(post).length === 3
+                          ? 'grid-cols-3'
+                          : 'grid-cols-2',
                   ]"
                 >
                   <div
@@ -523,6 +523,10 @@ const showComments = ref(false);
 const activePostId = ref(null);
 const likedPostIds = reactive(new Set());
 const openComments = (postId) => {
+  if (!auth.accessToken) {
+    alert("Đăng nhập để bình luận");
+    return;
+  }
   activePostId.value = postId;
   showComments.value = true;
 };
@@ -556,7 +560,7 @@ const tryOpenCommentsFromRoute = () => {
 const { postStats, bumpLike } = usePostStats(
   posts,
   config.public.apiBase,
-  computed(() => auth.accessToken)
+  computed(() => auth.accessToken),
 );
 
 // Like/Unlike post with UI state
@@ -608,7 +612,7 @@ const toggleExpand = (postId) => {
 const isExpanded = (postId) => expandedPostIds.value.has(postId);
 
 const isOwnProfile = computed(
-  () => String(route.params.id) === String(auth.user?.id || "")
+  () => String(route.params.id) === String(auth.user?.id || ""),
 );
 
 // Hiển thị tên gọn gàng: ưu tiên tên của chính mình, fallback tên bài viết đầu tiên
@@ -650,7 +654,7 @@ watch(
   () => {
     tryOpenCommentsFromRoute();
   },
-  { deep: true }
+  { deep: true },
 );
 
 // Lấy posts theo user ID
@@ -680,8 +684,8 @@ const fetchUserProfile = async (userId) => {
     const list = Array.isArray(res?.data)
       ? res.data
       : Array.isArray(res)
-      ? res
-      : [];
+        ? res
+        : [];
     const found = list.find((u) => String(u.id) === String(userId));
     userProfile.value = found || null;
   } catch (err) {
@@ -963,7 +967,7 @@ const fileExtension = (u) => {
   return match ? match[1].toUpperCase().slice(0, 3) : "FILE";
 };
 const mapPrivacy = (v) =>
-  ({ public: "Công khai", friends: "Bạn bè", private: "Chỉ mình tôi" }[v] || v);
+  ({ public: "Công khai", friends: "Bạn bè", private: "Chỉ mình tôi" })[v] || v;
 const formatDate = (iso) => {
   const date = new Date(iso);
   const sec = Math.floor((new Date() - date) / 1000);

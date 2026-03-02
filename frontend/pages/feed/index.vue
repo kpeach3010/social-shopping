@@ -592,6 +592,10 @@ const showComments = ref(false);
 const activePostId = ref(null);
 const likedPostIds = reactive(new Set());
 const openComments = (postId) => {
+  if (!auth.isLoggedIn) {
+    alert("Đăng nhập để bình luận");
+    return;
+  }
   activePostId.value = postId;
   showComments.value = true;
 };

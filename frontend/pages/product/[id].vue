@@ -199,7 +199,7 @@
         </div>
       </div>
       <!-- Mô tả sản phẩm đặt dưới grid -->
-      <div class="mt-16 border-t pt-10">
+      <div v-if="product.description" class="mt-16 border-t pt-10">
         <h3 class="text-2xl font-bold text-gray-900 mb-8">Mô tả chi tiết</h3>
         <div class="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-md">
           <div

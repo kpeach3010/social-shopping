@@ -74,6 +74,27 @@ export const getGroupOrderDetailService = async (userId, conversationId) => {
 
   if (!groupOrder) throw new Error("Group order not found");
 
+  // 3.1. Tính toán khả năng cho phép hủy đơn nhóm sau khi đã đặt (ordering)
+  // Chỉ cho phép hủy khi:
+  //  - Trạng thái group = "ordering"
+  //  - Tất cả các đơn con vẫn còn ở trạng thái "pending" (chưa được nhân viên xác nhận/xử lý)
+  let canCancelGroupOrder = false;
+  if (groupOrder.status === "ordering") {
+    const processedOrders = await db
+      .select({ id: orders.id })
+      .from(orders)
+      .where(
+        and(
+          eq(orders.groupOrderId, groupOrder.id),
+          ne(orders.status, "pending"),
+          ne(orders.status, "cancelled"),
+        ),
+      )
+      .limit(1);
+
+    canCancelGroupOrder = processedOrders.length === 0;
+  }
+
   // 4. Lấy product
   const [product] = await db
     .select({
@@ -180,6 +201,7 @@ export const getGroupOrderDetailService = async (userId, conversationId) => {
       type: conv.type,
     },
     groupOrder,
+    canCancelGroupOrder,
     product,
     coupon,
     members: normalizedMembers,

@@ -113,6 +113,31 @@ export const approveOrderController = async (req, res) => {
   try {
     const id = req.params.id;
     const order = await updateOrderStatusService(id, "approve");
+
+    // Nếu là đơn thuộc nhóm thì không cho hủy nhóm nữa
+    if (order.groupOrderId && global.io) {
+      try {
+        const [conv] = await db
+          .select({ id: conversations.id })
+          .from(conversations)
+          .where(eq(conversations.groupOrderId, order.groupOrderId))
+          .limit(1);
+
+        const conversationId = conv?.id;
+        if (conversationId) {
+          global.io.to(conversationId).emit("group-can-cancel-updated", {
+            conversationId,
+            groupOrderId: order.groupOrderId,
+            canCancelGroupOrder: false,
+          });
+        }
+      } catch (e) {
+        console.error(
+          "Lỗi emit group-can-cancel-updated trong approveOrderController:",
+          e,
+        );
+      }
+    }
     res.json(order);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -172,6 +197,13 @@ export const approveGroupOrdersController = async (req, res) => {
             type: "system",
             senderId: "00000000-0000-0000-0000-000000000000",
             createdAt: sysMsg.createdAt,
+          });
+
+          // Sau khi nhân viên duyệt đơn nhóm, không còn cho phép trưởng nhóm hủy
+          global.io.to(conversationId).emit("group-can-cancel-updated", {
+            conversationId,
+            groupOrderId,
+            canCancelGroupOrder: false,
           });
         }
       } catch (e) {

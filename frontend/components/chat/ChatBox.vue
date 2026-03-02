@@ -271,7 +271,8 @@
             v-if="
               isGroupChat &&
               groupDetail?.groupOrder?.creatorId === currentUserId &&
-              groupDetail?.groupOrder?.status === 'ordering'
+              groupDetail?.groupOrder?.status === 'ordering' &&
+              groupDetail?.canCancelGroupOrder
             "
             @click="cancelGroupOrder"
             :disabled="groupOrderActionLoading"
@@ -1464,6 +1465,22 @@ onMounted(() => {
     alert("Nhóm đã giải tán");
   });
 
+  // Cập nhật realtime khả năng hủy đơn nhóm khi staff duyệt đơn
+  $socket.on("group-can-cancel-updated", (payload) => {
+    if (String(payload.conversationId) !== String(props.conversationId)) return;
+
+    if (groupDetail.value && groupDetail.value.groupOrder) {
+      // Nếu backend gửi groupOrderId thì có thể kiểm tra thêm, còn không thì chỉ dùng theo phòng chat
+      if (
+        !payload.groupOrderId ||
+        String(payload.groupOrderId) ===
+          String(groupDetail.value.groupOrder.id || "")
+      ) {
+        groupDetail.value.canCancelGroupOrder = !!payload.canCancelGroupOrder;
+      }
+    }
+  });
+
   $socket.on("group-status-updated", async (payload) => {
     // 1. Kiểm tra đúng phòng chat
     if (String(payload.conversationId) !== String(props.conversationId)) return;
@@ -1725,6 +1742,7 @@ onBeforeUnmount(() => {
   $socket.off("group-order-cancelled");
   $socket.off("force-close-chat");
   $socket.off("group-status-updated");
+  $socket.off("group-can-cancel-updated");
 
   if (supabaseChannel) supabaseChannel.unsubscribe();
 

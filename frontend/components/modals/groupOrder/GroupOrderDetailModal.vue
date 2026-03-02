@@ -88,15 +88,74 @@
           <div class="mt-4 space-y-3">
             <div
               v-for="m in members"
-              :key="m.id"
-              class="flex items-center gap-3 p-2 border border-gray-100 rounded-lg hover:bg-gray-50"
+              :key="m.userId || m.id"
+              class="flex items-start gap-3 p-2 border border-gray-100 rounded-lg hover:bg-gray-50"
             >
-              <UserCircleIcon class="w-8 h-8 text-gray-400" />
-              <div>
-                <p class="font-medium text-gray-800">
-                  {{ m.id === auth.user?.id ? "Bạn" : m.fullName }}
-                </p>
-                <p class="text-xs text-gray-500">{{ memberRole(m) }}</p>
+              <UserCircleIcon class="w-8 h-8 text-gray-400 mt-0.5" />
+              <div class="flex-1 space-y-1">
+                <div class="flex items-center justify-between gap-2">
+                  <div>
+                    <p class="font-medium text-gray-800">
+                      {{
+                        (m.userId || m.id) === auth.user?.id
+                          ? "Bạn"
+                          : m.fullName
+                      }}
+                    </p>
+                    <p class="text-xs text-gray-500">{{ memberRole(m) }}</p>
+                  </div>
+
+                  <!-- Tóm tắt số lượng đã chọn -->
+                  <p
+                    v-if="m.hasChosen && m.items?.length"
+                    class="text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-medium whitespace-nowrap"
+                  >
+                    Đã chọn
+                    {{
+                      m.items.reduce((sum, i) => sum + (i.quantity || 0), 0)
+                    }}
+                    sản phẩm
+                  </p>
+                  <p v-else class="text-xs text-gray-400 whitespace-nowrap">
+                    Chưa chọn sản phẩm
+                  </p>
+                </div>
+
+                <!-- Danh sách biến thể + số lượng đã chọn -->
+                <div
+                  v-if="m.hasChosen && m.items?.length"
+                  class="mt-1 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100"
+                >
+                  <p class="text-xs font-medium text-gray-600 mb-1">
+                    Chi tiết lựa chọn:
+                  </p>
+                  <ul
+                    class="space-y-1 max-h-28 overflow-y-auto pr-1 text-xs text-gray-700"
+                  >
+                    <li
+                      v-for="item in m.items"
+                      :key="item.variantId"
+                      class="flex items-center justify-between gap-2"
+                    >
+                      <div class="flex items-center gap-2 min-w-0">
+                        <span
+                          class="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0"
+                        />
+                        <span class="truncate">
+                          <span class="font-medium">
+                            {{ item.colorName || "Màu không xác định" }}
+                          </span>
+                          <span v-if="item.sizeName" class="text-gray-500">
+                            · Size {{ item.sizeName }}
+                          </span>
+                        </span>
+                      </div>
+                      <span class="font-semibold text-gray-900 flex-shrink-0">
+                        x{{ item.quantity }}
+                      </span>
+                    </li>
+                  </ul>
+                </div>
               </div>
             </div>
           </div>

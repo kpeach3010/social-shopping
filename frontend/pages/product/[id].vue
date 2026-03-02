@@ -699,6 +699,11 @@ const addToCart = async () => {
 };
 
 const buyNow = () => {
+  if (!auth.accessToken) {
+    alert("Bạn cần đăng nhập để mua hàng");
+    return;
+  }
+
   const variant = product.value.variants.find(
     (v) => v.color === selectedColor.value && v.size === selectedSize.value,
   );

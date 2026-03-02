@@ -460,7 +460,7 @@
     @refresh="auth.loadFromStorage()"
   />
 
-  <ReviewModal ref="reviewModalRef" />
+  <ReviewModal ref="reviewModalRef" @submitted="onReviewSubmitted" />
 
   <PaymentQrModal ref="paymentModalRef" @paid="onPaymentSuccess" />
 
@@ -725,6 +725,29 @@ const openReviewModal = (item) => {
     variantName: item.variantName,
     imageUrl: item.imageUrl,
   });
+};
+
+// Khi người dùng đánh giá xong, ẩn nút "Đánh giá" ngay lập tức
+const onReviewSubmitted = ({ orderItemId }) => {
+  if (!orderItemId) return;
+
+  // Cập nhật cờ hasReview trong danh sách orders
+  orders.value = orders.value.map((o) => ({
+    ...o,
+    items: o.items.map((it) =>
+      it.id === orderItemId ? { ...it, hasReview: true } : it,
+    ),
+  }));
+
+  // Nếu modal chi tiết đang mở và có trường hasReview trong items, cũng cập nhật
+  if (orderDetail.value && Array.isArray(orderDetail.value.items)) {
+    orderDetail.value = {
+      ...orderDetail.value,
+      items: orderDetail.value.items.map((it) =>
+        it.id === orderItemId ? { ...it, hasReview: true } : it,
+      ),
+    };
+  }
 };
 </script>
 

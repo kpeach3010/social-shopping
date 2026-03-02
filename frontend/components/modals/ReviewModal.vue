@@ -146,6 +146,7 @@ import { useAuthStore } from "@/stores/auth";
 
 const auth = useAuthStore();
 const config = useRuntimeConfig();
+const emit = defineEmits(["submitted"]);
 
 /* ================= STATE ================= */
 const show = ref(false);
@@ -275,6 +276,8 @@ const submitReview = async () => {
     }
 
     alert("Đánh giá thành công");
+    // Thông báo cho parent biết orderItemId nào đã được đánh giá
+    emit("submitted", { orderItemId: form.orderItemId });
     clearFiles();
     close();
   } catch (err) {

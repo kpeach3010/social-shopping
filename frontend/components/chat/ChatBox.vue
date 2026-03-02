@@ -448,6 +448,7 @@
       :open="showChooseModal"
       :groupOrderId="groupDetail.groupOrder.id"
       :product="groupDetail.product"
+      :initial-items="currentUserInitialItems"
       @close="showChooseModal = false"
       @chosen="handleChosen"
     />
@@ -797,6 +798,19 @@ const currentUserMember = computed(() =>
     (m) => String(m.userId) === String(props.currentUserId),
   ),
 );
+
+// Lựa chọn hiện tại của user (dùng để prefill modal chọn biến thể)
+const currentUserInitialItems = computed(() => {
+  const m = currentUserMember.value;
+  if (!m || !Array.isArray(m.items)) return [];
+
+  return m.items.map((item) => ({
+    variantId: item.variantId,
+    color: item.colorName || item.color || "",
+    size: item.sizeName || item.size || "",
+    quantity: item.quantity,
+  }));
+});
 
 const totalMemberCount = computed(() => groupMembers.value.length);
 

@@ -298,6 +298,11 @@ const props = defineProps({
   open: Boolean,
   groupOrderId: String,
   product: Object,
+  // Danh sách lựa chọn trước đó của user (nếu có)
+  initialItems: {
+    type: Array,
+    default: () => [],
+  },
 });
 const emit = defineEmits(["close", "chosen"]);
 
@@ -312,6 +317,27 @@ const quantity = ref(1);
 
 // Danh sách các biến thể đã chọn: [{ variantId, color, size, quantity }]
 const selectedItems = ref([]);
+
+// Nạp lại lựa chọn cũ của user (nếu được truyền từ ngoài vào)
+watch(
+  () => props.initialItems,
+  (items) => {
+    if (!items || !Array.isArray(items)) {
+      selectedItems.value = [];
+      return;
+    }
+
+    selectedItems.value = items
+      .map((i) => ({
+        variantId: i.variantId,
+        color: i.color || i.colorName || "",
+        size: i.size || i.sizeName || "",
+        quantity: i.quantity || 0,
+      }))
+      .filter((i) => i.quantity > 0);
+  },
+  { immediate: true, deep: true },
+);
 
 // ====== Disable color nếu tất cả variant của màu đó hết kho hoặc không có variant nào còn hàng ======
 function isColorDisabled(color) {
@@ -360,7 +386,6 @@ watch(
       selectedColor.value = null;
       selectedSize.value = null;
       quantity.value = 1;
-      selectedItems.value = [];
     } catch (err) {
       console.error("Lỗi fetch sản phẩm:", err);
     }

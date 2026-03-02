@@ -488,8 +488,7 @@ export const changeGroupOrderPaymentMethodController = async (req, res) => {
 
     const conversationId = conv?.id;
 
-    const content =
-      "Trưởng nhóm đã đổi phương thức thanh toán sang COD. Đơn nhóm sẽ được xử lý như thanh toán khi nhận hàng.";
+    const content = "Trưởng nhóm đã đổi phương thức thanh toán sang COD";
 
     let sysMsg = null;
     if (conversationId) {

@@ -7,6 +7,7 @@ import {
   cancelOrderService,
   getOrderWithUserInfoByIdService,
   searchOrdersByIdService,
+  changeMyOrderPaymentMethodToCodService,
 } from "../services/order.service.js";
 import { db } from "../db/client.js";
 import { messages } from "../db/schema.js";
@@ -22,7 +23,7 @@ export const checkoutController = async (req, res) => {
       couponCode,
       shipping,
       paymentMethod,
-      fromCart
+      fromCart,
     );
 
     res.status(201).json({
@@ -42,6 +43,23 @@ export const cancelOrderController = async (req, res) => {
     const userId = req.user.id;
     const order = await cancelOrderService(orderId, userId);
     res.json(order);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
+// Customer đổi phương thức thanh toán đơn lẻ từ online -> COD
+export const changeMyOrderPaymentMethodToCodController = async (req, res) => {
+  try {
+    const orderId = req.params.id;
+    const userId = req.user.id;
+
+    const updated = await changeMyOrderPaymentMethodToCodService(
+      orderId,
+      userId,
+    );
+
+    res.json(updated);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

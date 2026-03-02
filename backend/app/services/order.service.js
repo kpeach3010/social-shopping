@@ -312,6 +312,70 @@ export const checkoutService = async (
   return { order, orderItems: finalOrderItems };
 };
 
+// Core helper: đổi phương thức thanh toán của 1 đơn sang COD
+// executor có thể là db hoặc transaction (tx)
+export const changeOrderPaymentMethodToCodBase = async (
+  executor,
+  { orderId, userId, skipUserCheck = false },
+) => {
+  const [order] = await executor
+    .select()
+    .from(orders)
+    .where(eq(orders.id, orderId))
+    .limit(1);
+
+  if (!order) throw new Error("Đơn hàng không tồn tại");
+
+  if (!skipUserCheck) {
+    if (order.userId !== userId) {
+      throw new Error("Không có quyền chỉnh sửa đơn hàng này");
+    }
+
+    // Không cho đổi phương thức cho đơn nhóm qua API đơn lẻ
+    if (order.groupOrderId) {
+      throw new Error("Đơn thuộc nhóm mua chung, không thể đổi tại đây");
+    }
+  }
+
+  if (order.paymentMethod === "COD") {
+    throw new Error("Đơn hàng đã ở phương thức COD");
+  }
+
+  if (order.status !== "awaiting_payment") {
+    throw new Error(
+      "Chỉ có thể đổi phương thức khi đơn đang chờ thanh toán (awaiting_payment)",
+    );
+  }
+
+  if (order.isPaid) {
+    throw new Error("Không thể đổi phương thức vì đơn đã được thanh toán");
+  }
+
+  const [updated] = await executor
+    .update(orders)
+    .set({
+      paymentMethod: "COD",
+      status: "pending",
+      updatedAt: new Date(),
+    })
+    .where(eq(orders.id, orderId))
+    .returning();
+
+  return updated;
+};
+
+// CUSTOMER: đổi phương thức thanh toán từ online -> COD cho đơn lẻ
+export const changeMyOrderPaymentMethodToCodService = async (
+  orderId,
+  userId,
+) => {
+  const updated = await db.transaction((tx) =>
+    changeOrderPaymentMethodToCodBase(tx, { orderId, userId }),
+  );
+
+  return updated;
+};
+
 // CUSTOMER: Hủy đơn
 export const cancelOrderService = async (orderId, userId) => {
   // 1) Tìm order

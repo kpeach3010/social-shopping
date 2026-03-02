@@ -17,7 +17,10 @@ import {
   colors,
   sizes,
 } from "../db/schema.js";
-import { checkoutService } from "./order.service.js";
+import {
+  checkoutService,
+  changeOrderPaymentMethodToCodBase,
+} from "./order.service.js";
 import { groupOrderStatusEnum } from "../enums/groupOrderStatus.enum.js";
 import { restoreStockForItems } from "./order.service.js";
 import { and, eq, inArray, sql, asc, ne } from "drizzle-orm";
@@ -827,7 +830,7 @@ export const changeGroupOrderPaymentMethodService = async ({
       );
     }
 
-    // Đảm bảo chưa có đơn nào đã thanh toán hoặc đã được xử lý
+    // Lấy tất cả đơn trong nhóm để kiểm tra và cập nhật
     const groupOrdersList = await tx
       .select({
         id: orders.id,
@@ -847,15 +850,14 @@ export const changeGroupOrderPaymentMethodService = async ({
       );
     }
 
-    // Cập nhật tất cả đơn trong nhóm sang thanh toán COD, trạng thái pending
-    await tx
-      .update(orders)
-      .set({
-        paymentMethod: "COD",
-        status: "pending",
-        updatedAt: new Date(),
-      })
-      .where(eq(orders.groupOrderId, groupOrderId));
+    // Tái sử dụng helper đổi phương thức thanh toán của đơn lẻ cho từng đơn trong nhóm
+    for (const go of groupOrdersList) {
+      await changeOrderPaymentMethodToCodBase(tx, {
+        orderId: go.id,
+        userId,
+        skipUserCheck: true, // trưởng nhóm có quyền đổi cho tất cả đơn trong nhóm
+      });
+    }
 
     // Cập nhật trạng thái group order sang "ordering" giống như checkout COD
     const [updatedGroup] = await tx

@@ -10,52 +10,58 @@ router.post(
   "/checkout",
   authenticate,
   hasRoles(Role.CUSTOMER),
-  OrderController.checkoutController
+  OrderController.checkoutController,
+);
+router.patch(
+  "/change-payment-method/:id",
+  authenticate,
+  hasRoles(Role.CUSTOMER),
+  OrderController.changeMyOrderPaymentMethodToCodController,
 );
 router.patch(
   "/cancel/:id",
   authenticate,
   hasRoles(Role.CUSTOMER),
-  OrderController.cancelOrderController
+  OrderController.cancelOrderController,
 );
 router.get(
   "/my-orders",
   authenticate,
   hasRoles(Role.CUSTOMER),
-  OrderController.getMyOrdersController
+  OrderController.getMyOrdersController,
 );
 router.get(
   "/my-orders/:id",
   authenticate,
   hasRoles(Role.CUSTOMER),
-  OrderController.getMyOrderByIdController
+  OrderController.getMyOrderByIdController,
 );
 
 router.get(
   "/search",
   authenticate,
   hasRoles(Role.STAFF),
-  OrderController.searchOrdersByIdController
+  OrderController.searchOrdersByIdController,
 );
 
 router.get(
   "/overview",
   authenticate,
   hasRoles(Role.STAFF),
-  OrderController.getOrdersOverviewForStaffController
+  OrderController.getOrdersOverviewForStaffController,
 );
 
 router.patch(
   "/approve/:id",
   authenticate,
   hasRoles(Role.STAFF),
-  OrderController.approveOrderController
+  OrderController.approveOrderController,
 );
 router.patch(
   "/reject/:id",
   authenticate,
   hasRoles(Role.STAFF),
-  OrderController.rejectOrderController
+  OrderController.rejectOrderController,
 );
 
 router.get("/:id", OrderController.getOrderWithUserInfoByIdController);

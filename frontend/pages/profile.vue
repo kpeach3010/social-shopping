@@ -261,6 +261,17 @@
                   </button>
                   <button
                     v-if="
+                      o.status === 'awaiting_payment' &&
+                      o.paymentMethod !== 'COD' &&
+                      o.couponKind !== 'group'
+                    "
+                    class="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 font-medium"
+                    @click="changePaymentToCod(o.id)"
+                  >
+                    Đổi sang COD
+                  </button>
+                  <button
+                    v-if="
                       (o.status === 'pending' ||
                         o.status === 'awaiting_payment') &&
                       o.couponKind !== 'group'
@@ -415,6 +426,17 @@
             @click="openPaymentModal(orderDetail)"
           >
             Thanh toán
+          </button>
+          <button
+            v-if="
+              orderDetail?.status === 'awaiting_payment' &&
+              orderDetail?.paymentMethod !== 'COD' &&
+              orderDetail?.couponKind !== 'group'
+            "
+            class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 mr-2"
+            @click="changePaymentToCod(orderDetail.id)"
+          >
+            Đổi sang COD
           </button>
           <button
             v-if="
@@ -645,6 +667,51 @@ const onPaymentSuccess = ({ orderId }) => {
   setTimeout(() => {
     paymentSuccessMessage.value = "";
   }, 6000);
+};
+
+// Đổi phương thức thanh toán từ online -> COD cho đơn lẻ
+const changePaymentToCod = async (orderId) => {
+  if (!confirm("Bạn có chắc muốn đổi sang thanh toán COD cho đơn này?")) {
+    return;
+  }
+  try {
+    const updated = await $fetch(`/orders/change-payment-method/${orderId}`, {
+      method: "PATCH",
+      baseURL: config.public.apiBase,
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+    });
+
+    // Cập nhật danh sách đơn
+    orders.value = orders.value.map((o) =>
+      o.id === updated.id
+        ? {
+            ...o,
+            status: updated.status,
+            paymentMethod: updated.paymentMethod,
+            isPaid: updated.isPaid,
+          }
+        : o,
+    );
+
+    // Cập nhật popup chi tiết nếu đang mở đúng đơn
+    if (orderDetail.value?.id === updated.id) {
+      orderDetail.value = {
+        ...orderDetail.value,
+        status: updated.status,
+        paymentMethod: updated.paymentMethod,
+        isPaid: updated.isPaid,
+      };
+    }
+
+    alert("Đã đổi phương thức thanh toán sang COD thành công.");
+  } catch (e) {
+    console.error("Lỗi đổi sang COD:", e);
+    alert(
+      e?.data?.error ||
+        e?.data?.message ||
+        "Không thể đổi sang COD, vui lòng thử lại.",
+    );
+  }
 };
 
 // hàm mở modal đánh giá

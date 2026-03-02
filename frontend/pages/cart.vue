@@ -44,6 +44,15 @@
               Màu: {{ item.colorName }} · Size: {{ item.sizeName }}
             </p>
             <p class="text-xs text-gray-400">SKU: {{ item.sku }}</p>
+            <p class="text-xs text-gray-400">
+              Kho: {{ item.stock || 0 }} sản phẩm
+            </p>
+            <p
+              v-if="item.quantity > (item.stock || 0)"
+              class="text-xs text-red-500 font-medium"
+            >
+              ⚠️ Vượt quá kho! Hiện tại chỉ còn {{ item.stock || 0 }} sản phẩm
+            </p>
           </div>
 
           <!-- Số lượng -->
@@ -115,11 +124,28 @@
             >
               Sau giảm: {{ formatPrice(totalSelectedAfterDiscount) }}
             </p>
+
+            <!-- Cảnh báo vượt kho -->
+            <div
+              v-if="selectedItemsOutOfStock.length > 0"
+              class="mt-2 p-2 bg-red-50 border border-red-200 rounded text-sm"
+            >
+              <p class="text-red-500">
+                Một số sản phẩm đã chọn vượt quá kho. Vui lòng giảm số lượng để
+                tiếp tục đặt hàng
+              </p>
+            </div>
+
             <!-- Nút đặt đơn -->
             <button
               @click="goToCheckout"
-              class="inline-block mt-2 bg-black text-white px-6 py-2 rounded hover:bg-gray-800 disabled:opacity-50"
-              :disabled="selectedItems.length === 0"
+              class="inline-block mt-2 bg-black text-white px-6 py-2 rounded hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              :disabled="!canCheckout"
+              :title="
+                !canCheckout
+                  ? 'Vui lòng chọn sản phẩm và kiểm tra kho trước khi đặt đơn'
+                  : ''
+              "
             >
               Đặt đơn
             </button>
@@ -180,6 +206,20 @@ const totalSelectedAfterDiscount = computed(() => {
   return totalSelected.value - Number(selectedCoupon.value.value);
 });
 
+// Kiểm tra items đã chọn có vượt quá kho không
+const selectedItemsOutOfStock = computed(() => {
+  return cart.value.items
+    .filter((i) => selectedItems.value.includes(i.id))
+    .filter((i) => i.quantity > (i.stock || 0));
+});
+
+// Kiểm tra có thể đặt đơn không
+const canCheckout = computed(() => {
+  return (
+    selectedItems.value.length > 0 && selectedItemsOutOfStock.value.length === 0
+  );
+});
+
 // --- Toggle chọn tất cả ---
 const toggleSelectAll = () => {
   if (selectAll.value) {
@@ -215,7 +255,20 @@ const updateQuantity = async (item, action) => {
 };
 
 const inc = (item) => updateQuantity(item, "increase");
-const dec = (item) => updateQuantity(item, "decrease");
+const dec = (item) => {
+  // Kiểm tra nếu quantity hiện tại là 1, cảnh báo trước khi xóa
+  if (item.quantity === 1) {
+    const confirmed = confirm(
+      `Bạn có chắc chắn muốn xóa "${item.productName}" (${item.colorName} - ${item.sizeName}) khỏi giỏ hàng?`,
+    );
+
+    if (!confirmed) {
+      return; // Không làm gì nếu người dùng hủy
+    }
+  }
+
+  updateQuantity(item, "decrease");
+};
 
 // --- Load giỏ hàng ---
 onMounted(async () => {

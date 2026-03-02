@@ -28,7 +28,7 @@ export const addToCartService = async (userId, variantId, quantity) => {
     .select()
     .from(cartItems)
     .where(
-      and(eq(cartItems.cartId, cart.id), eq(cartItems.variantId, variantId))
+      and(eq(cartItems.cartId, cart.id), eq(cartItems.variantId, variantId)),
     )
     .limit(1);
 
@@ -54,6 +54,7 @@ export const addToCartService = async (userId, variantId, quantity) => {
       variantId: productVariants.id,
       sku: productVariants.stockKeepingUnit,
       price: productVariants.price,
+      stock: productVariants.stock, // Thêm trường stock
       productName: products.name,
       color: colors.name,
       size: sizes.name,
@@ -83,7 +84,7 @@ export const removeFromCartService = async (userId, variantId) => {
   const deleted = await db
     .delete(cartItems)
     .where(
-      and(eq(cartItems.cartId, cart.id), eq(cartItems.variantId, variantId))
+      and(eq(cartItems.cartId, cart.id), eq(cartItems.variantId, variantId)),
     )
     .returning();
 
@@ -98,7 +99,7 @@ export const removeFromCartService = async (userId, variantId) => {
 export const updateCartItemQuantityService = async (
   userId,
   variantId,
-  action
+  action,
 ) => {
   // Lấy cart của user
   const [cart] = await db
@@ -114,7 +115,7 @@ export const updateCartItemQuantityService = async (
     .select()
     .from(cartItems)
     .where(
-      and(eq(cartItems.cartId, cart.id), eq(cartItems.variantId, variantId))
+      and(eq(cartItems.cartId, cart.id), eq(cartItems.variantId, variantId)),
     )
     .limit(1);
 
@@ -163,6 +164,7 @@ export const getCartItemsService = async (userId) => {
       variantId: productVariants.id,
       sku: productVariants.stockKeepingUnit,
       price: productVariants.price,
+      stock: productVariants.stock, // Thêm trường stock
       productName: products.name,
       colorName: colors.name,
       sizeName: sizes.name,

@@ -9,8 +9,18 @@
       />
     </section>
 
+    <!-- Loading -->
+    <div
+      v-if="loading"
+      class="flex flex-col items-center justify-center min-h-[300px] py-16"
+    >
+      <div
+        class="animate-spin rounded-full h-10 w-10 border-b-2 border-black mb-4"
+      ></div>
+    </div>
+
     <!-- Danh sách sản phẩm -->
-    <section class="container mx-auto px-4 py-10">
+    <section v-else class="container mx-auto px-4 py-10">
       <div class="text-center">
         <h2 class="text-2xl font-bold mb-6">TẤT CẢ SẢN PHẨM</h2>
       </div>
@@ -92,7 +102,10 @@
     </section>
     <!-- Phân trang FE -->
     <!-- Pagination -->
-    <div class="flex justify-center items-center gap-2 mt-12 pb-8 select-none">
+    <div
+      v-if="!loading"
+      class="flex justify-center items-center gap-2 mt-12 pb-8 select-none"
+    >
       <!-- Prev -->
       <button
         @click="page > 1 && page--"
@@ -127,6 +140,7 @@ import { FunnelIcon } from "@heroicons/vue/24/outline";
 const showFilter = ref(false);
 const config = useRuntimeConfig();
 const products = ref([]);
+const loading = ref(true);
 const page = ref(1);
 const limit = 12; // mỗi trang 12 sản phẩm
 const paginatedProducts = computed(() => {
@@ -146,6 +160,8 @@ onMounted(async () => {
     products.value = res;
   } catch (err) {
     console.error("Lỗi fetch products:", err);
+  } finally {
+    loading.value = false;
   }
 });
 

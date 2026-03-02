@@ -69,19 +69,24 @@ export const getStaffDashboardStatsService = async (range = "30d") => {
     .from(orders)
     .groupBy(orders.status);
 
-  // 3. Doanh thu theo ngày trong khoảng range (nếu có)
-  let revenueByDay = [];
-  if (from && to) {
-    revenueByDay = await db
-      .select({
-        day: sql`DATE(${orders.createdAt})`.as("day"),
-        revenue: sql`SUM(${orders.total})`.mapWith(Number),
-      })
-      .from(orders)
-      .where(whereRevenue)
-      .groupBy(sql`DATE(${orders.createdAt})`)
-      .orderBy(sql`DATE(${orders.createdAt})`);
-  }
+  // 3. Doanh thu theo ngày theo range ("all" sẽ lấy toàn bộ), tách đơn lẻ vs đơn nhóm
+  const revenueByDay = await db
+    .select({
+      day: sql`DATE(${orders.createdAt})`.as("day"),
+      singleRevenue:
+        sql`SUM(CASE WHEN ${orders.groupOrderId} IS NULL THEN ${orders.total} ELSE 0 END)`.mapWith(
+          Number,
+        ),
+      groupRevenue:
+        sql`SUM(CASE WHEN ${orders.groupOrderId} IS NOT NULL THEN ${orders.total} ELSE 0 END)`.mapWith(
+          Number,
+        ),
+      totalRevenue: sql`SUM(${orders.total})`.mapWith(Number),
+    })
+    .from(orders)
+    .where(whereRevenue)
+    .groupBy(sql`DATE(${orders.createdAt})`)
+    .orderBy(sql`DATE(${orders.createdAt})`);
 
   // 4. Top sản phẩm bán chạy trong khoảng range (dựa trên quantity)
   const topProducts = await db

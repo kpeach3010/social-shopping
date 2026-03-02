@@ -78,6 +78,14 @@ const ordersStatusMap = computed(() => {
 const hasRevenueChart = computed(
   () => stats.value?.revenueByDay && stats.value.revenueByDay.length > 0,
 );
+
+const maxDailyRevenue = computed(() => {
+  if (!stats.value?.revenueByDay || !stats.value.revenueByDay.length) return 0;
+  return stats.value.revenueByDay.reduce((max, d) => {
+    const total = Number(d.totalRevenue || 0);
+    return total > max ? total : max;
+  }, 0);
+});
 </script>
 
 <template>
@@ -246,10 +254,23 @@ const hasRevenueChart = computed(
 
         <!-- Doanh thu theo ngày -->
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-          <h2 class="text-sm font-semibold text-gray-800 mb-3">
+          <h2 class="text-sm font-semibold text-gray-800 mb-1.5">
             Doanh thu theo ngày ({{ formatRangeLabel }})
           </h2>
-          <div v-if="hasRevenueChart" class="space-y-1 text-xs text-gray-600">
+          <div class="flex items-center gap-4 text-[11px] text-gray-500 mb-2">
+            <div class="flex items-center gap-1">
+              <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+              <span>Đơn lẻ</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+              <span>Đơn nhóm</span>
+            </div>
+            <span class="ml-auto"
+              >Thanh dài nhất = ngày doanh thu cao nhất</span
+            >
+          </div>
+          <div v-if="hasRevenueChart" class="space-y-1.5 text-xs text-gray-600">
             <div
               v-for="d in stats.revenueByDay"
               :key="d.day"
@@ -258,19 +279,52 @@ const hasRevenueChart = computed(
               <span class="w-24 text-gray-500">
                 {{ new Date(d.day).toLocaleDateString("vi-VN") }}
               </span>
-              <div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                <div
-                  class="h-full bg-black rounded-full"
-                  :style="{
-                    width:
-                      stats.summary.totalRevenue > 0
-                        ? `${(d.revenue / stats.summary.totalRevenue) * 100}%`
-                        : '0%',
-                  }"
-                ></div>
+              <div class="flex-1">
+                <div class="h-4 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    class="h-full flex transition-all"
+                    :style="{
+                      width:
+                        maxDailyRevenue > 0
+                          ? `${(Number(d.totalRevenue || 0) / maxDailyRevenue) * 100}%`
+                          : '0%',
+                    }"
+                  >
+                    <div
+                      v-if="Number(d.singleRevenue || 0) > 0"
+                      class="h-full bg-blue-500 flex items-center justify-center text-[10px] text-white font-medium whitespace-nowrap px-1"
+                      :title="`Đơn lẻ: ${formatPrice(d.singleRevenue)}`"
+                      :style="{
+                        width:
+                          Number(d.totalRevenue || 0) > 0
+                            ? `${(Number(d.singleRevenue || 0) / Number(d.totalRevenue || 1)) * 100}%`
+                            : '0%',
+                      }"
+                    >
+                      <span>
+                        {{ formatPrice(d.singleRevenue) }}
+                      </span>
+                    </div>
+                    <div
+                      v-if="Number(d.groupRevenue || 0) > 0"
+                      class="h-full bg-emerald-500 flex items-center justify-center text-[10px] text-white font-medium whitespace-nowrap px-1"
+                      :title="`Đơn nhóm: ${formatPrice(d.groupRevenue)}`"
+                      :style="{
+                        width:
+                          Number(d.totalRevenue || 0) > 0
+                            ? `${(Number(d.groupRevenue || 0) / Number(d.totalRevenue || 1)) * 100}%`
+                            : '0%',
+                      }"
+                    >
+                      <span>
+                        {{ formatPrice(d.groupRevenue) }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <span class="w-24 text-right font-medium text-gray-800">
-                {{ formatPrice(d.revenue) }}
+              <span class="w-32 text-right font-medium text-gray-800">
+                {{ formatPrice(d.totalRevenue) }}
               </span>
             </div>
           </div>

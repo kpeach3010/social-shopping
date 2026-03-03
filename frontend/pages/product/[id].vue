@@ -615,6 +615,18 @@ onMounted(async () => {
 });
 
 const incQty = () => {
+  // Yêu cầu chọn biến thể trước khi tăng số lượng
+  if (!selectedColor.value || !selectedSize.value) {
+    alert("Vui lòng chọn màu sắc và kích thước trước khi chọn số lượng!");
+    return;
+  }
+
+  if (quantity.value >= availableStock.value) {
+    alert(
+      `Không thể thêm. Chỉ còn ${availableStock.value} sản phẩm trong kho!`,
+    );
+    return;
+  }
   quantity.value++;
 };
 const decQty = () => {

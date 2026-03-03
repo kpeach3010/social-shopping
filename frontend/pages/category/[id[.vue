@@ -18,6 +18,7 @@
       <div
         v-if="!loading && products.length"
         class="flex justify-end mb-4 relative"
+        ref="filterDropdown"
       >
         <button
           @click="showFilter = !showFilter"
@@ -96,6 +97,7 @@ const route = useRoute();
 const config = useRuntimeConfig();
 
 const showFilter = ref(false);
+const filterDropdown = ref(null);
 const category = ref(null);
 const parentCategory = ref(null);
 const products = ref([]);
@@ -107,6 +109,13 @@ const formatPrice = (v) =>
     style: "currency",
     currency: "VND",
   }).format(Number(v) || 0);
+
+// Đóng dropdown khi click bên ngoài
+const handleClickOutside = (event) => {
+  if (filterDropdown.value && !filterDropdown.value.contains(event.target)) {
+    showFilter.value = false;
+  }
+};
 
 // Lọc theo giá: sắp xếp lại danh sách hiện tại để không lẫn sản phẩm ngoài danh mục
 const filterByPrice = (sort) => {
@@ -121,6 +130,8 @@ const filterByPrice = (sort) => {
 
 // Load category & sản phẩm ban đầu
 onMounted(async () => {
+  document.addEventListener("click", handleClickOutside);
+
   try {
     const res = await $fetch(`/category/category/${route.params.id}`, {
       baseURL: config.public.apiBase,
@@ -144,5 +155,9 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
+});
+
+onUnmounted(() => {
+  document.removeEventListener("click", handleClickOutside);
 });
 </script>

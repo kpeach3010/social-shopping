@@ -16,7 +16,7 @@
       </div>
 
       <!-- Bộ lọc -->
-      <div v-else class="flex justify-end mb-4 relative">
+      <div v-else class="flex justify-end mb-4 relative" ref="filterDropdown">
         <button
           @click="showFilter = !showFilter"
           class="flex items-center gap-2 px-3 py-2 border rounded hover:bg-gray-100"
@@ -87,11 +87,12 @@
   </div>
 </template>
 <script setup>
-import { ref, watch } from "vue";
+import { ref, watch, onMounted, onUnmounted } from "vue";
 import { FunnelIcon } from "@heroicons/vue/24/outline";
 const results = ref([]);
 const loading = ref(false);
 const showFilter = ref(false);
+const filterDropdown = ref(null);
 
 const route = useRoute();
 const config = useRuntimeConfig();
@@ -113,7 +114,7 @@ async function fetchResults() {
       `/product/search?name=${encodeURIComponent(route.query.name)}`,
       {
         baseURL: config.public.apiBase,
-      }
+      },
     );
     results.value = res || [];
   } catch (err) {
@@ -122,6 +123,13 @@ async function fetchResults() {
     loading.value = false;
   }
 }
+
+// Đóng dropdown khi click bên ngoài
+const handleClickOutside = (event) => {
+  if (filterDropdown.value && !filterDropdown.value.contains(event.target)) {
+    showFilter.value = false;
+  }
+};
 
 // Bộ lọc giá: chỉ sắp xếp lại tập kết quả hiện có, không gọi API khác để tránh lẫn sản phẩm ngoài scope
 const filterByPrice = (sort) => {
@@ -133,6 +141,15 @@ const filterByPrice = (sort) => {
   });
   results.value = sorted;
 };
+
+// Thêm/bỏ event listener cho click outside
+onMounted(() => {
+  document.addEventListener("click", handleClickOutside);
+});
+
+onUnmounted(() => {
+  document.removeEventListener("click", handleClickOutside);
+});
 
 watch(() => route.query.name, fetchResults, { immediate: true });
 </script>

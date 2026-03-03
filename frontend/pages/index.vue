@@ -26,7 +26,7 @@
       </div>
 
       <!-- Bộ lọc -->
-      <div class="flex justify-end mb-4 relative">
+      <div class="flex justify-end mb-4 relative" ref="filterDropdown">
         <button
           @click="showFilter = !showFilter"
           class="flex items-center gap-2 px-3 py-2 border rounded hover:bg-gray-100"
@@ -138,6 +138,7 @@
 import { FunnelIcon } from "@heroicons/vue/24/outline";
 
 const showFilter = ref(false);
+const filterDropdown = ref(null);
 const config = useRuntimeConfig();
 const products = ref([]);
 const loading = ref(true);
@@ -152,7 +153,16 @@ const totalPages = computed(() => {
   return Math.ceil(products.value.length / limit);
 });
 
+// Đóng dropdown khi click bên ngoài
+const handleClickOutside = (event) => {
+  if (filterDropdown.value && !filterDropdown.value.contains(event.target)) {
+    showFilter.value = false;
+  }
+};
+
+// Thêm/bỏ event listener cho click outside
 onMounted(async () => {
+  document.addEventListener("click", handleClickOutside);
   try {
     const res = await $fetch("/product/all-products", {
       baseURL: config.public.apiBase,
@@ -163,6 +173,10 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
+});
+
+onUnmounted(() => {
+  document.removeEventListener("click", handleClickOutside);
 });
 
 const filterByPrice = async (sort) => {

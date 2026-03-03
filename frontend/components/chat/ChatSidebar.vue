@@ -135,7 +135,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, nextTick } from "vue"; // Import thêm nextTick
+import { ref, onMounted, onBeforeUnmount, nextTick, watch } from "vue"; // Import thêm watch
 import { UserCircle } from "lucide-vue-next";
 import {
   UserGroupIcon,
@@ -178,6 +178,9 @@ const isDragging = ref(false);
 const position = ref({ top: 0, left: 0 });
 const dragOffset = ref({ x: 0, y: 0 });
 
+// Lưu vị trí trước khi mở rộng để khôi phục khi thu gọn
+const savedPosition = ref(null);
+
 // Hàm đặt vị trí mặc định (Góc phải dưới nhưng đảm bảo trong màn hình)
 const setDefaultPosition = () => {
   if (!sidebarRef.value) return;
@@ -207,6 +210,39 @@ const setDefaultPosition = () => {
     }
 
     isInitialized.value = true;
+  });
+};
+
+// Hàm kiểm tra và điều chỉnh vị trí khi size thay đổi
+const adjustPositionForResize = () => {
+  if (!sidebarRef.value || !isInitialized.value) return;
+
+  nextTick(() => {
+    const el = sidebarRef.value;
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+    const elWidth = el.offsetWidth;
+    const elHeight = el.offsetHeight;
+    const safeMargin = 20;
+
+    // Kiểm tra nếu bị tràn ra ngoài thì điều chỉnh
+    if (position.value.left + elWidth > windowWidth - safeMargin) {
+      position.value.left = Math.max(
+        safeMargin,
+        windowWidth - elWidth - safeMargin,
+      );
+    }
+
+    if (position.value.top + elHeight > windowHeight - safeMargin) {
+      position.value.top = Math.max(
+        safeMargin,
+        windowHeight - elHeight - safeMargin,
+      );
+    }
+
+    // Đảm bảo không bị âm
+    position.value.left = Math.max(safeMargin, position.value.left);
+    position.value.top = Math.max(safeMargin, position.value.top);
   });
 };
 
@@ -370,6 +406,56 @@ onMounted(async () => {
   if (!isReady) return;
   await loadSidebarData();
 });
+
+// Watch sự thay đổi isOpen để lưu/khôi phục vị trí
+watch(
+  () => props.isOpen,
+  (newOpen, oldOpen) => {
+    // Chờ CSS transition hoàn thành
+    setTimeout(() => {
+      if (newOpen && !oldOpen) {
+        // Đang chuyển từ thu gọn sang mở rộng
+        // Lưu vị trí hiện tại trước khi điều chỉnh
+        savedPosition.value = {
+          top: position.value.top,
+          left: position.value.left,
+        };
+
+        // Điều chỉnh vị trí nếu bị tràn
+        adjustPositionForResize();
+      } else if (!newOpen && oldOpen) {
+        // Đang chuyển từ mở rộng sang thu gọn
+        // Khôi phục về vị trí trước khi mở rộng
+        if (savedPosition.value) {
+          position.value = {
+            top: savedPosition.value.top,
+            left: savedPosition.value.left,
+          };
+
+          // Kiểm tra lại xem vị trí cũ có hợp lệ không (trong trường hợp màn hình thay đổi)
+          nextTick(() => {
+            const windowWidth = window.innerWidth;
+            const windowHeight = window.innerHeight;
+            const elWidth = 64; // kích thước khi thu gọn
+            const safeMargin = 20;
+
+            // Đảm bảo vẫn trong màn hình
+            if (position.value.left + elWidth > windowWidth - safeMargin) {
+              position.value.left = windowWidth - elWidth - safeMargin;
+            }
+            if (position.value.top > windowHeight - safeMargin) {
+              position.value.top = windowHeight - 100; // chiều cao tối thiểu
+            }
+
+            position.value.left = Math.max(safeMargin, position.value.left);
+            position.value.top = Math.max(safeMargin, position.value.top);
+          });
+        }
+      }
+    }, 50);
+  },
+  { immediate: false },
+);
 
 onBeforeUnmount(() => {
   $socket.off("group-activated");

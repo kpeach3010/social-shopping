@@ -135,7 +135,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from "vue"; // Import thêm ref, lifecycle
+import { ref, onMounted, onBeforeUnmount, nextTick } from "vue"; // Import thêm nextTick
 import { UserCircle } from "lucide-vue-next";
 import {
   UserGroupIcon,
@@ -158,6 +158,13 @@ const hasFriends = ref(false);
 const groupConversations = ref([]);
 const { $socket } = useNuxtApp();
 
+// Storage cho debounced resize handler
+let resizeTimeout = null;
+const handleResize = () => {
+  clearTimeout(resizeTimeout);
+  resizeTimeout = setTimeout(setDefaultPosition, 100);
+};
+
 const tabs = [
   { value: "direct", label: "Cá nhân" },
   { value: "group", label: "Nhóm" },
@@ -171,20 +178,36 @@ const isDragging = ref(false);
 const position = ref({ top: 0, left: 0 });
 const dragOffset = ref({ x: 0, y: 0 });
 
-// Hàm đặt vị trí mặc định (Góc phải dưới)
+// Hàm đặt vị trí mặc định (Góc phải dưới nhưng đảm bảo trong màn hình)
 const setDefaultPosition = () => {
-  if (sidebarRef.value) {
-    const el = sidebarRef.value;
-    const windowWidth = window.innerWidth;
-    const windowHeight = window.innerHeight;
-    const elWidth = el.offsetWidth || 256; // 256px ~ w-64
+  if (!sidebarRef.value) return;
+
+  const el = sidebarRef.value;
+  const windowWidth = window.innerWidth;
+  const windowHeight = window.innerHeight;
+
+  // Đợi element render xong rồi mới tính toán
+  nextTick(() => {
+    const elWidth = el.offsetWidth || (props.isOpen ? 256 : 64);
     const elHeight = el.offsetHeight || 400;
 
-    // Cách lề phải 20px, lề dưới 20px
-    position.value.left = windowWidth - elWidth - 20;
-    position.value.top = windowHeight - elHeight - 20;
+    // Tính toán vị trí với padding an toàn
+    const safeMargin = 20;
+    const maxLeft = windowWidth - elWidth - safeMargin;
+    const maxTop = windowHeight - elHeight - safeMargin;
+
+    // Đảm bảo không bị âm
+    position.value.left = Math.max(safeMargin, maxLeft);
+    position.value.top = Math.max(safeMargin, maxTop);
+
+    // Nếu màn hình quá nhỏ, đặt ở góc trên phải
+    if (windowWidth < elWidth + 40) {
+      position.value.left = safeMargin;
+      position.value.top = safeMargin;
+    }
+
     isInitialized.value = true;
-  }
+  });
 };
 
 const startDrag = (event) => {
@@ -208,17 +231,22 @@ const onDrag = (event) => {
   let newLeft = event.clientX - dragOffset.value.x;
   let newTop = event.clientY - dragOffset.value.y;
 
-  // Giới hạn không cho kéo ra ngoài màn hình (Optional)
+  // Giới hạn chặt chẽ hơn để không bị ra ngoài màn hình
   const windowWidth = window.innerWidth;
   const windowHeight = window.innerHeight;
   const elWidth = sidebarRef.value.offsetWidth;
   const elHeight = sidebarRef.value.offsetHeight;
+  const safeMargin = 10;
 
-  // Giới hạn màn hình
-  if (newLeft < 0) newLeft = 0;
-  if (newLeft + elWidth > windowWidth) newLeft = windowWidth - elWidth;
-  if (newTop < 0) newTop = 0;
-  if (newTop + elHeight > windowHeight) newTop = windowHeight - elHeight;
+  // Constrains với margin an toàn
+  if (newLeft < safeMargin) newLeft = safeMargin;
+  if (newLeft + elWidth > windowWidth - safeMargin) {
+    newLeft = windowWidth - elWidth - safeMargin;
+  }
+  if (newTop < safeMargin) newTop = safeMargin;
+  if (newTop + elHeight > windowHeight - safeMargin) {
+    newTop = windowHeight - elHeight - safeMargin;
+  }
 
   position.value.left = newLeft;
   position.value.top = newTop;
@@ -330,14 +358,13 @@ async function loadSidebarData() {
 }
 
 onMounted(async () => {
-  // Khởi tạo vị trí ban đầu
-  // Dùng setTimeout nhỏ để đảm bảo DOM đã render xong width/height
+  // Khởi tạo vị trí ban đầu với timeout dài hơn để đảm bảo render xong
   setTimeout(() => {
     setDefaultPosition();
-  }, 100);
+  }, 200);
 
-  // Xử lý resize window để chat không bị mất ra ngoài
-  window.addEventListener("resize", setDefaultPosition);
+  // Xử lý resize window với debounce
+  window.addEventListener("resize", handleResize);
 
   const isReady = await useWaitForAuthReady();
   if (!isReady) return;
@@ -349,7 +376,9 @@ onBeforeUnmount(() => {
   $socket.off("force-close-chat");
   $socket.off("group-deleted");
 
-  window.removeEventListener("resize", setDefaultPosition);
+  // Cleanup tất cả event listeners
+  clearTimeout(resizeTimeout);
+  window.removeEventListener("resize", handleResize);
   window.removeEventListener("mousemove", onDrag);
   window.removeEventListener("mouseup", stopDrag);
 });

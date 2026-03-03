@@ -129,7 +129,7 @@ export const updateCartItemQuantityService = async (
   userId,
   variantId,
   action,
-  targetQuantity = null, // Support direct quantity setting for optimistic updates
+  targetQuantity = null,
 ) => {
   // Lấy cart của user
   const [cart] = await db

@@ -129,6 +129,7 @@ export const updateCartItemQuantityService = async (
   userId,
   variantId,
   action,
+  targetQuantity = null, // Support direct quantity setting for optimistic updates
 ) => {
   // Lấy cart của user
   const [cart] = await db
@@ -152,16 +153,27 @@ export const updateCartItemQuantityService = async (
 
   let newQuantity = item.quantity;
 
-  if (action === "increase") {
-    newQuantity = item.quantity + 1;
-  } else if (action === "decrease") {
-    newQuantity = item.quantity - 1;
-    if (newQuantity <= 0) {
-      // Nếu số lượng <= 0 thì xóa khỏi cart
+  // If targetQuantity is provided, use it directly (for optimistic updates)
+  if (targetQuantity !== null && targetQuantity >= 0) {
+    newQuantity = targetQuantity;
+
+    // If target quantity is 0, remove the item
+    if (newQuantity === 0) {
       return await removeFromCartService(userId, variantId);
     }
   } else {
-    throw new Error("Action must be 'increase' or 'decrease'");
+    // Traditional increment/decrement logic
+    if (action === "increase") {
+      newQuantity = item.quantity + 1;
+    } else if (action === "decrease") {
+      newQuantity = item.quantity - 1;
+      if (newQuantity <= 0) {
+        // Nếu số lượng <= 0 thì xóa khỏi cart
+        return await removeFromCartService(userId, variantId);
+      }
+    } else {
+      throw new Error("Action must be 'increase' or 'decrease'");
+    }
   }
 
   const [updated] = await db

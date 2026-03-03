@@ -61,12 +61,27 @@
           </div>
 
           <!-- Số lượng -->
-          <div class="flex items-center space-x-2">
-            <button @click="dec(item)" class="px-2 py-1 border rounded">
+          <div class="flex items-center space-x-2 relative">
+            <button
+              @click="dec(item)"
+              class="px-2 py-1 border rounded hover:bg-gray-100 transition-all duration-150"
+              :class="{ 'opacity-75': loadingItems.has(item.id) }"
+            >
               −
             </button>
-            <span class="px-2">{{ item.quantity }}</span>
-            <button @click="inc(item)" class="px-2 py-1 border rounded">
+            <div class="relative px-2 min-w-[2rem] text-center">
+              <span class="select-none">{{ item.quantity }}</span>
+              <!-- Subtle loading indicator -->
+              <div
+                v-if="loadingItems.has(item.id)"
+                class="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full animate-pulse"
+              ></div>
+            </div>
+            <button
+              @click="inc(item)"
+              class="px-2 py-1 border rounded hover:bg-gray-100 transition-all duration-150"
+              :class="{ 'opacity-75': loadingItems.has(item.id) }"
+            >
               +
             </button>
           </div>
@@ -196,6 +211,10 @@ const coupons = ref([]);
 const selectedCoupon = ref(null);
 const loadingCoupons = ref(false);
 
+// --- Optimistic update state ---
+const pendingUpdates = ref({}); // { itemId: { quantity, timer } }
+const loadingItems = ref(new Set()); // Set of item IDs being updated
+
 // --- Helpers ---
 const formatPrice = (v) =>
   new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(
@@ -244,46 +263,120 @@ const toggleSelectAll = () => {
   }
 };
 
-// --- Update số lượng ---
-const updateQuantity = async (item, action) => {
+// --- Update số lượng với optimistic updates ---
+const updateQuantityOptimistically = (item, action) => {
+  const itemId = item.id;
+  const originalQuantity = item.quantity;
+
+  // Optimistic update - cập nhật UI ngay lập tức
+  if (action === "increase") {
+    item.quantity += 1;
+  } else if (action === "decrease") {
+    if (item.quantity <= 1) {
+      // Xác nhận xóa
+      const confirmed = confirm(
+        `Bạn có chắc chắn muốn xóa "${item.productName}" (${item.colorName} - ${item.sizeName}) khỏi giỏ hàng?`,
+      );
+      if (!confirmed) {
+        return; // Không làm gì nếu user hủy
+      }
+    }
+    item.quantity = Math.max(0, item.quantity - 1);
+  }
+
+  // Clear timer cũ nếu có
+  if (pendingUpdates.value[itemId]?.timer) {
+    clearTimeout(pendingUpdates.value[itemId].timer);
+  }
+
+  // Set pending state
+  pendingUpdates.value[itemId] = {
+    quantity: item.quantity,
+    originalQuantity,
+    action,
+  };
+
+  // Debounce API call
+  const timer = setTimeout(async () => {
+    await executeQuantityUpdate(item, itemId, originalQuantity);
+  }, 300); // Giảm từ 500ms xuống 300ms
+
+  pendingUpdates.value[itemId].timer = timer;
+
+  // Update header immediately for better UX
+  updateCartHeader();
+};
+
+const executeQuantityUpdate = async (item, itemId, originalQuantity) => {
   try {
+    loadingItems.value.add(itemId);
+
+    const pendingData = pendingUpdates.value[itemId];
+    if (!pendingData) return;
+
+    // Determine action based on quantity change
+    let action;
+    if (pendingData.quantity > originalQuantity) {
+      action = "increase";
+    } else if (pendingData.quantity < originalQuantity) {
+      action = "decrease";
+    } else {
+      // No change, skip API call
+      return;
+    }
+
+    // Calculate how many times to perform the action
+    const diff = Math.abs(pendingData.quantity - originalQuantity);
+
+    // For efficiency, we'll call API once with the final quantity
     const res = await $fetch(`/cart/update-quantity/${item.variantId}`, {
       method: "PATCH",
       baseURL: config.public.apiBase,
       headers: { Authorization: `Bearer ${auth.accessToken}` },
-      body: { action }, // "increase" | "decrease"
+      body: {
+        action,
+        targetQuantity: pendingData.quantity, // Send target quantity for server to handle
+      },
     });
-    item.quantity = res.data.quantity;
-    // Cập nhật lại tổng số lượng sau khi thay đổi
-    const newTotal = cart.value.items.reduce((sum, i) => sum + i.quantity, 0);
-    // Gửi sự kiện cart-updated với tổng số lượng mới cho header
-    if (process.client) {
-      window.dispatchEvent(
-        new CustomEvent("cart-updated", {
-          detail: { count: newTotal },
-        }),
-      );
+
+    // Update with server response
+    if (res.data) {
+      item.quantity = res.data.quantity;
     }
-  } catch (e) {
-    console.error("Lỗi update số lượng:", e);
+
+    // If quantity is 0, remove item from cart
+    if (item.quantity === 0) {
+      cart.value.items = cart.value.items.filter((i) => i.id !== itemId);
+      selectedItems.value = selectedItems.value.filter((id) => id !== itemId);
+    }
+  } catch (error) {
+    console.error("Lỗi update số lượng:", error);
+
+    // Rollback on error
+    item.quantity = originalQuantity;
+    alert("Không thể cập nhật số lượng. Vui lòng thử lại.");
+  } finally {
+    // Cleanup
+    loadingItems.value.delete(itemId);
+    delete pendingUpdates.value[itemId];
+    updateCartHeader();
   }
 };
 
-const inc = (item) => updateQuantity(item, "increase");
-const dec = (item) => {
-  // Kiểm tra nếu quantity hiện tại là 1, cảnh báo trước khi xóa
-  if (item.quantity === 1) {
-    const confirmed = confirm(
-      `Bạn có chắc chắn muốn xóa "${item.productName}" (${item.colorName} - ${item.sizeName}) khỏi giỏ hàng?`,
+// Helper to update cart header
+const updateCartHeader = () => {
+  const newTotal = cart.value.items.reduce((sum, i) => sum + i.quantity, 0);
+  if (process.client) {
+    window.dispatchEvent(
+      new CustomEvent("cart-updated", {
+        detail: { count: newTotal },
+      }),
     );
-
-    if (!confirmed) {
-      return; // Không làm gì nếu người dùng hủy
-    }
   }
-
-  updateQuantity(item, "decrease");
 };
+
+const inc = (item) => updateQuantityOptimistically(item, "increase");
+const dec = (item) => updateQuantityOptimistically(item, "decrease");
 
 // --- Xóa sản phẩm ---
 const removeItem = async (item) => {
@@ -473,4 +566,16 @@ const goToCheckout = () => {
 
   navigateTo("/checkout");
 };
+
+// --- Cleanup on unmount ---
+onUnmounted(() => {
+  // Clear all pending timers
+  Object.values(pendingUpdates.value).forEach((update) => {
+    if (update.timer) {
+      clearTimeout(update.timer);
+    }
+  });
+  pendingUpdates.value = {};
+  loadingItems.value.clear();
+});
 </script>

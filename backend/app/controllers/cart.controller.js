@@ -75,7 +75,7 @@ export const updateCartItemQuantityController = async (req, res) => {
   try {
     const userId = req.user.id;
     const { variantId } = req.params;
-    const { action } = req.body; // "increase" | "decrease"
+    const { action, targetQuantity } = req.body; // Support targetQuantity for optimistic updates
 
     if (!variantId || !action) {
       return res.status(400).json({ error: "variantId và action là bắt buộc" });
@@ -85,6 +85,7 @@ export const updateCartItemQuantityController = async (req, res) => {
       userId,
       variantId,
       action,
+      targetQuantity,
     );
 
     res.status(200).json({

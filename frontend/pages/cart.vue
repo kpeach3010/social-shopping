@@ -28,16 +28,22 @@
           />
 
           <!-- Ảnh -->
-          <div class="w-20 h-20 flex-shrink-0">
+          <div
+            class="w-20 h-20 flex-shrink-0 cursor-pointer"
+            @click="goToProduct(item)"
+          >
             <img
               :src="item.imageUrl"
-              class="w-full h-full object-cover rounded"
+              class="w-full h-full object-cover rounded hover:opacity-80 transition"
             />
           </div>
 
           <!-- Thông tin -->
           <div class="flex-1 min-w-0">
-            <h2 class="font-semibold text-base sm:text-lg truncate">
+            <h2
+              class="font-semibold text-base sm:text-lg truncate cursor-pointer hover:text-gray-700 transition"
+              @click="goToProduct(item)"
+            >
               {{ item.productName }}
             </h2>
             <p class="text-sm text-gray-500">
@@ -416,6 +422,13 @@ const loadCoupons = async () => {
     loadingCoupons.value = false;
   }
 };
+// --- Navigate to product detail ---
+const goToProduct = (item) => {
+  if (item.productId) {
+    navigateTo(`/product/${item.productId}`);
+  }
+};
+
 // --- Watch selectedItems ---
 watch(selectedItems, async (newVal) => {
   if (!newVal.length) {

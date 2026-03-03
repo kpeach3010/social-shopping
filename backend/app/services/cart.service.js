@@ -191,6 +191,7 @@ export const getCartItemsService = async (userId) => {
       id: cartItems.id,
       quantity: cartItems.quantity,
       variantId: productVariants.id,
+      productId: products.id, // Thêm productId để navigate
       sku: productVariants.stockKeepingUnit,
       price: productVariants.price,
       stock: productVariants.stock, // Thêm trường stock

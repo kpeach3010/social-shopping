@@ -111,9 +111,7 @@
                     class="text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-medium whitespace-nowrap"
                   >
                     Đã chọn
-                    {{
-                      m.items.reduce((sum, i) => sum + (i.quantity || 0), 0)
-                    }}
+                    {{ m.items.reduce((sum, i) => sum + (i.quantity || 0), 0) }}
                     sản phẩm
                   </p>
                   <p v-else class="text-xs text-gray-400 whitespace-nowrap">
@@ -209,7 +207,8 @@
           <div
             v-if="
               groupOrder.status === 'pending' ||
-              groupOrder.status === 'completed'
+              groupOrder.status === 'completed' ||
+              groupOrder.status === 'cancelled'
             "
             class="mt-5 flex justify-center"
           >
@@ -224,7 +223,7 @@
           <!-- Thông tin khác -->
           <div class="mt-4 text-xs text-gray-500 text-right">
             <p class="italic text-blue-400">
-              Chỉ có thể rời nhóm khi nhóm đang mở hoặc đã hoàn tất
+              Chỉ có thể rời nhóm khi nhóm đang mở, đã hoàn tất hoặc đã huỷ
             </p>
           </div>
         </template>

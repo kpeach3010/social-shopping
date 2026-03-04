@@ -1,6 +1,3 @@
-import { table } from "console";
-import { create } from "domain";
-import { is } from "drizzle-orm";
 import {
   pgTable,
   varchar,
@@ -158,9 +155,11 @@ export const colors = pgTable(
   "colors",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    productId: uuid("product_id").references(() => products.id, {
-      onDelete: "cascade",
-    }),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id, {
+        onDelete: "cascade",
+      }),
     name: varchar("name", { length: 20 }).notNull(),
     imagePath: varchar("image_path"), // path trong bucket Supabase
     imageUrl: varchar("image_url"), // public URL (nếu cần cache)
@@ -178,9 +177,11 @@ export const sizes = pgTable(
   "sizes",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    productId: uuid("product_id").references(() => products.id, {
-      onDelete: "cascade",
-    }),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id, {
+        onDelete: "cascade",
+      }),
     name: varchar("name", { length: 20 }).notNull(),
   },
   (table) => ({
@@ -196,15 +197,21 @@ export const productVariants = pgTable(
   "product_variants",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    colorId: uuid("color_id").references(() => colors.id, {
-      onDelete: "cascade",
-    }),
-    sizeId: uuid("size_id").references(() => sizes.id, {
-      onDelete: "cascade",
-    }),
-    productId: uuid("product_id").references(() => products.id, {
-      onDelete: "cascade",
-    }),
+    colorId: uuid("color_id")
+      .notNull()
+      .references(() => colors.id, {
+        onDelete: "cascade",
+      }),
+    sizeId: uuid("size_id")
+      .notNull()
+      .references(() => sizes.id, {
+        onDelete: "cascade",
+      }),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id, {
+        onDelete: "cascade",
+      }),
     stockKeepingUnit: varchar("sku", { length: 50 }).notNull(),
     stock: integer("stock").notNull().default(0),
     price: decimal("price", { precision: 12, scale: 2 }).notNull(),
@@ -281,7 +288,10 @@ export const carts = pgTable(
   "carts",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    userId: uuid("user_id").references(() => users.id),
+    userId: uuid("user_id")
+      .references(() => users.id)
+      .notNull()
+      .unique(),
   },
   (table) => ({
     idxCartUser: index("idx_carts_user_id").on(table.userId),
@@ -292,7 +302,9 @@ export const cartItems = pgTable(
   "cart_items",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    cartId: uuid("cart_id").references(() => carts.id),
+    cartId: uuid("cart_id")
+      .references(() => carts.id)
+      .notNull(),
     variantId: uuid("variant_id").references(() => productVariants.id),
     quantity: integer("quantity").notNull(),
   },
@@ -515,9 +527,11 @@ export const conversations = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     ownerId: uuid("owner_id").references(() => users.id), // nguoi tao nhom
-    groupOrderId: uuid("group_order_id").references(() => groupOrders.id, {
-      onDelete: "set null",
-    }), // neu la nhom mua chung
+    groupOrderId: uuid("group_order_id")
+      .unique()
+      .references(() => groupOrders.id, {
+        onDelete: "set null",
+      }), // neu la nhom mua chung
     type: conversationTypesEnum("conversation_types")
       .notNull()
       .default("direct"), // direct, group
@@ -648,7 +662,9 @@ export const reviews = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
-    productId: uuid("product_id").references(() => products.id), // Thêm productId để index nhanh hơn
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id),
   },
   (table) => ({
     // Ràng buộc: Mỗi order item chỉ được review 1 lần

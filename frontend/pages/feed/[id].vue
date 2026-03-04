@@ -483,8 +483,9 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
 import { useAuthStore } from "@/stores/auth";
+import { useFriendStore } from "@/stores/friend";
 import { UserCircleIcon, EllipsisVerticalIcon } from "@heroicons/vue/24/solid";
 import CreatePostModal from "@/components/modals/feed/CreatePostModal.vue";
 import MediaGalleryModal from "@/components/MediaGalleryModal.vue";
@@ -498,6 +499,8 @@ import { usePostStats } from "@/composables/usePostStats.js";
 const route = useRoute();
 const config = useRuntimeConfig();
 const auth = useAuthStore();
+const friendStore = useFriendStore();
+const { $socket } = useNuxtApp();
 
 const showModal = ref(false);
 const posts = ref([]);
@@ -647,12 +650,64 @@ onMounted(async () => {
 
   tryOpenCommentsFromRoute();
   loading.value = false;
+
+  // Listen for real-time friend action events from the other user via socket
+  if ($socket) {
+    // Khi người nhận chấp nhận lời mời -> cập nhật UI của người gửi
+    $socket.on("friend_request_accepted", (data) => {
+      // Chỉ cập nhật nếu đang xem profile của người nhận
+      if (String(data.receiverId) === String(route.params.id)) {
+        friendshipStatus.value = "friends";
+        pendingRequestId.value = null;
+        fetchFriendCount(route.params.id);
+      }
+    });
+
+    // Khi người nhận từ chối lời mời -> cập nhật UI của người gửi
+    $socket.on("friend_request_rejected", (data) => {
+      if (String(data.receiverId) === String(route.params.id)) {
+        friendshipStatus.value = "not_friends";
+        pendingRequestId.value = null;
+      }
+    });
+  }
+});
+
+onBeforeUnmount(() => {
+  if ($socket) {
+    $socket.off("friend_request_accepted");
+    $socket.off("friend_request_rejected");
+  }
 });
 
 watch(
   () => route.query,
   () => {
     tryOpenCommentsFromRoute();
+  },
+  { deep: true },
+);
+
+// Watch for friend actions dispatched from FriendsDropdown (or other components)
+watch(
+  () => friendStore.friendActionEvent,
+  (event) => {
+    if (!event || isOwnProfile.value) return;
+    // Only react if the event concerns the user whose profile we're viewing
+    if (event.targetUserId !== String(route.params.id)) return;
+
+    if (event.type === "accepted") {
+      friendshipStatus.value = "friends";
+      pendingRequestId.value = null;
+      fetchFriendCount(route.params.id);
+    } else if (event.type === "rejected") {
+      friendshipStatus.value = "not_friends";
+      pendingRequestId.value = null;
+    } else if (event.type === "unfriended") {
+      friendshipStatus.value = "not_friends";
+      pendingRequestId.value = null;
+      fetchFriendCount(route.params.id);
+    }
   },
   { deep: true },
 );
@@ -818,6 +873,12 @@ const acceptFriendRequest = async () => {
 
     friendshipStatus.value = "friends";
     await fetchFriendCount(route.params.id);
+    friendStore.dispatchFriendAction(
+      "accepted",
+      route.params.id,
+      pendingRequestId.value,
+    );
+    friendStore.decrementUnread();
   } catch (err) {
     console.error("Error accepting friend request:", err);
     alert("Không thể chấp nhận lời mời. Vui lòng thử lại.");
@@ -831,6 +892,7 @@ const rejectFriendRequest = async () => {
   if (!pendingRequestId.value || !auth.accessToken) return;
 
   friendActionLoading.value = true;
+  const savedRequestId = pendingRequestId.value;
 
   try {
     await api(`/friends/request/${pendingRequestId.value}/reject`, {
@@ -840,6 +902,12 @@ const rejectFriendRequest = async () => {
 
     friendshipStatus.value = "not_friends";
     pendingRequestId.value = null;
+    friendStore.dispatchFriendAction(
+      "rejected",
+      route.params.id,
+      savedRequestId,
+    );
+    friendStore.decrementUnread();
   } catch (err) {
     console.error("Error rejecting friend request:", err);
     alert("Không thể từ chối lời mời. Vui lòng thử lại.");

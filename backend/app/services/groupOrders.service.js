@@ -485,8 +485,10 @@ export const leaveConversationAfterDoneService = async ({
 
   if (!groupOrder) throw new Error("Nhóm không tồn tại");
 
-  if (groupOrder.status !== "completed") {
-    throw new Error("Chỉ có thể rời cuộc trò chuyện khi nhóm đã hoàn thành.");
+  if (groupOrder.status !== "completed" && groupOrder.status !== "cancelled") {
+    throw new Error(
+      "Chỉ có thể rời cuộc trò chuyện khi nhóm đã hoàn thành hoặc đã hủy.",
+    );
   }
 
   // 2) Lấy conversation TRƯỚC (Quan trọng: Luôn lấy ID trước khi tác động dữ liệu)

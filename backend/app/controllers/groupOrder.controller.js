@@ -124,7 +124,7 @@ export const leaveGroupController = async (req, res) => {
 
     if (group.status === "pending") {
       result = await leaveGroupOrderService({ userId, groupOrderId });
-    } else if (group.status === "completed") {
+    } else if (group.status === "completed" || group.status === "cancelled") {
       result = await leaveConversationAfterDoneService({
         userId,
         groupOrderId,

@@ -185,6 +185,8 @@ async function acceptRequest(request) {
       (r) => r.id !== request.id,
     );
     friendStore.decrementUnread();
+    // Dispatch event so profile page can update friendship status
+    friendStore.dispatchFriendAction("accepted", request.senderId, request.id);
   } catch (err) {
     console.error("Lỗi chấp nhận kết bạn:", err);
     alert(err?.data?.message || "Không thể chấp nhận");
@@ -207,6 +209,8 @@ async function rejectRequest(request) {
       (r) => r.id !== request.id,
     );
     friendStore.decrementUnread();
+    // Dispatch event so profile page can update friendship status
+    friendStore.dispatchFriendAction("rejected", request.senderId, request.id);
   } catch (err) {
     console.error("Lỗi từ chối kết bạn:", err);
     alert(err?.data?.message || "Không thể từ chối");
@@ -254,6 +258,27 @@ watch(
       fetchPendingRequests();
     }
   },
+);
+
+// Watch for friend actions dispatched from the profile page (or other components)
+watch(
+  () => friendStore.friendActionEvent,
+  (event) => {
+    if (!event) return;
+    // Remove the request from the local list when accepted/rejected elsewhere
+    if (event.type === "accepted" || event.type === "rejected") {
+      const before = friendRequests.value.length;
+      friendRequests.value = friendRequests.value.filter((r) => {
+        // Match by requestId or by senderId (the profile user who sent the request)
+        if (event.requestId && String(r.id) === event.requestId) return false;
+        if (String(r.senderId) === event.targetUserId) return false;
+        return true;
+      });
+      // Only update unread if we actually removed something (avoid double decrement)
+      // The dispatching component already called decrementUnread, so skip here
+    }
+  },
+  { deep: true },
 );
 </script>
 

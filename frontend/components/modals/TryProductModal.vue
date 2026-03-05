@@ -2,22 +2,22 @@
   <Teleport to="body">
     <div
       v-if="isOpen"
-      class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 p-3 sm:p-6"
+      class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 p-0 sm:p-6"
       @click.self="close"
     >
       <!-- Popup fixed height, no scroll -->
       <div
-        class="w-full max-w-6xl rounded-2xl bg-white shadow-2xl overflow-hidden flex flex-col h-[92vh]"
+        class="w-full max-w-6xl rounded-none sm:rounded-2xl bg-white shadow-2xl overflow-hidden flex flex-col h-[100dvh] sm:h-[92vh]"
       >
         <!-- Header -->
         <div
-          class="flex items-start sm:items-center justify-between gap-4 px-5 sm:px-7 py-4 border-b shrink-0"
+          class="flex items-start sm:items-center justify-between gap-2 sm:gap-4 px-4 sm:px-7 py-3 sm:py-4 border-b shrink-0"
         >
           <div class="min-w-0">
-            <h2 class="text-lg sm:text-xl font-bold text-gray-900 truncate">
+            <h2 class="text-base sm:text-xl font-bold text-gray-900 truncate">
               Thử sản phẩm
             </h2>
-            <p class="text-sm text-gray-500">
+            <p class="text-xs sm:text-sm text-gray-500 hidden sm:block">
               Chọn màu → tải ảnh của bạn → xem kết quả.
             </p>
           </div>
@@ -31,17 +31,20 @@
           </button>
         </div>
 
-        <!-- Body (NO scroll) -->
-        <div class="flex-1 min-h-0">
-          <div class="h-full grid grid-cols-1 lg:grid-cols-5">
+        <!-- Body: scrollable on mobile, no scroll on desktop -->
+        <div class="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden">
+          <div class="lg:h-full grid grid-cols-1 lg:grid-cols-5">
             <!-- Left -->
             <div
-              class="lg:col-span-2 p-5 sm:p-7 border-b lg:border-b-0 lg:border-r h-full flex flex-col min-h-0"
+              class="lg:col-span-2 p-3 sm:p-5 lg:p-7 border-b lg:border-b-0 lg:border-r lg:h-full flex flex-col min-h-0"
             >
               <!-- Colors -->
-              <div class="mb-4">
-                <div class="flex items-center justify-between mb-2">
-                  <label class="font-semibold text-gray-900">Màu sắc</label>
+              <div class="mb-3 sm:mb-4">
+                <div class="flex items-center justify-between mb-1.5 sm:mb-2">
+                  <label
+                    class="font-semibold text-gray-900 text-sm sm:text-base"
+                    >Màu sắc</label
+                  >
                   <span v-if="selectedColor" class="text-xs text-gray-500">
                     Đã chọn: <b>{{ selectedColor }}</b>
                   </span>
@@ -67,7 +70,7 @@
 
               <!-- Upload ảnh cá nhân -->
               <div
-                class="relative rounded-2xl border-2 border-dashed bg-gray-50 flex flex-col items-center justify-center min-h-[260px] max-h-[520px] h-[40vh] sm:h-[44vh] lg:h-[46vh] mb-4"
+                class="relative rounded-xl sm:rounded-2xl border-2 border-dashed bg-gray-50 flex flex-col items-center justify-center min-h-[180px] sm:min-h-[260px] max-h-[520px] h-[28vh] sm:h-[38vh] lg:h-[46vh] mb-3 sm:mb-4"
               >
                 <label
                   class="w-full h-full flex flex-col items-center justify-center cursor-pointer group"
@@ -96,7 +99,7 @@
                         viewBox="0 0 24 24"
                         stroke-width="1.5"
                         stroke="currentColor"
-                        class="w-14 h-14 text-gray-400 group-hover:text-blue-500 transition"
+                        class="w-10 h-10 sm:w-14 sm:h-14 text-gray-400 group-hover:text-blue-500 transition"
                       >
                         <path
                           stroke-linecap="round"
@@ -104,7 +107,9 @@
                           d="M12 16V4m0 0l-4 4m4-4l4 4M20.25 16.25v2.25A2.25 2.25 0 0118 20.75H6a2.25 2.25 0 01-2.25-2.25v-2.25"
                         />
                       </svg>
-                      <div class="mt-2 text-gray-500 text-sm text-center">
+                      <div
+                        class="mt-1.5 sm:mt-2 text-gray-500 text-xs sm:text-sm text-center"
+                      >
                         Nhấn để tải ảnh của bạn<br />(JPG/PNG/WebP, tối đa 10MB)
                       </div>
                     </div>
@@ -136,7 +141,7 @@
                 </button>
               </div>
               <!-- Controls: FIXED area -->
-              <div class="mt-2 shrink-0 w-full">
+              <div class="mt-1 sm:mt-2 shrink-0 w-full">
                 <p
                   v-if="errorMsg"
                   class="text-sm text-red-600 mb-2 text-center"
@@ -179,9 +184,13 @@
               </div>
             </div>
 
-            <!-- Right: result ALWAYS fits popup (no scroll) -->
-            <div class="lg:col-span-3 p-5 sm:p-7 h-full flex flex-col min-h-0">
-              <div class="flex items-center justify-between mb-3 shrink-0">
+            <!-- Right: result -->
+            <div
+              class="lg:col-span-3 p-3 sm:p-5 lg:p-7 lg:h-full flex flex-col min-h-0"
+            >
+              <div
+                class="flex items-center justify-between mb-2 sm:mb-3 shrink-0"
+              >
                 <div>
                   <h3 class="font-semibold text-gray-900">Kết quả</h3>
                   <!-- <p v-if="loading" class="text-xs text-blue-600 mt-0.5">
@@ -205,11 +214,11 @@
                 </button>
               </div>
 
-              <!-- This box takes ALL remaining height -->
+              <!-- Result image area -->
               <div
-                class="flex-1 min-h-0 rounded-2xl border bg-gray-50 overflow-hidden flex items-center justify-center"
+                class="flex-1 min-h-[200px] sm:min-h-[300px] lg:min-h-0 rounded-xl sm:rounded-2xl border bg-gray-50 overflow-hidden flex items-center justify-center"
               >
-                <div v-if="loading" class="text-center p-8">
+                <div v-if="loading" class="text-center p-4 sm:p-8">
                   <div
                     class="mx-auto w-12 h-12 border-4 border-gray-300 border-t-transparent rounded-full animate-spin"
                   />
@@ -225,15 +234,17 @@
                   alt="Kết quả thử đồ"
                 />
 
-                <div v-else class="text-center p-8">
-                  <div class="text-6xl">🖼️</div>
+                <div v-else class="text-center p-4 sm:p-8">
+                  <div class="text-4xl sm:text-6xl">🖼️</div>
                   <p class="text-sm text-gray-500 mt-2">
                     Kết quả sẽ hiển thị ở đây
                   </p>
                 </div>
               </div>
 
-              <p class="text-xs text-gray-500 mt-3 shrink-0">
+              <p
+                class="text-xs text-gray-500 mt-2 sm:mt-3 shrink-0 pb-2 sm:pb-0"
+              >
                 *Kết quả chỉ mang tính minh hoạ.
               </p>
             </div>

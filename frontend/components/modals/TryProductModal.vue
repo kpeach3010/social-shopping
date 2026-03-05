@@ -161,13 +161,13 @@
                   <span>{{ loading ? "Đang xử lý…" : "Thử ngay" }}</span>
                 </button>
                 <div class="flex gap-2 mt-2">
-                  <button
+                  <!-- <button
                     type="button"
                     class="flex-1 py-1 rounded bg-gray-100 text-gray-800 text-xs hover:bg-gray-200 transition"
                     @click="resetAll"
                   >
                     Làm lại
-                  </button>
+                  </button> -->
                   <button
                     type="button"
                     class="flex-1 py-1 rounded bg-white border text-gray-800 text-xs hover:bg-gray-50 transition"

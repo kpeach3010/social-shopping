@@ -10,18 +10,18 @@ router.use(authenticate);
 router.post(
   "/create-staff",
   hasRoles(Role.ADMIN),
-  UserController.createStaffController
+  UserController.createStaffController,
 );
 router.patch(
   "/disable/:id",
   hasRoles(Role.ADMIN),
-  UserController.disableUserController
+  UserController.disableUserController,
 );
 
 router.patch(
   "/enable/:id",
   hasRoles(Role.ADMIN),
-  UserController.enableUserController
+  UserController.enableUserController,
 );
 
 router.patch("/profile", authenticate, UserController.updateUserController);

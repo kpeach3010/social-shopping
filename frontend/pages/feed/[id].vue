@@ -108,7 +108,10 @@
                 <!-- Nút tạo bài viết chỉ hiển thị nếu xem profile của chính mình -->
                 <button
                   v-if="isOwnProfile"
-                  @click="fetchProducts(); showModal = true"
+                  @click="
+                    fetchProducts();
+                    showModal = true;
+                  "
                   class="mt-4 w-full py-2 rounded-lg bg-black text-white hover:bg-gray-800 transition-all duration-200 font-semibold text-sm shadow-lg hover:shadow-xl"
                 >
                   Tạo bài viết mới
@@ -212,7 +215,10 @@
             </p>
             <button
               v-if="isOwnProfile"
-              @click="fetchProducts(); showModal = true"
+              @click="
+                fetchProducts();
+                showModal = true;
+              "
               class="px-6 py-2.5 rounded-lg bg-black text-white hover:bg-gray-800 transition"
             >
               Tạo bài viết
@@ -639,17 +645,11 @@ onMounted(async () => {
   const targetId = route.params.id;
 
   // Các call cần thiết cho mọi visitor
-  const essentialCalls = [
-    fetchUserPosts(targetId),
-    fetchUserProfile(targetId),
-  ];
+  const essentialCalls = [fetchUserPosts(targetId), fetchUserProfile(targetId)];
 
   // Các call chỉ cần khi đã đăng nhập
   if (auth.accessToken) {
-    essentialCalls.push(
-      fetchFriendCount(targetId),
-      fetchLikedPosts(),
-    );
+    essentialCalls.push(fetchFriendCount(targetId), fetchLikedPosts());
 
     if (!isOwnProfile.value) {
       essentialCalls.push(fetchFriendshipStatus(targetId));

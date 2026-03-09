@@ -10,11 +10,13 @@ import { restoreStockForItems } from "../services/order.service.js";
 
 /**
  * Tự động xóa orders và đưa group order quay về trạng thái "locked"
- * nếu ở trạng thái "awaiting_payment" quá 30 phút.
+ * nếu ở trạng thái "awaiting_payment" quá thời hạn.
  * Orders bị xóa hoàn toàn, stock được hoàn lại.
  */
+const PAYMENT_TIMEOUT_MINUTES = 30;
+
 export const resetTimeoutGroupOrders = async () => {
-  const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+  const cutoff = new Date(Date.now() - PAYMENT_TIMEOUT_MINUTES * 60 * 1000);
 
   try {
     // 1. Tìm group orders timeout
@@ -24,7 +26,7 @@ export const resetTimeoutGroupOrders = async () => {
       .where(
         and(
           eq(groupOrders.status, "awaiting_payment"),
-          lt(groupOrders.updatedAt, thirtyMinutesAgo),
+          lt(groupOrders.updatedAt, cutoff),
         ),
       );
 
@@ -78,7 +80,7 @@ export const resetTimeoutGroupOrders = async () => {
         .where(
           and(
             eq(groupOrders.status, "awaiting_payment"),
-            lt(groupOrders.updatedAt, thirtyMinutesAgo),
+            lt(groupOrders.updatedAt, cutoff),
           ),
         )
         .returning({ id: groupOrders.id });
@@ -106,8 +108,7 @@ export const resetTimeoutGroupOrders = async () => {
               const { createSystemMessage } = await import(
                 "../services/message.service.js"
               );
-              const content =
-                "Đơn hàng nhóm đã hết thời gian thanh toán (30 phút). Vui lòng tạo đơn mới.";
+              const content = `Đơn hàng nhóm đã hết thời gian thanh toán (${PAYMENT_TIMEOUT_MINUTES} phút). Vui lòng tạo đơn mới.`;
               const sysMsg = await createSystemMessage(conv.id, content);
 
               global.io.to(conv.id).emit("message", {

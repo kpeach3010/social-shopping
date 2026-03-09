@@ -255,16 +255,26 @@
           </div>
           <div
             v-if="selectedCoupon"
-            class="flex justify-between text-green-600 mt-1"
+            class="flex items-center justify-between text-green-600 mt-1"
           >
-            <span>Mã giảm giá: {{ selectedCoupon.code }}</span>
-            <span>- {{ formatPrice(discountTotal) }}</span>
-            <button
-              @click="removeCoupon"
-              class="text-red-500 hover:text-red-700 text-xs font-semibold px-2 py-1 hover:bg-red-50 rounded"
+            <span class="flex items-center gap-2">
+              Mã giảm giá:
+              <span
+                class="inline-flex items-center bg-green-50 border border-green-300 text-green-700 text-xs font-semibold px-2 py-0.5 rounded"
+              >
+                {{ selectedCoupon.code }}
+              </span>
+              <button
+                @click="removeCoupon"
+                class="text-red-400 hover:text-red-600 text-xs ml-1"
+                title="Xóa mã giảm giá"
+              >
+                ✕
+              </button>
+            </span>
+            <span class="font-semibold"
+              >- {{ formatPrice(discountTotal) }}</span
             >
-              ✕ Xóa
-            </button>
           </div>
           <div class="flex justify-between mt-2 text-lg font-bold">
             <span>Tổng cộng</span>

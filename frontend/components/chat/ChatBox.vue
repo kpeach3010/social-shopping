@@ -199,41 +199,6 @@
       {{ typing }}
     </div>
 
-    <!-- Hiển thị trạng thái đã xem -->
-    <div
-      v-if="Object.keys(visibleReaders).length"
-      class="flex items-center justify-end gap-2 px-3 py-1 text-xs text-gray-500"
-    >
-      <template v-if="conversation?.type === 'direct'">
-        <div
-          class="flex items-center gap-2 bg-gray-100 rounded-full px-2 py-0.5 border border-gray-200"
-        >
-          <UserCircleIcon class="w-4 h-4 text-gray-400" />
-          <span class="font-medium text-gray-600">
-            {{ Object.values(visibleReaders)[0]?.fullName || "Người kia" }}
-          </span>
-          <span class="text-[11px] text-gray-400">đã xem</span>
-        </div>
-      </template>
-
-      <template v-else>
-        <div
-          class="flex items-center gap-1 flex-wrap justify-end text-gray-500 text-[12px]"
-        >
-          <span
-            v-for="(info, uid) in visibleReaders"
-            :key="uid"
-            class="flex items-center gap-1 bg-gray-100 rounded-full px-2 py-0.5 border border-gray-200"
-          >
-            <UserCircleIcon class="w-3.5 h-3.5 text-gray-400" />
-            <span class="font-medium text-gray-600">
-              {{ info.fullName.split(" ")[0] }}
-            </span>
-            <span class="text-[11px] text-gray-400">đã xem</span>
-          </span>
-        </div>
-      </template>
-    </div>
     <!-- Khung mua chung -->
     <div
       v-if="showGroupOrderBox"
@@ -1534,6 +1499,16 @@ onMounted(() => {
     // 3. Re-fetch full group detail to ensure data consistency
     await fetchGroupDetail();
   });
+
+  // Lắng nghe sự kiện thay đổi sản phẩm mua chung
+  $socket.on("group-order-product-changed", async (payload) => {
+    if (String(payload.conversationId) !== String(props.conversationId)) return;
+
+    console.log("Sản phẩm mua chung đã thay đổi:", payload.newProductId);
+
+    // Re-fetch group detail để cập nhật sản phẩm mới + reset lựa chọn thành viên
+    await fetchGroupDetail();
+  });
 });
 
 function emitTyping() {
@@ -1784,6 +1759,7 @@ onBeforeUnmount(() => {
   $socket.off("force-close-chat");
   $socket.off("group-status-updated");
   $socket.off("group-can-cancel-updated");
+  $socket.off("group-order-product-changed");
 
   if (supabaseChannel) supabaseChannel.unsubscribe();
 

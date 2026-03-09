@@ -253,20 +253,39 @@
                   Hủy
                 </button>
               </div>
-              <div class="flex items-center gap-2">
-                <textarea
-                  v-model="newContent"
-                  rows="2"
-                  placeholder="Viết bình luận..."
-                  class="flex-1 text-xs rounded border border-gray-300 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-black"
-                ></textarea>
-                <button
-                  @click="submitComment"
-                  :disabled="submitting || !newContent.trim()"
-                  class="px-3 py-2 rounded bg-black text-white text-xs font-semibold disabled:opacity-60"
+              <div class="relative">
+                <div class="flex items-center gap-2">
+                  <div class="flex-1 flex items-end gap-1">
+                    <button
+                      type="button"
+                      @click="showCommentEmoji = !showCommentEmoji"
+                      class="text-gray-400 hover:text-yellow-500 transition shrink-0 mb-1"
+                      title="Chọn emoji"
+                    >
+                      <FaceSmileIcon class="w-5 h-5" />
+                    </button>
+                    <textarea
+                      v-model="newContent"
+                      rows="2"
+                      placeholder="Viết bình luận..."
+                      class="flex-1 text-xs rounded border border-gray-300 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-black"
+                    ></textarea>
+                  </div>
+                  <button
+                    @click="submitComment"
+                    :disabled="submitting || !newContent.trim()"
+                    class="px-3 py-2 rounded bg-black text-white text-xs font-semibold disabled:opacity-60"
+                  >
+                    {{ submitting ? "Đang gửi..." : "Gửi" }}
+                  </button>
+                </div>
+                <div
+                  v-if="showCommentEmoji"
+                  ref="commentEmojiRef"
+                  class="absolute bottom-12 left-0 z-50"
                 >
-                  {{ submitting ? "Đang gửi..." : "Gửi" }}
-                </button>
+                  <EmojiPicker @select="onCommentEmoji" />
+                </div>
               </div>
               <p v-if="errorMsg" class="text-[11px] text-red-600 mt-1">
                 {{ errorMsg }}
@@ -290,13 +309,15 @@
 </template>
 
 <script setup>
-import { ref, watch, computed } from "vue";
+import { ref, watch, computed, onMounted, onBeforeUnmount } from "vue";
 import { useAuthStore } from "@/stores/auth";
 import MediaGalleryModal from "@/components/MediaGalleryModal.vue";
+import EmojiPicker from "@/components/chat/EmojiPicker.vue";
 import {
   HandThumbUpIcon,
   ChatBubbleLeftEllipsisIcon,
 } from "@heroicons/vue/24/solid";
+import { FaceSmileIcon } from "@heroicons/vue/24/outline";
 
 const props = defineProps({
   isOpen: { type: Boolean, default: false },
@@ -322,6 +343,31 @@ const postLikes = ref(0);
 const likingPost = ref(false);
 const postCommentCount = ref(0);
 const postUserHasLiked = ref(false);
+
+const showCommentEmoji = ref(false);
+const commentEmojiRef = ref(null);
+
+const onCommentEmoji = (emoji) => {
+  newContent.value += emoji;
+};
+
+function handleClickOutsideCommentEmoji(e) {
+  if (
+    commentEmojiRef.value &&
+    !commentEmojiRef.value.contains(e.target) &&
+    !e.target.closest('[title="Chọn emoji"]')
+  ) {
+    showCommentEmoji.value = false;
+  }
+}
+
+onMounted(() => {
+  document.addEventListener("click", handleClickOutsideCommentEmoji);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener("click", handleClickOutsideCommentEmoji);
+});
 
 const replyTargetName = computed(() => {
   const targetId = replyTargetId.value;
@@ -395,7 +441,7 @@ watch(
       await fetchPost();
       await fetchComments();
     }
-  }
+  },
 );
 
 watch(
@@ -406,7 +452,7 @@ watch(
       await fetchPost();
       await fetchComments();
     }
-  }
+  },
 );
 
 const fetchPost = async () => {

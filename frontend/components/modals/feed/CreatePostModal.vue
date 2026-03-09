@@ -22,7 +22,7 @@
 
       <!-- Content -->
       <div class="flex-1 overflow-y-auto p-4 space-y-3">
-        <div>
+        <div class="relative">
           <label class="block text-xs font-medium mb-1">Nội dung</label>
           <textarea
             v-model="form.content"
@@ -30,6 +30,23 @@
             class="w-full border rounded-lg p-2 text-sm resize-none"
             placeholder="Bạn đang nghĩ gì?"
           />
+          <div class="flex items-center mt-1">
+            <button
+              type="button"
+              @click="showPostEmoji = !showPostEmoji"
+              class="text-gray-400 hover:text-yellow-500 transition"
+              title="Chọn emoji"
+            >
+              <FaceSmileIcon class="w-5 h-5" />
+            </button>
+          </div>
+          <div
+            v-if="showPostEmoji"
+            ref="postEmojiRef"
+            class="absolute left-0 z-50"
+          >
+            <EmojiPicker @select="onPostEmoji" />
+          </div>
         </div>
 
         <div>
@@ -201,6 +218,8 @@
 
 <script setup>
 import { useAuthStore } from "@/stores/auth";
+import EmojiPicker from "@/components/chat/EmojiPicker.vue";
+import { FaceSmileIcon } from "@heroicons/vue/24/outline";
 
 const props = defineProps({
   products: Array,
@@ -214,6 +233,31 @@ const config = useRuntimeConfig();
 const isLoading = ref(false);
 const fileInput = ref(null);
 const filePreviews = ref({});
+
+const showPostEmoji = ref(false);
+const postEmojiRef = ref(null);
+
+const onPostEmoji = (emoji) => {
+  form.content += emoji;
+};
+
+function handleClickOutsidePostEmoji(e) {
+  if (
+    postEmojiRef.value &&
+    !postEmojiRef.value.contains(e.target) &&
+    !e.target.closest('[title="Chọn emoji"]')
+  ) {
+    showPostEmoji.value = false;
+  }
+}
+
+onMounted(() => {
+  document.addEventListener("click", handleClickOutsidePostEmoji);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener("click", handleClickOutsidePostEmoji);
+});
 
 const form = reactive({
   content: props.post?.content || "",
@@ -318,7 +362,7 @@ const submit = async () => {
     if (props.mode === "edit") {
       // Chỉ gửi productIds mới thêm
       const newProductIds = form.productIds.filter(
-        (id) => !props.post?.products?.some((p) => p.id === id)
+        (id) => !props.post?.products?.some((p) => p.id === id),
       );
       fd.append("productIds", JSON.stringify(newProductIds));
       fd.append("deleteMediaIds", JSON.stringify(form.deleteMediaIds));
@@ -350,7 +394,7 @@ const submit = async () => {
     alert(
       (props.mode === "edit" ? "Không thể cập nhật" : "Không thể tạo") +
         " bài viết: " +
-        (error.data?.message || error.message)
+        (error.data?.message || error.message),
     );
   } finally {
     isLoading.value = false;

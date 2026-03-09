@@ -387,7 +387,7 @@
     </div>
 
     <!-- Input -->
-    <div class="flex items-end p-3 border-t border-gray-200 bg-white">
+    <div class="relative flex items-end p-3 border-t border-gray-200 bg-white">
       <button
         @click="triggerFileInput"
         class="mb-2 mr-2 text-gray-500 hover:text-blue-600 transition"
@@ -403,6 +403,23 @@
       >
         <PaperClipIcon class="w-6 h-6" />
       </button>
+
+      <button
+        @click="showEmojiPicker = !showEmojiPicker"
+        class="mb-2 mr-2 text-gray-500 hover:text-yellow-500 transition"
+        title="Chọn emoji"
+      >
+        <FaceSmileIcon class="w-6 h-6" />
+      </button>
+
+      <!-- Emoji Picker -->
+      <div
+        v-if="showEmojiPicker"
+        class="absolute bottom-14 left-2 z-50"
+        ref="emojiPickerRef"
+      >
+        <EmojiPicker @select="onSelectEmoji" />
+      </div>
 
       <!-- có thể gửi video và ảnh -->
       <input
@@ -499,7 +516,9 @@ import {
   InformationCircleIcon,
   PhotoIcon,
   PaperClipIcon,
+  FaceSmileIcon,
 } from "@heroicons/vue/24/outline";
+import EmojiPicker from "@/components/chat/EmojiPicker.vue";
 import { useAuthStore } from "@/stores/auth";
 import { useChatStore } from "@/stores/chat";
 import GroupOrderDetailModal from "../modals/groupOrder/GroupOrderDetailModal.vue";
@@ -524,6 +543,8 @@ const showMediaModal = ref(false);
 const selectedMediaIndex = ref(0);
 const showPaymentMethodModal = ref(false);
 const paymentModalRef = ref(null);
+const showEmojiPicker = ref(false);
+const emojiPickerRef = ref(null);
 let supabaseChannel;
 // Thêm biến cho upload
 const fileInput = ref(null);
@@ -1012,6 +1033,22 @@ function triggerFileInput() {
   fileInput.value?.click();
 }
 
+// Chọn emoji -> chèn vào ô nhập tin nhắn
+function onSelectEmoji(emoji) {
+  message.value += emoji;
+}
+
+// Đóng emoji picker khi click ra ngoài
+function handleClickOutsideEmoji(e) {
+  if (
+    emojiPickerRef.value &&
+    !emojiPickerRef.value.contains(e.target) &&
+    !e.target.closest('[title="Chọn emoji"]')
+  ) {
+    showEmojiPicker.value = false;
+  }
+}
+
 // Xử lý khi user chọn file từ máy
 async function handleFileSelect(event) {
   const file = event.target.files[0];
@@ -1266,6 +1303,8 @@ watch(
 
 // Socket listeners
 onMounted(() => {
+  document.addEventListener("click", handleClickOutsideEmoji);
+
   if (props.conversationId) {
     $socket.emit("join-conversation", props.conversationId);
   }
@@ -1732,6 +1771,8 @@ async function onSelectNewProduct(product) {
 }
 
 onBeforeUnmount(() => {
+  document.removeEventListener("click", handleClickOutsideEmoji);
+
   $socket.off("message");
   $socket.off("typing");
   $socket.off("user-joined");

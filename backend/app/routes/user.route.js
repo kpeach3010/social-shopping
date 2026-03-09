@@ -26,4 +26,5 @@ router.patch(
 
 router.patch("/profile", authenticate, UserController.updateUserController);
 router.get("/", UserController.getAllUsersController);
+router.get("/:id", UserController.getUserByIdController);
 export default router;

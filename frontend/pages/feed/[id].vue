@@ -108,7 +108,7 @@
                 <!-- Nút tạo bài viết chỉ hiển thị nếu xem profile của chính mình -->
                 <button
                   v-if="isOwnProfile"
-                  @click="showModal = true"
+                  @click="fetchProducts(); showModal = true"
                   class="mt-4 w-full py-2 rounded-lg bg-black text-white hover:bg-gray-800 transition-all duration-200 font-semibold text-sm shadow-lg hover:shadow-xl"
                 >
                   Tạo bài viết mới
@@ -212,7 +212,7 @@
             </p>
             <button
               v-if="isOwnProfile"
-              @click="showModal = true"
+              @click="fetchProducts(); showModal = true"
               class="px-6 py-2.5 rounded-lg bg-black text-white hover:bg-gray-800 transition"
             >
               Tạo bài viết
@@ -638,15 +638,27 @@ const api = (url, options = {}) =>
 onMounted(async () => {
   const targetId = route.params.id;
 
-  await Promise.all([
+  // Các call cần thiết cho mọi visitor
+  const essentialCalls = [
     fetchUserPosts(targetId),
-    fetchProducts(),
-    fetchFriendCount(targetId),
-    fetchFriendshipStatus(targetId),
     fetchUserProfile(targetId),
-    fetchFriends(targetId),
-    fetchLikedPosts(),
-  ]);
+  ];
+
+  // Các call chỉ cần khi đã đăng nhập
+  if (auth.accessToken) {
+    essentialCalls.push(
+      fetchFriendCount(targetId),
+      fetchLikedPosts(),
+    );
+
+    if (!isOwnProfile.value) {
+      essentialCalls.push(fetchFriendshipStatus(targetId));
+    } else {
+      essentialCalls.push(fetchFriends(targetId));
+    }
+  }
+
+  await Promise.all(essentialCalls);
 
   tryOpenCommentsFromRoute();
   loading.value = false;
@@ -731,18 +743,11 @@ const fetchUserPosts = async (userId) => {
 // Lấy thông tin user để hiển thị tên khi chưa có bài viết
 const fetchUserProfile = async (userId) => {
   if (!auth.accessToken) return;
-
   try {
-    const res = await api("/users", {
+    const res = await api(`/users/${userId}`, {
       headers: { Authorization: `Bearer ${auth.accessToken}` },
     });
-    const list = Array.isArray(res?.data)
-      ? res.data
-      : Array.isArray(res)
-        ? res
-        : [];
-    const found = list.find((u) => String(u.id) === String(userId));
-    userProfile.value = found || null;
+    userProfile.value = res?.data || null;
   } catch (err) {
     console.error("Error fetching user profile:", err);
     userProfile.value = null;
@@ -818,11 +823,14 @@ const fetchFriendshipStatus = async (userId) => {
   }
 };
 
-// Lấy danh sách sản phẩm
+// Lấy danh sách sản phẩm (lazy-load khi mở modal tạo bài viết)
+let productsFetched = false;
 const fetchProducts = async () => {
+  if (productsFetched) return;
   try {
     const response = await api("/product/all-products");
     products.value = response?.data || response || [];
+    productsFetched = true;
   } catch (err) {
     console.error("Error fetching products:", err);
   }

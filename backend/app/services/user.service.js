@@ -160,6 +160,19 @@ export const getAllUsersService = async () => {
   return await db.select().from(users);
 };
 
+export const getUserByIdService = async (id) => {
+  const [user] = await db
+    .select({
+      id: users.id,
+      fullName: users.fullName,
+      email: users.email,
+    })
+    .from(users)
+    .where(eq(users.id, id))
+    .limit(1);
+  return user || null;
+};
+
 // Cap nhat thong tin user
 export const updateUserService = async (userId, payload) => {
   const allowedFields = [

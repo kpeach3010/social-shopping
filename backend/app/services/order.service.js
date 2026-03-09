@@ -44,7 +44,14 @@ export const restoreStockForItems = async (tx, items) => {
   }
 };
 
+import config from "../config/index.js";
+
 async function copyImageToOrderImages(variant, orderId) {
+  // Nếu tắt copy ảnh -> reference trực tiếp ảnh gốc (nhanh hơn ~400ms/ảnh)
+  if (!config.copyOrderImages) {
+    return { imagePath: variant.imagePath, imageUrl: variant.imageUrl };
+  }
+
   if (!variant.imagePath) return { imagePath: null, imageUrl: null };
 
   const oldPath = variant.imagePath;

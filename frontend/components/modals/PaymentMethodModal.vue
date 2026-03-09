@@ -8,7 +8,7 @@
 
     <!-- Modal -->
     <div
-      class="relative bg-white rounded-2xl shadow-2xl w-[420px] overflow-hidden flex flex-col z-10 animate-fade-in"
+      class="relative bg-white rounded-lg shadow-lg w-[420px] overflow-hidden flex flex-col z-10 animate-fade-in"
     >
       <!-- Header -->
       <div
@@ -36,7 +36,7 @@
           <button
             @click="selectMethod('PAYPAL')"
             :disabled="onlineLoading"
-            class="w-full px-4 py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-sm hover:shadow-md hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:from-gray-300 disabled:to-gray-400 disabled:text-gray-100 disabled:cursor-not-allowed flex items-center justify-center text-sm font-semibold transition-all duration-150"
+            class="w-full px-4 py-3 rounded-lg bg-blue-700 text-white hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-700 disabled:bg-gray-300 disabled:text-gray-100 disabled:cursor-not-allowed flex items-center justify-center text-sm font-medium transition-all duration-150"
           >
             <span v-if="onlineLoading" class="loader mr-2"></span>
             {{ onlineLoading ? "Đang xử lý..." : "Thanh toán trực tuyến" }}
@@ -45,7 +45,7 @@
           <button
             @click="selectMethod('COD')"
             :disabled="codLoading"
-            class="w-full px-4 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-sm hover:shadow-md hover:from-emerald-600 hover:to-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:from-gray-300 disabled:to-gray-400 disabled:text-gray-100 disabled:cursor-not-allowed flex items-center justify-center text-sm font-semibold transition-all duration-150"
+            class="w-full px-4 py-3 rounded-lg bg-green-700 text-white hover:bg-green-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-700 disabled:bg-gray-300 disabled:text-gray-100 disabled:cursor-not-allowed flex items-center justify-center text-sm font-medium transition-all duration-150"
           >
             <span v-if="codLoading" class="loader mr-2"></span>
             {{

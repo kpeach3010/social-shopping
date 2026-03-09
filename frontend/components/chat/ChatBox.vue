@@ -224,11 +224,11 @@
               chosenCount === totalMemberCount
             "
             @click="checkoutGroupOrder"
-            :disabled="groupOrderActionLoading"
+            :disabled="checkoutLoading"
             class="bg-black hover:bg-gray-800 text-white text-[10px] font-medium px-2.5 py-1 rounded-md transition flex items-center justify-center min-w-[90px]"
           >
-            <span v-if="groupOrderActionLoading" class="loader mr-1"></span>
-            <span v-if="groupOrderActionLoading">Đang đặt...</span>
+            <span v-if="checkoutLoading" class="loader mr-1"></span>
+            <span v-if="checkoutLoading">Đang đặt...</span>
             <span v-else>Đặt đơn nhóm</span>
           </button>
 
@@ -890,6 +890,7 @@ function handleLeaveSuccess() {
 }
 
 const groupOrderActionLoading = ref(false);
+const checkoutLoading = ref(false);
 async function checkoutGroupOrder() {
   const groupOrder = groupDetail.value?.groupOrder;
   if (!groupOrder?.id) return;
@@ -922,7 +923,7 @@ async function processGroupCheckout(paymentMethod) {
   const groupOrder = groupDetail.value?.groupOrder;
   if (!groupOrder?.id) return;
 
-  groupOrderActionLoading.value = true;
+  checkoutLoading.value = true;
   try {
     const res = await $fetch(`/group-orders/${groupOrder.id}/checkout`, {
       method: "PATCH",
@@ -951,7 +952,7 @@ async function processGroupCheckout(paymentMethod) {
     console.error("Lỗi khi đặt đơn nhóm:", err);
     alert(err?.data?.error || "Đặt đơn thất bại, vui lòng thử lại.");
   } finally {
-    groupOrderActionLoading.value = false;
+    checkoutLoading.value = false;
   }
 }
 

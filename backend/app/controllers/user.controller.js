@@ -3,6 +3,7 @@ import {
   disableUserService,
   enableUserService,
   getAllUsersService,
+  getUserByIdService,
   updateUserService,
 } from "../services/user.service.js";
 
@@ -40,6 +41,16 @@ export const getAllUsersController = async (req, res) => {
   try {
     const allUsers = await getAllUsersService();
     res.json(allUsers);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+export const getUserByIdController = async (req, res) => {
+  try {
+    const user = await getUserByIdService(req.params.id);
+    if (!user) return res.status(404).json({ error: "User not found" });
+    res.json({ data: user });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }

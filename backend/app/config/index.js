@@ -2,6 +2,10 @@ const config = {
   app: {
     port: process.env.PORT || 3000,
   },
+  // Bật/tắt copy ảnh sản phẩm sang folder order-images khi checkout
+  // true = copy ảnh (an toàn, tốn thời gian ~400ms/ảnh)
+  // false = reference ảnh gốc (nhanh, tiết kiệm storage)
+  copyOrderImages: process.env.COPY_ORDER_IMAGES !== "false",
   // FE URL cho invite link: ENV > Vercel > localhost
   frontendUrl:
     process.env.FRONTEND_URL ||

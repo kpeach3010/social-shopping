@@ -151,30 +151,30 @@ export const getValidCouponsService = async (userId = null) => {
 
   if (!userId) return activeCoupons;
 
-  // Nếu có userId → lọc theo perUserLimit
-  const result = [];
-  for (const c of activeCoupons) {
-    let userUsedCount = 0;
+  // Batch query: đếm số lần user đã dùng TẤT CẢ coupon trong 1 query duy nhất
+  const couponCodes = activeCoupons.map((c) => c.code);
+  const usageCounts = await db
+    .select({
+      couponCode: orders.couponCode,
+      count: sql`COUNT(*)`.mapWith(Number),
+    })
+    .from(orders)
+    .where(
+      and(eq(orders.userId, userId), inArray(orders.couponCode, couponCodes)),
+    )
+    .groupBy(orders.couponCode);
 
-    if (userId) {
-      const [{ count }] = await db
-        .select({ count: sql`COUNT(*)`.mapWith(Number) })
-        .from(orders)
-        .where(and(eq(orders.userId, userId), eq(orders.couponCode, c.code)));
+  const usageMap = new Map(usageCounts.map((r) => [r.couponCode, r.count]));
 
-      userUsedCount = count;
-
-      if (c.perUserLimit && userUsedCount >= c.perUserLimit) {
-        continue; // user dùng đủ -> bỏ
-      }
-    }
-
-    result.push({
+  return activeCoupons
+    .filter((c) => {
+      if (!c.perUserLimit) return true;
+      return (usageMap.get(c.code) || 0) < c.perUserLimit;
+    })
+    .map((c) => ({
       ...c,
-      userUsedCount, // ← thêm ở đây
-    });
-  }
-  return result;
+      userUsedCount: usageMap.get(c.code) || 0,
+    }));
 };
 
 export const getAvailableCouponsForProductsService = async ({

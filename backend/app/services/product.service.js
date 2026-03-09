@@ -6,7 +6,6 @@ import {
   colors,
   productVariants,
   couponProducts,
-  coupons,
 } from "../db/schema.js";
 import { sql, eq, and, ne, asc, desc, notInArray } from "drizzle-orm";
 import supabase from "../../services/supbase/client.js";
@@ -391,50 +390,25 @@ export const getProductByIdService = async (productId) => {
 
     if (!product) throw new Error("Product not found");
 
-    const [variants, couponsList, colorsList] = await Promise.all([
-      db
-        .select({
-          id: productVariants.id,
-          sku: productVariants.stockKeepingUnit,
-          stock: productVariants.stock,
-          price: productVariants.price,
-          imagePath: colors.imagePath,
-          imageUrl: colors.imageUrl,
-          color: colors.name,
-          size: sizes.name,
-        })
-        .from(productVariants)
-        .leftJoin(colors, eq(productVariants.colorId, colors.id))
-        .leftJoin(sizes, eq(productVariants.sizeId, sizes.id))
-        .where(eq(productVariants.productId, productId)),
-
-      db
-        .select({
-          id: coupons.id,
-          code: coupons.code,
-          description: coupons.description,
-          value: coupons.value,
-        })
-        .from(couponProducts)
-        .leftJoin(coupons, eq(couponProducts.couponId, coupons.id))
-        .where(eq(couponProducts.productId, productId)),
-
-      db
-        .select({
-          id: colors.id,
-          name: colors.name,
-          imageUrl: colors.imageUrl,
-          imagePath: colors.imagePath,
-        })
-        .from(colors)
-        .where(eq(colors.productId, productId)),
-    ]);
+    const variants = await db
+      .select({
+        id: productVariants.id,
+        sku: productVariants.stockKeepingUnit,
+        stock: productVariants.stock,
+        price: productVariants.price,
+        imagePath: colors.imagePath,
+        imageUrl: colors.imageUrl,
+        color: colors.name,
+        size: sizes.name,
+      })
+      .from(productVariants)
+      .leftJoin(colors, eq(productVariants.colorId, colors.id))
+      .leftJoin(sizes, eq(productVariants.sizeId, sizes.id))
+      .where(eq(productVariants.productId, productId));
 
     return {
       ...product,
       variants,
-      coupons: couponsList.filter((c) => c.id !== null),
-      colors: colorsList,
     };
   } catch (error) {
     console.error("Error fetching product by ID:", error);

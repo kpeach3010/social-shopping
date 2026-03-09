@@ -111,13 +111,15 @@
           <div class="mt-6 flex gap-3">
             <button
               @click="addToCart"
-              class="px-6 py-2 bg-gray-200 rounded hover:bg-gray-300 cursor-pointer"
+              :disabled="isOutOfStock"
+              class="px-6 py-2 bg-gray-200 rounded hover:bg-gray-300 cursor-pointer disabled:opacity-60"
             >
               Thêm vào giỏ hàng
             </button>
             <button
               @click="buyNow"
-              class="px-6 py-2 bg-black text-white rounded hover:bg-gray-800 cursor-pointer"
+              :disabled="isOutOfStock"
+              class="px-6 py-2 bg-black text-white rounded hover:bg-gray-800 cursor-pointer disabled:opacity-60"
             >
               Mua ngay
             </button>
@@ -133,7 +135,13 @@
           <div class="mt-6">
             <h3 class="font-semibold mb-2">Mã giảm giá</h3>
 
-            <div v-if="coupons.length" class="space-y-2">
+            <div v-if="loadingCoupons" class="flex justify-center py-4">
+              <div
+                class="animate-spin rounded-full h-6 w-6 border-b-2 border-black"
+              ></div>
+            </div>
+
+            <div v-else-if="coupons.length" class="space-y-2">
               <div
                 v-for="c in coupons"
                 :key="c.id"
@@ -195,7 +203,7 @@
             </div>
 
             <div
-              v-else
+              v-else-if="!loadingCoupons"
               class="p-4 border rounded-lg bg-gray-50 text-center text-gray-500"
             >
               Không có mã giảm giá phù hợp
@@ -458,6 +466,7 @@ const selectedColor = ref(null);
 const selectedSize = ref(null);
 const quantity = ref(1);
 const coupons = ref([]);
+const loadingCoupons = ref(false);
 const groupInviteLinks = ref({});
 const reviews = ref([]);
 const loadingReviews = ref(true);
@@ -540,6 +549,11 @@ const availableStock = computed(() => {
   return product.value?.stock || 0;
 });
 
+// Computed để kiểm tra nếu biến thể đã hết hàng
+const isOutOfStock = computed(() => {
+  return selectedVariant.value && selectedVariant.value.stock === 0;
+});
+
 // api hiển thị đánh giá
 const fetchReviews = async () => {
   try {
@@ -590,23 +604,29 @@ async function fetchCouponsWithCache(variantIds) {
 
 onMounted(async () => {
   try {
-    // Gọi API sản phẩm, coupon, review song song
-    const productPromise = $fetch(`/product/get-product/${route.params.id}`, {
-      baseURL: config.public.apiBase,
-    });
-    const reviewsPromise = fetchReviews();
+    // Gọi API sản phẩm và review song song
+    const [res] = await Promise.all([
+      $fetch(`/product/get-product/${route.params.id}`, {
+        baseURL: config.public.apiBase,
+      }),
+      fetchReviews(),
+    ]);
 
-    const res = await productPromise;
     product.value = res;
     selectedImage.value = res.thumbnailUrl;
 
-    // Coupon chỉ fetch nếu đã login và có variantIds
+    // Coupon fetch sau khi có product (không block page render)
     const variantIds = (res.variants || []).map((v) => v.id).join(",");
     if (auth.isLoggedIn && variantIds) {
-      coupons.value = await fetchCouponsWithCache(variantIds);
+      loadingCoupons.value = true;
+      fetchCouponsWithCache(variantIds)
+        .then((data) => {
+          coupons.value = data;
+        })
+        .finally(() => {
+          loadingCoupons.value = false;
+        });
     }
-
-    await reviewsPromise;
   } catch (e) {
     console.error("Lỗi load sản phẩm:", e);
   } finally {
@@ -654,18 +674,22 @@ const selectSize = (size) => {
 
 // Kiểm tra color có hợp lệ với size đang chọn không
 const isColorDisabled = (color) => {
-  if (!selectedSize.value) return false; // nếu chưa chọn size thì tất cả color đều được chọn
-  return !product.value.variants.some(
+  if (!selectedSize.value) return false;
+  // Tìm biến thể với color + size
+  const variant = product.value.variants.find(
     (v) => v.color === color && v.size === selectedSize.value,
   );
+  return !variant || variant.stock === 0;
 };
 
 // Kiểm tra size có hợp lệ với color đang chọn không
 const isSizeDisabled = (size) => {
-  if (!selectedColor.value) return false; // nếu chưa chọn color thì tất cả size đều được chọn
-  return !product.value.variants.some(
+  if (!selectedColor.value) return false;
+  // Tìm biến thể với size + color
+  const variant = product.value.variants.find(
     (v) => v.size === size && v.color === selectedColor.value,
   );
+  return !variant || variant.stock === 0;
 };
 
 const addToCart = async () => {

@@ -283,7 +283,7 @@
           >
             <div class="flex items-start gap-4">
               <div
-                class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center font-bold text-gray-600 uppercase flex-shrink-0"
+                class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center font-bold text-gray-600 uppercase shrink-0"
               >
                 {{ r.fullName.charAt(0) }}
               </div>
@@ -330,7 +330,7 @@
                   <template v-for="(m, idx) in r.media" :key="idx">
                     <div
                       v-if="m.type === 'image'"
-                      class="relative w-24 h-24 flex-shrink-0 group overflow-hidden rounded-lg border border-gray-100 cursor-pointer"
+                      class="relative w-24 h-24 shrink-0 group overflow-hidden rounded-lg border border-gray-100 cursor-pointer"
                       @click="openMediaGallery(r.media, idx)"
                     >
                       <img
@@ -343,7 +343,7 @@
                     <div
                       v-else
                       :key="`video-${r.id}-${idx}`"
-                      class="relative w-48 h-24 flex-shrink-0 rounded-lg overflow-hidden border cursor-pointer group"
+                      class="relative w-48 h-24 shrink-0 rounded-lg overflow-hidden border cursor-pointer group"
                       @click="openMediaGallery(r.media, idx)"
                     >
                       <video
@@ -575,7 +575,10 @@ function getCouponCacheKey(variantIds) {
 }
 
 async function fetchCouponsWithCache(variantIds) {
-  const cacheKey = getCouponCacheKey(variantIds);
+  // Sử dụng productId thay vì variantIds
+  const productId = product.value?.id;
+  if (!productId) return [];
+  const cacheKey = `coupons_product_${productId}`;
   const cached = localStorage.getItem(cacheKey);
   if (cached) {
     try {
@@ -588,13 +591,10 @@ async function fetchCouponsWithCache(variantIds) {
     } catch {}
   }
   // Nếu không có cache hoặc cache hết hạn, fetch mới
-  const couponRes = await $fetch(
-    `/coupons/available?variantIds=${variantIds}`,
-    {
-      baseURL: config.public.apiBase,
-      headers: { Authorization: `Bearer ${auth.accessToken}` },
-    },
-  );
+  const couponRes = await $fetch(`/coupons/available?productIds=${productId}`, {
+    baseURL: config.public.apiBase,
+    headers: { Authorization: `Bearer ${auth.accessToken}` },
+  });
   localStorage.setItem(
     cacheKey,
     JSON.stringify({ data: couponRes, expires: Date.now() + COUPON_CACHE_TTL }),
@@ -604,22 +604,20 @@ async function fetchCouponsWithCache(variantIds) {
 
 onMounted(async () => {
   try {
-    // Gọi API sản phẩm và review song song
-    const [res] = await Promise.all([
-      $fetch(`/product/get-product/${route.params.id}`, {
-        baseURL: config.public.apiBase,
-      }),
-      fetchReviews(),
-    ]);
-
+    // Chỉ load sản phẩm trước, không chờ reviews
+    const res = await $fetch(`/product/get-product/${route.params.id}`, {
+      baseURL: config.public.apiBase,
+    });
     product.value = res;
     selectedImage.value = res.thumbnailUrl;
-
-    // Coupon fetch sau khi có product (không block page render)
-    const variantIds = (res.variants || []).map((v) => v.id).join(",");
-    if (auth.isLoggedIn && variantIds) {
+  } catch (e) {
+    console.error("Lỗi load sản phẩm:", e);
+  } finally {
+    loading.value = false;
+    // Sau khi product đã có, bắt đầu load coupon (không block sản phẩm)
+    if (auth.isLoggedIn && product.value?.id) {
       loadingCoupons.value = true;
-      fetchCouponsWithCache(variantIds)
+      fetchCouponsWithCache()
         .then((data) => {
           coupons.value = data;
         })
@@ -627,10 +625,9 @@ onMounted(async () => {
           loadingCoupons.value = false;
         });
     }
-  } catch (e) {
-    console.error("Lỗi load sản phẩm:", e);
-  } finally {
-    loading.value = false;
+    // Bắt đầu load reviews song song, không block sản phẩm
+    loadingReviews.value = true;
+    fetchReviews();
   }
 });
 

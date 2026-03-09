@@ -183,18 +183,8 @@ export const getAvailableCouponsForProductsService = async ({
   userId = null, // thêm userId để lọc theo perUserLimit
   onlyApplicable = false,
 } = {}) => {
-  const allProductIds = [
-    ...productIds,
-    ...(variantIds.length
-      ? (
-          await db
-            .select({ productId: productVariants.productId })
-            .from(productVariants)
-            .where(inArray(productVariants.id, variantIds))
-        ).map((r) => r.productId)
-      : []),
-  ];
-  const uniqueProductIds = [...new Set(allProductIds)];
+  // Chỉ lấy coupon theo productIds, không lấy từ variantIds
+  const uniqueProductIds = [...new Set(productIds)];
   if (!uniqueProductIds.length) return [];
 
   // lấy coupon hợp lệ (đã lọc theo user nếu có userId)
@@ -219,11 +209,15 @@ export const getAvailableCouponsForProductsService = async ({
 
   return allCoupons.reduce((result, c) => {
     const allowedSet = map.get(c.id);
-    const applicable = !allowedSet
-      ? true
-      : uniqueProductIds.every((pid) => allowedSet.has(pid));
+    let applicable = true;
+    if (allowedSet && allowedSet.size > 0) {
+      // Nếu có mapping, chỉ trả về coupon nếu productIds nằm trong mapping
+      applicable = uniqueProductIds.every((pid) => allowedSet.has(pid));
+    } else if (!allowedSet) {
+      // Nếu không có mapping (áp dụng toàn bộ), chỉ trả về nếu có productIds
+      applicable = uniqueProductIds.length > 0;
+    }
 
-    // Chỉ trả về các trường cần thiết cho FE
     const couponData = {
       id: c.id,
       code: c.code,
@@ -239,6 +233,7 @@ export const getAvailableCouponsForProductsService = async ({
       minOrderTotal: c.minOrderTotal,
       maxMember: c.maxMember,
       applicable,
+      userUsedCount: c.userUsedCount ?? 0,
     };
     if (onlyApplicable) {
       if (applicable) result.push(couponData);

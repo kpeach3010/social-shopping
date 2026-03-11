@@ -35,11 +35,16 @@
         <div class="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden">
           <div class="lg:h-full grid grid-cols-1 lg:grid-cols-5">
             <!-- Left: 2 cột nhỏ, 1 cho ảnh áo, 1 cho upload ảnh người -->
-            <div class="lg:col-span-2 p-3 sm:p-5 lg:p-7 border-b lg:border-b-0 lg:border-r lg:h-full flex flex-col min-h-0">
+            <div
+              class="lg:col-span-2 p-3 sm:p-5 lg:p-7 border-b lg:border-b-0 lg:border-r lg:h-full flex flex-col min-h-0"
+            >
               <!-- Colors -->
               <div class="mb-3 sm:mb-4">
                 <div class="flex items-center justify-between mb-1.5 sm:mb-2">
-                  <label class="font-semibold text-gray-900 text-sm sm:text-base">Màu sắc</label>
+                  <label
+                    class="font-semibold text-gray-900 text-sm sm:text-base"
+                    >Màu sắc</label
+                  >
                   <span v-if="selectedColor" class="text-xs text-gray-500">
                     Đã chọn: <b>{{ selectedColor }}</b>
                   </span>
@@ -50,7 +55,11 @@
                     :key="c"
                     type="button"
                     class="px-2.5 py-1 min-w-[40px] rounded-full border text-xs transition"
-                    :class="selectedColor === c ? 'bg-black text-white border-black' : 'bg-white text-gray-700 hover:bg-gray-50'"
+                    :class="
+                      selectedColor === c
+                        ? 'bg-black text-white border-black'
+                        : 'bg-white text-gray-700 hover:bg-gray-50'
+                    "
                     @click="selectedColor = c"
                   >
                     {{ c }}
@@ -61,18 +70,49 @@
               <div class="grid grid-cols-2 gap-4 mb-3 sm:mb-4 lg:gap-10">
                 <!-- Cột 1: Ảnh áo đã chọn -->
                 <div>
-                  <label class="font-semibold text-gray-900 text-xs sm:text-sm mb-1 block">Ảnh áo đã chọn</label>
-                  <div class="w-full flex items-center justify-center min-h-[260px] sm:min-h-[340px] max-h-[700px] h-[38vh] sm:h-[48vh] lg:h-[56vh] bg-gray-100 rounded-xl border overflow-hidden"
-                    style="aspect-ratio: 4/5; min-width: 0; width: 100%; max-width: 540px; margin-left: auto; margin-right: auto;">
-                    <img v-if="currentClothImage" :src="currentClothImage" alt="Ảnh áo đã chọn" class="max-h-full max-w-full object-contain" />
-                    <span v-else class="text-xs text-gray-400 py-6">Chưa có ảnh áo</span>
+                  <label
+                    class="font-semibold text-gray-900 text-xs sm:text-sm mb-1 block"
+                    >Ảnh áo đã chọn</label
+                  >
+                  <div
+                    class="w-full flex items-center justify-center min-h-[260px] sm:min-h-[340px] max-h-[700px] h-[38vh] sm:h-[48vh] lg:h-[56vh] bg-gray-100 rounded-xl border overflow-hidden"
+                    style="
+                      aspect-ratio: 4/5;
+                      min-width: 0;
+                      width: 100%;
+                      max-width: 540px;
+                      margin-left: auto;
+                      margin-right: auto;
+                    "
+                  >
+                    <img
+                      v-if="currentClothImage"
+                      :src="currentClothImage"
+                      alt="Ảnh áo đã chọn"
+                      class="max-h-full max-w-full object-contain"
+                    />
+                    <span v-else class="text-xs text-gray-400 py-6"
+                      >Chưa có ảnh áo</span
+                    >
                   </div>
                 </div>
                 <!-- Cột 2: Upload ảnh cá nhân -->
                 <div>
-                  <label class="font-semibold text-gray-900 text-xs sm:text-sm mb-1 block">Ảnh của bạn</label>
-                  <div class="relative rounded-xl sm:rounded-2xl border-2 border-dashed bg-gray-50 flex flex-col items-center justify-center min-h-[260px] sm:min-h-[340px] max-h-[700px] h-[38vh] sm:h-[48vh] lg:h-[56vh] mb-0"
-                    style="aspect-ratio: 4/5; min-width: 0; width: 100%; max-width: 540px; margin-left: auto; margin-right: auto;">
+                  <label
+                    class="font-semibold text-gray-900 text-xs sm:text-sm mb-1 block"
+                    >Ảnh của bạn</label
+                  >
+                  <div
+                    class="relative rounded-xl sm:rounded-2xl border-2 border-dashed bg-gray-50 flex flex-col items-center justify-center min-h-[260px] sm:min-h-[340px] max-h-[700px] h-[38vh] sm:h-[48vh] lg:h-[56vh] mb-0"
+                    style="
+                      aspect-ratio: 4/5;
+                      min-width: 0;
+                      width: 100%;
+                      max-width: 540px;
+                      margin-left: auto;
+                      margin-right: auto;
+                    "
+                  >
                     <label
                       class="w-full h-full flex flex-col items-center justify-center cursor-pointer group"
                       style="border-radius: 1rem"
@@ -91,7 +131,9 @@
                         />
                       </template>
                       <template v-else>
-                        <div class="flex flex-col items-center justify-center w-full h-full select-none">
+                        <div
+                          class="flex flex-col items-center justify-center w-full h-full select-none"
+                        >
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
                             fill="none"
@@ -106,8 +148,11 @@
                               d="M12 16V4m0 0l-4 4m4-4l4 4M20.25 16.25v2.25A2.25 2.25 0 0118 20.75H6a2.25 2.25 0 01-2.25-2.25v-2.25"
                             />
                           </svg>
-                          <div class="mt-1.5 sm:mt-2 text-gray-500 text-xs sm:text-sm text-center">
-                            Nhấn để tải ảnh của bạn<br />(JPG/PNG/WebP, tối đa 10MB)
+                          <div
+                            class="mt-1.5 sm:mt-2 text-gray-500 text-xs sm:text-sm text-center"
+                          >
+                            Nhấn để tải ảnh của bạn<br />(JPG/PNG/WebP, tối đa
+                            10MB)
                           </div>
                         </div>
                       </template>

@@ -7,7 +7,7 @@
     >
       <!-- Popup fixed height, no scroll -->
       <div
-        class="w-full max-w-6xl rounded-none sm:rounded-2xl bg-white shadow-2xl overflow-hidden flex flex-col h-[100dvh] sm:h-[92vh]"
+        class="w-full max-w-[1800px] rounded-none sm:rounded-2xl bg-white shadow-2xl overflow-hidden flex flex-col h-[100dvh] sm:h-[96vh]"
       >
         <!-- Header -->
         <div
@@ -34,33 +34,23 @@
         <!-- Body: scrollable on mobile, no scroll on desktop -->
         <div class="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden">
           <div class="lg:h-full grid grid-cols-1 lg:grid-cols-5">
-            <!-- Left -->
-            <div
-              class="lg:col-span-2 p-3 sm:p-5 lg:p-7 border-b lg:border-b-0 lg:border-r lg:h-full flex flex-col min-h-0"
-            >
+            <!-- Left: 2 cột nhỏ, 1 cho ảnh áo, 1 cho upload ảnh người -->
+            <div class="lg:col-span-2 p-3 sm:p-5 lg:p-7 border-b lg:border-b-0 lg:border-r lg:h-full flex flex-col min-h-0">
               <!-- Colors -->
               <div class="mb-3 sm:mb-4">
                 <div class="flex items-center justify-between mb-1.5 sm:mb-2">
-                  <label
-                    class="font-semibold text-gray-900 text-sm sm:text-base"
-                    >Màu sắc</label
-                  >
+                  <label class="font-semibold text-gray-900 text-sm sm:text-base">Màu sắc</label>
                   <span v-if="selectedColor" class="text-xs text-gray-500">
                     Đã chọn: <b>{{ selectedColor }}</b>
                   </span>
                 </div>
-
                 <div class="flex flex-wrap gap-2">
                   <button
                     v-for="c in colors"
                     :key="c"
                     type="button"
                     class="px-2.5 py-1 min-w-[40px] rounded-full border text-xs transition"
-                    :class="
-                      selectedColor === c
-                        ? 'bg-black text-white border-black'
-                        : 'bg-white text-gray-700 hover:bg-gray-50'
-                    "
+                    :class="selectedColor === c ? 'bg-black text-white border-black' : 'bg-white text-gray-700 hover:bg-gray-50'"
                     @click="selectedColor = c"
                   >
                     {{ c }}
@@ -68,77 +58,86 @@
                 </div>
               </div>
 
-              <!-- Upload ảnh cá nhân -->
-              <div
-                class="relative rounded-xl sm:rounded-2xl border-2 border-dashed bg-gray-50 flex flex-col items-center justify-center min-h-[180px] sm:min-h-[260px] max-h-[520px] h-[28vh] sm:h-[38vh] lg:h-[46vh] mb-3 sm:mb-4"
-              >
-                <label
-                  class="w-full h-full flex flex-col items-center justify-center cursor-pointer group"
-                  style="border-radius: 1rem"
-                >
-                  <input
-                    type="file"
-                    accept="image/*"
-                    class="hidden"
-                    @change="onPersonFileChange"
-                  />
-                  <template v-if="personPreview">
-                    <img
-                      :src="personPreview"
-                      class="w-full h-full object-contain rounded-2xl"
-                      alt="Preview"
-                    />
-                  </template>
-                  <template v-else>
-                    <div
-                      class="flex flex-col items-center justify-center w-full h-full select-none"
+              <div class="grid grid-cols-2 gap-4 mb-3 sm:mb-4 lg:gap-10">
+                <!-- Cột 1: Ảnh áo đã chọn -->
+                <div>
+                  <label class="font-semibold text-gray-900 text-xs sm:text-sm mb-1 block">Ảnh áo đã chọn</label>
+                  <div class="w-full flex items-center justify-center min-h-[260px] sm:min-h-[340px] max-h-[700px] h-[38vh] sm:h-[48vh] lg:h-[56vh] bg-gray-100 rounded-xl border overflow-hidden"
+                    style="aspect-ratio: 4/5; min-width: 0; width: 100%; max-width: 540px; margin-left: auto; margin-right: auto;">
+                    <img v-if="currentClothImage" :src="currentClothImage" alt="Ảnh áo đã chọn" class="max-h-full max-w-full object-contain" />
+                    <span v-else class="text-xs text-gray-400 py-6">Chưa có ảnh áo</span>
+                  </div>
+                </div>
+                <!-- Cột 2: Upload ảnh cá nhân -->
+                <div>
+                  <label class="font-semibold text-gray-900 text-xs sm:text-sm mb-1 block">Ảnh của bạn</label>
+                  <div class="relative rounded-xl sm:rounded-2xl border-2 border-dashed bg-gray-50 flex flex-col items-center justify-center min-h-[260px] sm:min-h-[340px] max-h-[700px] h-[38vh] sm:h-[48vh] lg:h-[56vh] mb-0"
+                    style="aspect-ratio: 4/5; min-width: 0; width: 100%; max-width: 540px; margin-left: auto; margin-right: auto;">
+                    <label
+                      class="w-full h-full flex flex-col items-center justify-center cursor-pointer group"
+                      style="border-radius: 1rem"
+                    >
+                      <input
+                        type="file"
+                        accept="image/*"
+                        class="hidden"
+                        @change="onPersonFileChange"
+                      />
+                      <template v-if="personPreview">
+                        <img
+                          :src="personPreview"
+                          class="w-full h-full object-contain rounded-2xl"
+                          alt="Preview"
+                        />
+                      </template>
+                      <template v-else>
+                        <div class="flex flex-col items-center justify-center w-full h-full select-none">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke-width="1.5"
+                            stroke="currentColor"
+                            class="w-10 h-10 sm:w-14 sm:h-14 text-gray-400 group-hover:text-blue-500 transition"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              d="M12 16V4m0 0l-4 4m4-4l4 4M20.25 16.25v2.25A2.25 2.25 0 0118 20.75H6a2.25 2.25 0 01-2.25-2.25v-2.25"
+                            />
+                          </svg>
+                          <div class="mt-1.5 sm:mt-2 text-gray-500 text-xs sm:text-sm text-center">
+                            Nhấn để tải ảnh của bạn<br />(JPG/PNG/WebP, tối đa 10MB)
+                          </div>
+                        </div>
+                      </template>
+                    </label>
+                    <!-- Nút xóa ảnh, chỉ hiện khi có preview -->
+                    <button
+                      v-if="personPreview"
+                      type="button"
+                      class="absolute top-2 right-2 w-9 h-9 flex items-center justify-center rounded-full bg-white shadow-lg border border-gray-200 text-gray-600 hover:bg-red-500 hover:text-white hover:border-red-500 transition z-30"
+                      @click.stop="clearPerson"
+                      title="Xóa ảnh"
+                      style="padding: 0"
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
+                        class="w-5 h-5"
                         fill="none"
                         viewBox="0 0 24 24"
-                        stroke-width="1.5"
                         stroke="currentColor"
-                        class="w-10 h-10 sm:w-14 sm:h-14 text-gray-400 group-hover:text-blue-500 transition"
                       >
                         <path
                           stroke-linecap="round"
                           stroke-linejoin="round"
-                          d="M12 16V4m0 0l-4 4m4-4l4 4M20.25 16.25v2.25A2.25 2.25 0 0118 20.75H6a2.25 2.25 0 01-2.25-2.25v-2.25"
+                          stroke-width="2"
+                          d="M6 18L18 6M6 6l12 12"
                         />
                       </svg>
-                      <div
-                        class="mt-1.5 sm:mt-2 text-gray-500 text-xs sm:text-sm text-center"
-                      >
-                        Nhấn để tải ảnh của bạn<br />(JPG/PNG/WebP, tối đa 10MB)
-                      </div>
-                    </div>
-                  </template>
-                </label>
-                <!-- Nút xóa ảnh, chỉ hiện khi có preview -->
-                <button
-                  v-if="personPreview"
-                  type="button"
-                  class="absolute top-2 right-2 w-9 h-9 flex items-center justify-center rounded-full bg-white shadow-lg border border-gray-200 text-gray-600 hover:bg-red-500 hover:text-white hover:border-red-500 transition z-30"
-                  @click.stop="clearPerson"
-                  title="Xóa ảnh"
-                  style="padding: 0"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="w-5 h-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
+                    </button>
+                  </div>
+                </div>
               </div>
               <!-- Controls: FIXED area -->
               <div class="mt-1 sm:mt-2 shrink-0 w-full">
@@ -401,9 +400,8 @@ async function tryOn() {
       personFile.value.name || "person.png",
     );
     form.append("clothUrl", currentClothImage.value);
-    form.append("clothType", "upper");
-    form.append("fitMode", "standard"); // mặc định standard
 
+    // Đã dọn dẹp các biến dư thừa clothType và fitMode để sạch code
     console.log("form.get(person):", form.get("person"));
     console.log("FormData keys:", [...form.keys()]);
 
@@ -417,18 +415,31 @@ async function tryOn() {
     } else {
       url = "/api/try-on/run";
     }
-    console.log("personFile", personFile.value);
-    console.log("FormData keys:", [...form.keys()]);
 
     const res = await fetch(url, { method: "POST", body: form });
 
     if (!res.ok) {
-      const txt = await res.text().catch(() => "");
-      throw new Error(txt || "Lỗi API thử đồ");
+      // Xử lý thông minh: Cố gắng đọc lỗi từ JSON do Node.js trả về
+      let errorMessage = "Lỗi API thử đồ";
+      try {
+        const errData = await res.json();
+        errorMessage = errData.message || errorMessage;
+      } catch (e) {
+        // Fallback: nếu không phải JSON thì lấy text thuần
+        const txt = await res.text().catch(() => "");
+        if (txt) errorMessage = txt;
+      }
+      throw new Error(errorMessage);
     }
 
-    const blob = await res.blob();
-    resultUrl.value = URL.createObjectURL(blob);
+    // Nhận blob nguyên thủy
+    const rawBlob = await res.blob();
+    if (!rawBlob || rawBlob.size === 0) {
+      throw new Error("Không nhận được dữ liệu ảnh");
+    }
+
+    const imageBlob = new Blob([rawBlob], { type: "image/jpeg" });
+    resultUrl.value = URL.createObjectURL(imageBlob);
 
     // Tính thời gian xử lý
     if (startTime.value) {
@@ -436,7 +447,8 @@ async function tryOn() {
     }
   } catch (err) {
     console.error(err);
-    errorMsg.value = "Không thể tạo ảnh thử đồ. Vui lòng thử lại.";
+    errorMsg.value =
+      err.message || "Không thể tạo ảnh thử đồ. Vui lòng thử lại.";
   } finally {
     loading.value = false;
     stopTimer();

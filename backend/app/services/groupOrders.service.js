@@ -23,6 +23,7 @@ import {
 } from "./order.service.js";
 import { groupOrderStatusEnum } from "../enums/groupOrderStatus.enum.js";
 import { restoreStockForItems } from "./order.service.js";
+import { createNotificationService } from "./notification.service.js";
 import { and, eq, inArray, sql, asc, ne } from "drizzle-orm";
 
 // lay thong tin group order theo conversationId
@@ -441,10 +442,7 @@ export const leaveGroupOrderService = async ({ userId, groupOrderId }) => {
         .where(eq(conversationMembers.conversationId, conversationId));
 
       if (count === 0) {
-        // Xóa conversation (inviteLinks sẽ tự xóa theo nếu cascade conversationId,
-        // nhưng schema inviteLinks của bạn đang reference conversationId unique, cần check cascade ở schema)
-        // Schema inviteLinks: .references(() => conversations.id) -> Mặc định NO ACTION nếu ko set onDelete
-        // Nên xóa inviteLinks trước cho an toàn nếu schema chưa set cascade
+        // Xóa conversation
         await tx
           .delete(inviteLinks)
           .where(eq(inviteLinks.conversationId, conversationId));
@@ -455,7 +453,7 @@ export const leaveGroupOrderService = async ({ userId, groupOrderId }) => {
         await tx.delete(groupOrders).where(eq(groupOrders.id, groupOrderId));
 
         return {
-          message: "Nhóm đã giải tán.",
+          message: "Nhóm đã bị giải tán do tất cả thành viên rời khỏi.",
           isDisbanded: true,
           conversationId,
         };
@@ -524,26 +522,32 @@ export const leaveConversationAfterDoneService = async ({
     .from(conversationMembers)
     .where(eq(conversationMembers.conversationId, conversationId));
 
-  let isDisbanded = false; // Đổi tên biến 'archived' thành 'isDisbanded' cho khớp Controller
+    let isDisbanded = false; // Đổi tên biến 'archived' thành 'isDisbanded' cho khớp Controller
 
-  if (count === 0) {
-    // Nếu không còn ai -> Đánh dấu conversation là đã lưu trữ (Archived)
-    await db
-      .update(conversations)
-      .set({
-        archived: true,
-        updatedAt: new Date(),
-      })
-      .where(eq(conversations.id, conversationId));
+    if (count === 0) {
+      // Nếu không còn ai -> Đánh dấu conversation là đã lưu trữ (Archived)
+      await db
+        .update(conversations)
+        .set({
+          archived: true,
+          updatedAt: new Date(),
+        })
+        .where(eq(conversations.id, conversationId));
 
-    isDisbanded = true;
-  }
+      isDisbanded = true;
 
-  return {
-    conversationId, // ID này luôn tồn tại vì ta không xóa bảng conversations
-    isDisbanded, // Trả về true để Controller gửi sự kiện 'group-deleted' (hoặc archived)
-    message: `${leaver?.fullName || "Một thành viên"} đã rời cuộc trò chuyện.`,
-  };
+      return {
+        conversationId,
+        isDisbanded,
+        message: "Nhóm đã giải tán do tất cả thành viên rời khỏi.",
+      };
+    }
+
+    return {
+      conversationId, // ID này luôn tồn tại vì ta không xóa bảng conversations
+      isDisbanded, // Trả về true để Controller gửi sự kiện 'group-deleted' (hoặc archived)
+      message: `${leaver?.fullName || "Một thành viên"} đã rời cuộc trò chuyện.`,
+    };
 };
 
 // Chọn sản phẩm và check điều kiện sau khi chọn biển thể + số lượng khi mua chung

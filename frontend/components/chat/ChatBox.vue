@@ -1470,7 +1470,7 @@ onMounted(() => {
     groupDetail.value = null;
     showGroupDetail.value = false;
 
-    alert("Nhóm đã giải tán");
+    alert(payload.message || "Nhóm đã giải tán do tất cả thành viên rời khỏi.");
   });
 
   // Cập nhật realtime khả năng hủy đơn nhóm khi staff duyệt đơn

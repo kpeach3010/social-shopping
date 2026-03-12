@@ -13,7 +13,7 @@ import { restoreStockForItems } from "../services/order.service.js";
  * nếu ở trạng thái "awaiting_payment" quá thời hạn.
  * Orders bị xóa hoàn toàn, stock được hoàn lại.
  */
-const PAYMENT_TIMEOUT_MINUTES = 30;
+const PAYMENT_TIMEOUT_MINUTES = 1;
 
 export const resetTimeoutGroupOrders = async () => {
   const cutoff = new Date(Date.now() - PAYMENT_TIMEOUT_MINUTES * 60 * 1000);

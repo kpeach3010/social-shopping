@@ -399,6 +399,7 @@ export const getProductByIdService = async (productId) => {
         imagePath: colors.imagePath,
         imageUrl: colors.imageUrl,
         color: colors.name,
+        colorId: colors.id,   // ← thêm colorId để FE dùng khi edit
         size: sizes.name,
       })
       .from(productVariants)
@@ -712,15 +713,39 @@ export const updateProductService = async (productId, data) => {
         payload.backThumbnailUrl = null;
       }
 
+      // 4d) Xóa thumbnail (nếu FE gửi flag removeThumbnail)
+      if (
+        data.removeThumbnail === "true" ||
+        data.removeThumbnail === true
+      ) {
+        if (product.thumbnailPath) {
+          await supabase.storage
+            .from("product-images")
+            .remove([product.thumbnailPath]);
+        }
+        payload.thumbnailPath = null;
+        payload.thumbnailUrl = null;
+      }
+
       // 5) Update Product info
       await tx.update(products).set(payload).where(eq(products.id, productId));
 
       // 6) Xử lý COLORS
       if (Array.isArray(data.colors)) {
-        for (const c of data.colors) {
+        // === OPTIMIZATION: Tính catPath 1 lần, không tính lại trong loop ===
+        const catPath = await buildCategoryPath(currentCategoryId);
+
+        // === OPTIMIZATION: Pre-fetch tất cả sizes của product 1 lần ===
+        const existingSizes = await tx
+          .select()
+          .from(sizes)
+          .where(eq(sizes.productId, productId));
+        const sizeMap = new Map(existingSizes.map((s) => [s.name, s]));
+
+        // Hàm xử lý 1 màu (để có thể gọi song song)
+        const processColor = async (c) => {
           const colorId = c.id || c.colorId;
           const colorNameUpper = c.colorName?.trim().toUpperCase();
-          const catPath = await buildCategoryPath(currentCategoryId); // Lấy path mới nhất
 
           let savedColorId;
 
@@ -728,19 +753,15 @@ export const updateProductService = async (productId, data) => {
             // ============================================
             // UPDATE EXISTING COLOR
             // ============================================
-
-            // Lấy màu cũ để kiểm tra path (lúc này path đã đúng theo category mới nhờ bước 3)
             const [oldColor] = await tx
               .select()
               .from(colors)
               .where(eq(colors.id, colorId))
               .limit(1);
-            if (!oldColor) continue;
+            if (!oldColor) return;
 
             const updateData = { name: colorNameUpper };
 
-            // Kiểm tra xem có cần Rename ảnh không?
-            // Điều kiện: Tên đổi + Không upload file mới + Đã có ảnh cũ
             const isNameChanged = oldColor.name !== colorNameUpper;
             const hasNewFile = c.file && c.file.buffer;
 
@@ -748,18 +769,10 @@ export const updateProductService = async (productId, data) => {
               console.log(
                 `>>> Renaming color image: ${oldColor.name} -> ${colorNameUpper}`,
               );
-
-              // 1. Xác định ext cũ (.png, .jpg...)
               const ext = oldColor.imagePath.split(".").pop();
-
-              // 2. Tạo path mới dựa trên slug tên mới
-              // Format: categories/ao-thun/123/variants/den-trang.png
               const newFileName = `${toSlug(c.colorName)}.${ext}`;
               const newPath = `categories/${catPath}/${productId}/variants/${newFileName}`;
-
               try {
-                // 3. Gọi hàm rename của bạn
-                // QUAN TRỌNG: Dùng oldColor.imagePath làm nguồn (không đoán mò)
                 if (oldColor.imagePath !== newPath) {
                   const renamed = await renameFileInBucket(
                     oldColor.imagePath,
@@ -769,32 +782,33 @@ export const updateProductService = async (productId, data) => {
                   updateData.imageUrl = renamed.url;
                 }
               } catch (err) {
-                console.error(
-                  "Rename failed, keeping old filename:",
-                  err.message,
-                );
-                // Nếu rename lỗi (vd file không tồn tại), ta chỉ update tên màu, bỏ qua update path
+                console.error("Rename failed, keeping old filename:", err.message);
               }
             }
 
-            // Nếu có Upload file MỚI (Ghi đè tất cả logic rename)
             if (hasNewFile) {
-              const fileName = `${toSlug(c.colorName)}.png`; // Override tên theo chuẩn create
+              const fileName = `${toSlug(c.colorName)}.png`;
               const uploaded = await uploadToBucket(
                 c.file.buffer,
                 fileName,
                 catPath,
                 productId,
-                true, // isVariant
+                true,
               );
               updateData.imagePath = uploaded.path;
               updateData.imageUrl = uploaded.url;
+            } else if (
+              (c.removeColorImage === "true" || c.removeColorImage === true) &&
+              oldColor.imagePath
+            ) {
+              await supabase.storage
+                .from("product-images")
+                .remove([oldColor.imagePath]);
+              updateData.imagePath = null;
+              updateData.imageUrl = null;
             }
 
-            await tx
-              .update(colors)
-              .set(updateData)
-              .where(eq(colors.id, colorId));
+            await tx.update(colors).set(updateData).where(eq(colors.id, colorId));
             savedColorId = colorId;
           } else {
             // ============================================
@@ -818,12 +832,7 @@ export const updateProductService = async (productId, data) => {
 
             const [newColor] = await tx
               .insert(colors)
-              .values({
-                productId,
-                name: colorNameUpper,
-                imagePath,
-                imageUrl,
-              })
+              .values({ productId, name: colorNameUpper, imagePath, imageUrl })
               .returning({ id: colors.id });
 
             savedColorId = newColor.id;
@@ -836,23 +845,14 @@ export const updateProductService = async (productId, data) => {
             for (const s of c.sizes) {
               const sizeNameUpper = s.sizeName?.trim().toUpperCase();
 
-              // Upsert Size Master
-              let [sizeMaster] = await tx
-                .select()
-                .from(sizes)
-                .where(
-                  and(
-                    eq(sizes.productId, productId),
-                    eq(sizes.name, sizeNameUpper),
-                  ),
-                )
-                .limit(1);
-
+              // === OPTIMIZATION: Lookup từ Map thay vì query DB mỗi size ===
+              let sizeMaster = sizeMap.get(sizeNameUpper);
               if (!sizeMaster) {
                 [sizeMaster] = await tx
                   .insert(sizes)
                   .values({ productId, name: sizeNameUpper })
                   .returning();
+                sizeMap.set(sizeNameUpper, sizeMaster); // cache lại để size sau dùng
               }
 
               const sku = generateSku(c.colorName, s.sizeName);
@@ -881,6 +881,16 @@ export const updateProductService = async (productId, data) => {
               }
             }
           }
+        };
+
+        // === OPTIMIZATION: Chạy song song các màu đã tồn tại (UPDATE),
+        //     các màu mới (INSERT) vẫn tuần tự để tránh xung đột ===
+        const existingColors = data.colors.filter((c) => c.id || c.colorId);
+        const newColors = data.colors.filter((c) => !c.id && !c.colorId);
+
+        await Promise.all(existingColors.map(processColor));
+        for (const c of newColors) {
+          await processColor(c);
         }
       }
 

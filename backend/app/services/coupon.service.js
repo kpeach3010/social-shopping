@@ -183,6 +183,18 @@ export const getAvailableCouponsForProductsService = async ({
   userId = null, // thêm userId để lọc theo perUserLimit
   onlyApplicable = false,
 } = {}) => {
+  // Resolve variantIds → productIds (nếu FE gửi variantIds thay vì productIds)
+  if (variantIds.length > 0) {
+    const variantRows = await db
+      .select({ productId: productVariants.productId })
+      .from(productVariants)
+      .where(inArray(productVariants.id, variantIds));
+
+    const resolvedProductIds = variantRows.map((r) => r.productId);
+    // Merge với productIds có sẵn, loại trùng
+    productIds = [...new Set([...productIds, ...resolvedProductIds])];
+  }
+
   // Chỉ lấy coupon theo productIds, không lấy từ variantIds
   const uniqueProductIds = [...new Set(productIds)];
   if (!uniqueProductIds.length) return [];

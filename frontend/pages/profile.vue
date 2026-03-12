@@ -613,7 +613,19 @@ const closeDetail = () => {
 
 // Hủy đơn
 const cancelOrder = async (orderId) => {
-  if (!confirm("Bạn có chắc muốn hủy đơn hàng này?")) return;
+  // Tìm đơn để kiểm tra có coupon không
+  const order =
+    orders.value.find((o) => o.id === orderId) ||
+    (orderDetail.value?.id === orderId ? orderDetail.value : null);
+
+  const hasCoupon = !!order?.couponCode;
+
+  const confirmMsg = hasCoupon
+    ? "Bạn có chắc muốn hủy đơn hàng này?\n\n⚠️ Lưu ý: Mã giảm giá sẽ không được hoàn khi bạn hủy đơn."
+    : "Bạn có chắc muốn hủy đơn hàng này?";
+
+  if (!confirm(confirmMsg)) return;
+
   try {
     await $fetch(`/orders/cancel/${orderId}`, {
       method: "PATCH",
@@ -623,6 +635,10 @@ const cancelOrder = async (orderId) => {
     orders.value = orders.value.map((o) =>
       o.id === orderId ? { ...o, status: "cancelled" } : o,
     );
+    // Cập nhật popup chi tiết nếu đang mở đúng đơn này
+    if (orderDetail.value?.id === orderId) {
+      orderDetail.value = { ...orderDetail.value, status: "cancelled" };
+    }
     alert("Đơn hàng đã được hủy");
   } catch (e) {
     console.error("Lỗi hủy đơn:", e);

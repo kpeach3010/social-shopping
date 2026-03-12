@@ -1,12 +1,15 @@
 import { db } from "../db/client.js";
 import {
   orders,
+  orderItems,
   groupOrders,
   groupOrderMembers,
   conversations,
   products,
+  productVariants,
+  coupons,
 } from "../db/schema.js";
-import { eq, and, lt, isNull, isNotNull } from "drizzle-orm";
+import { eq, and, lt, isNull, isNotNull, sql } from "drizzle-orm";
 import { sendOrderStatusNotification } from "../services/orderNotification.service.js";
 import { createNotificationService } from "../services/notification.service.js";
 
@@ -16,7 +19,7 @@ import { createNotificationService } from "../services/notification.service.js";
  * Gửi thông báo realtime cho người dùng (kèm ảnh sản phẩm).
  * Đơn nhóm: thông báo riêng cho trưởng nhóm và thành viên.
  */
-const PAYMENT_TIMEOUT_MINUTES = 30;
+const PAYMENT_TIMEOUT_MINUTES = 1;
 
 export const cancelUnpaidOrders = async (io) => {
   const cutoff = new Date(Date.now() - PAYMENT_TIMEOUT_MINUTES * 60 * 1000);
@@ -56,6 +59,9 @@ export const cancelUnpaidOrders = async (io) => {
     }
 
     // === 2. Hủy đơn NHÓM (thuộc group order) ===
+    // Lưu ý: Không đổi groupOrders.status ở đây.
+    // resetTimeoutGroupOrders.js sẽ xóa orders và reset nhóm về "locked"
+    // để nhóm có thể tiếp tục đặt đơn.
     const cancelledGroup = await db
       .update(orders)
       .set({
@@ -73,6 +79,7 @@ export const cancelUnpaidOrders = async (io) => {
         id: orders.id,
         userId: orders.userId,
         groupOrderId: orders.groupOrderId,
+        couponCode: orders.couponCode,
       });
 
     if (cancelledGroup.length > 0) {
@@ -92,6 +99,72 @@ export const cancelUnpaidOrders = async (io) => {
 
       for (const [groupOrderId, groupOrds] of groupMap) {
         try {
+          // === 2.1. Hoàn kho cho tất cả đơn trong nhóm ===
+          const itemsToRestore = await db
+            .select({
+              variantId: orderItems.variantId,
+              productId: orderItems.productId,
+              quantity: orderItems.quantity,
+            })
+            .from(orderItems)
+            .innerJoin(orders, eq(orders.id, orderItems.orderId))
+            .where(eq(orders.groupOrderId, groupOrderId));
+
+          for (const item of itemsToRestore) {
+            // Hoàn kho variant
+            if (item.variantId) {
+              await db
+                .update(productVariants)
+                .set({
+                  stock: sql`${productVariants.stock} + ${item.quantity}`,
+                })
+                .where(eq(productVariants.id, item.variantId));
+            }
+            // Hoàn kho product tổng
+            if (item.productId) {
+              await db
+                .update(products)
+                .set({
+                  stock: sql`${products.stock} + ${item.quantity}`,
+                })
+                .where(eq(products.id, item.productId));
+            }
+          }
+
+          if (itemsToRestore.length > 0) {
+            console.log(
+              `[Cron] Đã hoàn kho ${itemsToRestore.length} items cho nhóm ${groupOrderId}`,
+            );
+          }
+
+          // === 2.2. Giảm coupon.used cho những đơn có dùng coupon ===
+          // Gom các couponCode duy nhất trong nhóm (mỗi thành viên dùng cùng 1 coupon)
+          const couponCodes = [
+            ...new Set(
+              groupOrds
+                .map((o) => o.couponCode)
+                .filter((code) => !!code),
+            ),
+          ];
+
+          for (const couponCode of couponCodes) {
+            // Đếm số đơn trong nhóm dùng coupon này (= số lần cần giảm used)
+            const usedCount = groupOrds.filter(
+              (o) => o.couponCode === couponCode,
+            ).length;
+
+            await db
+              .update(coupons)
+              .set({
+                used: sql`GREATEST(0, ${coupons.used} - ${usedCount})`,
+              })
+              .where(eq(coupons.code, couponCode));
+
+            console.log(
+              `[Cron] Đã hoàn ${usedCount} lượt dùng coupon "${couponCode}" cho nhóm ${groupOrderId}`,
+            );
+          }
+
           // Lấy thông tin nhóm: creatorId + productId
           const [group] = await db
             .select({
@@ -164,7 +237,7 @@ export const cancelUnpaidOrders = async (io) => {
           }
         } catch (groupErr) {
           console.error(
-            `[Cron] Lỗi gửi thông báo nhóm ${groupOrderId}:`,
+            `[Cron] Lỗi xử lý nhóm ${groupOrderId}:`,
             groupErr,
           );
         }

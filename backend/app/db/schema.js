@@ -305,7 +305,9 @@ export const cartItems = pgTable(
     cartId: uuid("cart_id")
       .references(() => carts.id)
       .notNull(),
-    variantId: uuid("variant_id").references(() => productVariants.id),
+    variantId: uuid("variant_id").references(() => productVariants.id, {
+      onDelete: "cascade",
+    }),
     quantity: integer("quantity").notNull(),
   },
   // update quantity khi người dùng thêm variant đã có
@@ -378,8 +380,12 @@ export const orderItems = pgTable(
     orderId: uuid("order_id")
       .notNull()
       .references(() => orders.id, { onDelete: "cascade" }),
-    productId: uuid("product_id").references(() => products.id),
-    variantId: uuid("variant_id").references(() => productVariants.id),
+    productId: uuid("product_id").references(() => products.id, {
+      onDelete: "set null",
+    }),
+    variantId: uuid("variant_id").references(() => productVariants.id, {
+      onDelete: "set null",
+    }),
     productName: varchar("product_name", { length: 160 }).notNull(), // snapshot tên
     variantName: varchar("variant_name", { length: 80 }), // snapshot màu + size
     imagePath: varchar("image_path"), // path ảnh snapshot trong order-images/
@@ -664,7 +670,7 @@ export const reviews = pgTable(
       .notNull(),
     productId: uuid("product_id")
       .notNull()
-      .references(() => products.id),
+      .references(() => products.id, { onDelete: "cascade" }),
   },
   (table) => ({
     // Ràng buộc: Mỗi order item chỉ được review 1 lần
@@ -751,16 +757,15 @@ export const postMedia = pgTable(
 export const postProducts = pgTable(
   "post_products",
   {
+    id: uuid("id").defaultRandom().primaryKey(),
     postId: uuid("post_id")
       .notNull()
       .references(() => posts.id, { onDelete: "cascade" }),
-
-    productId: uuid("product_id")
-      .notNull()
-      .references(() => products.id),
+    productId: uuid("product_id").references(() => products.id, {
+      onDelete: "set null",
+    }),
   },
   (t) => ({
-    pk: primaryKey({ columns: [t.postId, t.productId] }),
     idxPostProductsPost: index("idx_post_products_post_id").on(t.postId),
     idxPostProductsProduct: index("idx_post_products_product_id").on(
       t.productId,

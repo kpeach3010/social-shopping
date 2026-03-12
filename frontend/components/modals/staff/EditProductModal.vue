@@ -41,9 +41,6 @@ watch(
       if (val.backThumbnailUrl)
         product.value.backThumbnailPreview = val.backThumbnailUrl;
       // Nếu có ảnh màu thì set preview cho từng màu
-      product.value.colors?.forEach((c, i) => {
-        if (c.imageUrl) product.value.colors[i].preview = c.imageUrl;
-      });
       if (val.colors) {
         product.value.colors = val.colors.map((c) => ({
           ...c,
@@ -51,6 +48,8 @@ watch(
           colorName: c.name || c.colorName || "", // fallback nếu name bị undefined
           id: c.id ?? c.colorId, // fallback nếu id bị undefined
           sizes: Array.isArray(c.sizes) ? c.sizes : [], // đảm bảo luôn có mảng sizes
+          // Set preview từ imageUrl để hiển thị ảnh màu hiện có (fix: không bị mất sau khi lưu)
+          preview: c.imageUrl || c.preview || null,
         }));
       }
     } else {
@@ -83,6 +82,9 @@ const handleThumbnail = (e) => {
   }
 };
 const removeThumbnail = () => {
+  if (product.value.thumbnailPreview && product.value.thumbnailPreview.startsWith("blob:")) {
+    URL.revokeObjectURL(product.value.thumbnailPreview);
+  }
   product.value.thumbnail = null;
   product.value.thumbnailPreview = null;
 };
@@ -167,9 +169,14 @@ const handleColorFile = (e, colorIdx) => {
 };
 const removeColorFile = (colorIdx) => {
   const color = product.value.colors[colorIdx];
-  if (color.preview) URL.revokeObjectURL(color.preview);
+  // Chỉ revoke nếu là blob URL (file người dùng vừa chọn), không revoke URL Supabase
+  if (color.preview && color.preview.startsWith("blob:")) {
+    URL.revokeObjectURL(color.preview);
+  }
   color.file = null;
   color.preview = null;
+  // Đánh dấu để backend biết xóa ảnh màu này
+  color.removeColorImage = true;
 };
 // Thêm size cho màu
 const addSize = (colorIdx) => {
@@ -235,8 +242,13 @@ const submitProduct = async () => {
 
     // 2. Thumbnail (nếu có upload mới)
     if (product.value.thumbnail) {
-      // Lưu ý: Key này phải khớp với upload.single('thumbnail') hoặc config bên backend của bạn
       formData.append("thumbnail", product.value.thumbnail);
+    } else if (
+      !product.value.thumbnailPreview &&
+      props.productData?.thumbnailUrl
+    ) {
+      // Người dùng đã xóa thumbnail → gửi flag để backend xóa
+      formData.append("removeThumbnail", "true");
     }
 
     // 2b. Ảnh mặt sau
@@ -246,7 +258,7 @@ const submitProduct = async () => {
       !product.value.backThumbnailPreview &&
       props.productData?.backThumbnailUrl
     ) {
-      // Nếu đã xóa ảnh mặt sau (preview null nhưng trước đó có URL) -> gửi flag xóa
+      // Nếu đã xóa ảnh mặt sau (preview null nhưng trước đó có URL) → gửi flag xóa
       formData.append("removeBackThumbnail", "true");
     }
 
@@ -264,6 +276,11 @@ const submitProduct = async () => {
       // File ảnh màu mới
       if (c.file) {
         formData.append(`colors[${colorIdx}][file]`, c.file);
+      }
+
+      // Nếu người dùng đã xóa ảnh màu → gửi flag để backend xóa ảnh
+      if (c.removeColorImage && !c.file) {
+        formData.append(`colors[${colorIdx}][removeColorImage]`, "true");
       }
 
       // 4. Loop qua Sizes (Variants)

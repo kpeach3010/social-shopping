@@ -1,0 +1,2 @@
+ALTER TABLE "post_products" DROP CONSTRAINT "post_products_post_id_product_id_pk";--> statement-breakpoint
+ALTER TABLE "post_products" ADD COLUMN "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL;

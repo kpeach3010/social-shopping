@@ -342,13 +342,19 @@ async function joinGroup() {
     await loadInviteData();
   } catch (e) {
     console.error("Join error:", e);
-    alert(
-      e?.data?.message ||
-        e?.message ||
-        `Không thể tham gia nhóm: [${e?.response?.status || "?"}] ${
-          e?.response?.url || ""
-        }`
-    );
+    
+    // Bóc tách thông báo lỗi chuẩn từ backend
+    const backendError = 
+      e?.response?._data?.error || 
+      e?.data?.error || 
+      e?.response?._data?.message ||
+      e?.data?.message;
+
+    if (backendError) {
+      alert(backendError);
+    } else {
+      alert(`Không thể tham gia nhóm: Có lỗi xảy ra. Vui lòng thử lại sau.`);
+    }
   } finally {
     joining.value = false;
   }

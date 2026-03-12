@@ -12,7 +12,17 @@
     >
       <h2 class="text-lg font-semibold mb-4">Chọn mã giảm giá</h2>
 
-      <div v-if="!coupons?.length" class="text-gray-500 text-sm">
+      <!-- Loading -->
+      <div v-if="loading" class="flex flex-col items-center py-8 gap-3 text-gray-400">
+        <svg class="animate-spin w-7 h-7" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+        </svg>
+        <span class="text-sm">Đang tải mã giảm giá...</span>
+      </div>
+
+      <!-- Không có coupon (sau khi đã load xong) -->
+      <div v-else-if="!personalCoupons.length" class="text-gray-500 text-sm">
         Không có coupon nào khả dụng.
       </div>
 
@@ -20,8 +30,13 @@
         <div
           v-for="c in personalCoupons"
           :key="c.id"
-          @click="$emit('select', c)"
-          class="p-3 border rounded-md hover:shadow-md hover:border-black/20 cursor-pointer transition bg-white max-w-sm"
+          @click="!isDisabled(c) && $emit('select', c)"
+          class="p-3 border rounded-md transition bg-white max-w-sm relative"
+          :class="
+            isDisabled(c)
+              ? 'opacity-50 cursor-not-allowed border-gray-200'
+              : 'hover:shadow-md hover:border-black/20 cursor-pointer'
+          "
         >
           <!-- Code + giá trị -->
           <p class="text-base font-bold text-gray-800">
@@ -50,11 +65,12 @@
           </p>
 
           <!-- điều kiện đơn tối thiểu -->
-          <p v-if="c.minOrderTotal" class="text-xs text-gray-500 mt-1">
+          <p v-if="c.minOrderTotal" class="text-xs mt-1"
+            :class="isDisabled(c) ? 'text-red-400 font-medium' : 'text-gray-500'"
+          >
             Đơn tối thiểu:
-            <span class="font-semibold">{{
-              formatPrice(c.minOrderTotal)
-            }}</span>
+            <span class="font-semibold">{{ formatPrice(c.minOrderTotal) }}</span>
+            <span v-if="isDisabled(c)" class="ml-1">— Chưa đủ điều kiện</span>
           </p>
 
           <!-- số lượt mỗi người -->
@@ -90,13 +106,19 @@
 <script setup>
 const props = defineProps({
   open: Boolean,
+  loading: { type: Boolean, default: false },
   coupons: { type: Array, default: () => [] },
+  subtotal: { type: Number, default: 0 },
 });
 
 const formatPrice = (v) =>
   new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(
     v || 0
   );
+
+// Coupon bị mờ khi đơn chưa đủ giá trị tối thiểu
+const isDisabled = (c) =>
+  !!c.minOrderTotal && props.subtotal < Number(c.minOrderTotal);
 
 const personalCoupons = computed(() =>
   props.coupons.filter((c) => c.kind === "general")

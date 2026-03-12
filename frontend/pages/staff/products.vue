@@ -41,9 +41,8 @@ const openEditModal = async (product) => {
     detail.variants.forEach((v) => {
       const colorKey = v.color || "__NO_COLOR__";
       if (!colorMap[colorKey]) {
-        const colorObj = (detail.colors || []).find((c) => c.name === v.color);
         colorMap[colorKey] = {
-          id: colorObj ? colorObj.id : undefined,
+          id: v.colorId,          // ← lấy trực tiếp từ variant (backend đã trả về)
           colorName: v.color || "",
           imageUrl: v.imageUrl || null,
           preview: v.imageUrl || null,
@@ -55,6 +54,7 @@ const openEditModal = async (product) => {
         price: v.price,
         stock: v.stock,
         variantId: v.id,
+        id: v.id,               // ← thêm id để backend nhận dạng variant cần UPDATE
         sku: v.sku,
       });
     });

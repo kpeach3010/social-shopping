@@ -182,6 +182,7 @@ export const checkoutService = async (
     }
 
     // Kiểm tra số lần sử dụng cho mỗi user
+    // Chỉ đếm các đơn hàng chưa bị hủy (không tính cancelled/rejected)
     if (coupon.perUserLimit) {
       const [{ count }] = await db
         .select({
@@ -189,7 +190,12 @@ export const checkoutService = async (
         })
         .from(orders)
         .where(
-          and(eq(orders.userId, userId), eq(orders.couponCode, couponCode)),
+          and(
+            eq(orders.userId, userId),
+            eq(orders.couponCode, couponCode),
+            ne(orders.status, "cancelled"),
+            ne(orders.status, "rejected"),
+          ),
         );
 
       if (count >= coupon.perUserLimit) {

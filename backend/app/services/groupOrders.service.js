@@ -785,8 +785,31 @@ export const cancelGroupOrderAfterCheckoutService = async (
       .set({ status: "cancelled", updatedAt: new Date() })
       .where(eq(groupOrders.id, groupOrderId));
 
-    // 5.2 Cập nhật trạng thái TẤT CẢ đơn con -> Cancelled
+    // --- HOÀN LƯỢT SỬ DỤNG COUPON TỪ CÁC ĐƠN CON ---
+    const groupOrds = await tx
+      .select({ id: orders.id, couponCode: orders.couponCode })
+      .from(orders)
+      .where(eq(orders.groupOrderId, groupOrderId));
 
+    const couponCodes = [
+      ...new Set(
+        groupOrds
+          .map((o) => o.couponCode)
+          .filter((code) => !!code),
+      ),
+    ];
+
+    for (const couponCode of couponCodes) {
+      const usedCount = groupOrds.filter((o) => o.couponCode === couponCode).length;
+      await tx
+        .update(coupons)
+        .set({
+          used: sql`GREATEST(0, ${coupons.used} - ${usedCount})`,
+        })
+        .where(eq(coupons.code, couponCode));
+    }
+
+    // 5.2 Cập nhật trạng thái TẤT CẢ đơn con -> Cancelled
     await tx
       .update(orders)
       .set({ status: "cancelled", updatedAt: new Date() })

@@ -61,19 +61,21 @@
         <div
           v-for="product in paginatedProducts"
           :key="product.id"
-          class="border rounded-lg shadow-sm hover:shadow-lg transition bg-white"
+          class="border rounded-lg shadow-sm hover:shadow-lg transition"
         >
           <!-- Ảnh -->
           <NuxtLink :to="`/product/${product.id}`">
-            <img
-              :src="product.thumbnailUrl"
-              :alt="product.name"
-              class="w-full h-48 object-cover rounded-t-lg"
-            />
+            <div class="w-full h-56 bg-white rounded-t-lg overflow-hidden flex items-center justify-center">
+              <img
+                :src="product.thumbnailUrl"
+                :alt="product.name"
+                class="w-full h-full object-contain"
+              />
+            </div>
           </NuxtLink>
 
           <!-- Nội dung -->
-          <div class="p-4 flex flex-col justify-between">
+          <div class="p-4 flex flex-col justify-between bg-gray-100 rounded-b-lg">
             <NuxtLink :to="`/product/${product.id}`">
               <h3 class="font-semibold text-gray-800 mb-2 truncate">
                 {{ product.name }}

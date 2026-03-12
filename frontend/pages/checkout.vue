@@ -514,6 +514,8 @@
     <CouponModal
       :open="showCouponModal"
       :coupons="coupons"
+      :loading="couponLoading"
+      :subtotal="subtotal"
       :selectedCoupon="selectedCoupon"
       @close="showCouponModal = false"
       @select="applyCoupon"
@@ -552,6 +554,7 @@ const shipping = reactive({
 
 const orderInfo = ref(null);
 const loading = ref(false);
+const couponLoading = ref(false);
 
 // --- Payment Modal (reusable) ---
 const paymentModalRef = ref(null);
@@ -847,6 +850,7 @@ const initCart = async () => {
   if (!fromCart.value && checkoutItems.value.length) {
     localStorage.removeItem("checkoutCoupon");
     const variantIds = checkoutItems.value.map((i) => i.variantId).join(",");
+    couponLoading.value = true;
     try {
       coupons.value = await $fetch(
         `/coupons/available?variantIds=${variantIds}`,
@@ -856,6 +860,9 @@ const initCart = async () => {
         },
       );
     } catch (e) {}
+    finally {
+      couponLoading.value = false;
+    }
   }
 };
 

@@ -10,6 +10,7 @@ import {
   coupons,
   products,
   messageReads,
+  orders,
 } from "../db/schema.js";
 import {
   getAvailableCouponsForProductsService,
@@ -264,23 +265,49 @@ export const joinGroupOrderByInviteTokenService = async ({ token, userId }) => {
       .where(eq(inviteLinks.id, link.id));
   }
 
+  // 1. Lấy thông tin coupon TRƯỚC TIÊN để kiểm tra điều kiện
+  let coupon;
+  [coupon] = await db
+    .select()
+    .from(coupons)
+    .where(eq(coupons.id, link.couponId))
+    .limit(1);
+
+  if (!coupon) throw new Error("Coupon không tồn tại hoặc đã bị xóa");
+
+  // 2. --- Kiểm tra điều kiện mã giảm giá trước khi cho phép tham gia ---
+  if (coupon.usage_limit && coupon.used >= coupon.usage_limit) {
+    throw new Error("Mã giảm giá của nhóm này đã hết lượt sử dụng.");
+  }
+
+  if (coupon.perUserLimit) {
+    const [{ count: userUsed }] = await db
+      .select({ count: count().mapWith(Number) })
+      .from(orders)
+      .where(
+        and(
+          eq(orders.userId, userId),
+          eq(orders.couponCode, coupon.code),
+          ne(orders.status, "cancelled"),
+          ne(orders.status, "rejected")
+        )
+      );
+
+    if (userUsed >= coupon.perUserLimit) {
+      throw new Error(
+        `Bạn đã dùng mã giảm giá này tối đa ${coupon.perUserLimit} lần. Không thể tham gia nhóm.`
+      );
+    }
+  }
+  // ------------------------------------------------------------------
+
   //  Nếu chưa có conversation -> tạo mới
   let conversationId = link.conversationId;
   let conversationName = null;
   let groupOrderId = null;
-  let coupon = null;
 
   if (!conversationId) {
     const shortId = Math.random().toString(36).slice(2, 6);
-
-    // Lấy thông tin coupon
-    [coupon] = await db
-      .select()
-      .from(coupons)
-      .where(eq(coupons.id, link.couponId))
-      .limit(1);
-
-    if (!coupon) throw new Error("Coupon không tồn tại hoặc đã bị xóa");
 
     // Tạo conversation group
     const [conversation] = await db
@@ -371,13 +398,7 @@ export const joinGroupOrderByInviteTokenService = async ({ token, userId }) => {
 
     groupOrderId = conv.groupOrderId;
     conversationName = conv.name;
-
-    [coupon] = await db
-      .select()
-      .from(coupons)
-      .where(eq(coupons.id, link.couponId))
-      .limit(1);
-  }
+  } 
 
   //  Thêm user vào nhóm
   await db.insert(conversationMembers).values({

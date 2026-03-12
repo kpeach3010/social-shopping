@@ -1146,9 +1146,12 @@ async function cancelGroupOrder() {
   if (!groupOrder?.id) return;
 
   // 1. Xác nhận hành động
-  const confirmed = confirm(
-    "Cảnh báo: Bạn có chắc chắn muốn hủy nhóm này không?\n\nTất cả đơn hàng của thành viên sẽ bị hủy bỏ.",
-  );
+  const hasCoupon = !!groupOrder.couponId;
+  const confirmMsg = hasCoupon
+    ? "Cảnh báo: Bạn có chắc chắn muốn hủy nhóm này không?\n\nTất cả đơn hàng của thành viên sẽ bị hủy bỏ.\n\n⚠️ Lưu ý: Mã giảm giá sẽ ĐƯỢC HOÀN LẠI cho tất cả thành viên."
+    : "Cảnh báo: Bạn có chắc chắn muốn hủy nhóm này không?\n\nTất cả đơn hàng của thành viên sẽ bị hủy bỏ.";
+
+  const confirmed = confirm(confirmMsg);
   if (!confirmed) return;
 
   groupOrderActionLoading.value = true;

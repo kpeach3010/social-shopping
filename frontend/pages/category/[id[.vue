@@ -56,15 +56,19 @@
         <div
           v-for="p in products"
           :key="p.id"
-          class="border rounded-lg shadow-sm hover:shadow-lg transition bg-white"
+          class="border rounded-lg shadow-sm hover:shadow-lg transition"
         >
-          <img
-            :src="p.thumbnailUrl"
-            :alt="p.name"
-            class="w-full h-48 object-cover rounded-t-lg"
-          />
+          <NuxtLink :to="`/product/${p.id}`">
+            <div class="w-full h-56 bg-white rounded-t-lg overflow-hidden flex items-center justify-center">
+              <img
+                :src="p.thumbnailUrl"
+                :alt="p.name"
+                class="w-full h-full object-contain"
+              />
+            </div>
+          </NuxtLink>
 
-          <div class="p-4 flex flex-col justify-between">
+          <div class="p-4 flex flex-col justify-between bg-gray-100 rounded-b-lg">
             <h3 class="font-semibold text-gray-800 mb-2 truncate">
               {{ p.name }}
             </h3>

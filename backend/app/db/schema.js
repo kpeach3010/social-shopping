@@ -91,6 +91,7 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "order_confirmed", // Đơn hàng được xác nhận
   "order_rejected", // Đơn hàng bị từ chối
   "order_completed", // Đơn hàng hoàn thành
+  "group_disbanded", // Thông báo nhóm bị xóa/giải tán
 ]);
 
 export const users = pgTable("users", {

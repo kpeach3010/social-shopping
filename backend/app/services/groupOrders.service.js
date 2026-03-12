@@ -850,6 +850,128 @@ export const cancelGroupOrderAfterCheckoutService = async (
   });
 };
 
+// Trưởng nhóm giải tán nhóm
+export const disbandGroupOrderService = async (groupOrderId, userId) => {
+  // 1. Lấy thông tin nhóm và sản phẩm
+  const [group] = await db
+    .select({
+      id: groupOrders.id,
+      creatorId: groupOrders.creatorId,
+      status: groupOrders.status,
+      productId: groupOrders.productId,
+    })
+    .from(groupOrders)
+    .where(eq(groupOrders.id, groupOrderId))
+    .limit(1);
+
+  if (!group) throw new Error("Nhóm không tồn tại");
+
+  // 2. Phân quyền: Chỉ trưởng nhóm được giải tán
+  if (group.creatorId !== userId) {
+    throw new Error("Chỉ trưởng nhóm mới có quyền giải tán nhóm");
+  }
+
+  // 3. Kiểm tra trạng thái: Không giải tán khi ordering / awaiting_payment
+  if (group.status === "ordering" || group.status === "awaiting_payment") {
+    throw new Error(
+      `Không thể giải tán nhóm lúc này (Đang ở trạng thái ${group.status})`,
+    );
+  }
+
+  // Lấy thông tin cuộc trò chuyện (để lấy được tên nhóm trước khi xoá)
+  const [conv] = await db
+    .select({ id: conversations.id, name: conversations.name })
+    .from(conversations)
+    .where(eq(conversations.groupOrderId, groupOrderId))
+    .limit(1);
+
+  const conversationId = conv?.id;
+  const groupName = conv?.name || "Nhóm mua chung";
+
+  // Lấy URL hình ảnh sản phẩm
+  const [product] = await db
+    .select({ thumbnailUrl: products.thumbnailUrl })
+    .from(products)
+    .where(eq(products.id, group.productId))
+    .limit(1);
+    
+  const imageUrl = product?.thumbnailUrl || null;
+
+  // Lấy danh sách thành viên HIỆN TẠI trong nhóm để gửi Notification (trừ trưởng nhóm)
+  const membersWithInfo = await db
+    .select({ userId: conversationMembers.userId })
+    .from(conversationMembers)
+    .where(eq(conversationMembers.conversationId, conversationId));
+
+  const notifiedUserIds = membersWithInfo
+    .map((m) => m.userId)
+    .filter((id) => id !== userId);
+
+  // 4. Bắt đầu xử lý tuỳ theo trạng thái
+  return await db.transaction(async (tx) => {
+    let mode = "";
+
+    if (group.status === "pending" || group.status === "locked") {
+      // MODE 1: Xoá cứng (Hard Delete) toàn bộ lịch sử
+      mode = "deleted";
+
+      // Lấy danh sách coupon đã dùng từ orders thuộc group
+      const ordersInGroup = await tx
+        .select({ couponCode: orders.couponCode })
+        .from(orders)
+        .where(eq(orders.groupOrderId, groupOrderId));
+
+      // Xoá invite links liên kết conversation
+      if (conversationId) {
+        await tx
+          .delete(inviteLinks)
+          .where(eq(inviteLinks.conversationId, conversationId));
+      }
+
+      // Xoá cuộc trò chuyện (xoá luôn member nhờ cascade)
+      if (conversationId) {
+        await tx.delete(conversations).where(eq(conversations.id, conversationId));
+      }
+
+      // Cuối cùng xoá Group Order
+      await tx.delete(groupOrders).where(eq(groupOrders.id, groupOrderId));
+
+    } else if (group.status === "completed" || group.status === "cancelled") {
+      // MODE 2: Xoá mềm (Archived)
+      mode = "archived";
+
+      if (conversationId) {
+        await tx
+          .update(conversations)
+          .set({ archived: true, updatedAt: new Date() })
+          .where(eq(conversations.id, conversationId));
+      }
+
+    } else {
+      throw new Error(`Trạng thái không hợp lệ: ${group.status}`);
+    }
+
+    // --- Gửi Notification hàng loạt cho các thành viên ---
+    for (const memberId of notifiedUserIds) {
+      await createNotificationService({
+        userId: memberId,
+        type: "group_disbanded", 
+        title: "Nhóm mua chung bị giải tán",
+        content: `Nhóm "${groupName}" đã bị giải tán bởi Trưởng nhóm`,
+        imageUrl: imageUrl, 
+        link: null, 
+      });
+    }
+
+    return {
+      success: true,
+      mode, // "deleted" hoặc "archived"
+      conversationId,
+      groupName,
+    };
+  });
+};
+
 // Trưởng nhóm đổi phương thức thanh toán từ online -> COD khi nhóm đang chờ thanh toán
 export const changeGroupOrderPaymentMethodService = async ({
   userId,

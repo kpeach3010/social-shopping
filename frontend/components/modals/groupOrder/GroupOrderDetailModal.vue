@@ -210,7 +210,7 @@
               groupOrder.status === 'completed' ||
               groupOrder.status === 'cancelled'
             "
-            class="mt-5 flex justify-center"
+            class="mt-5 flex justify-center gap-3"
           >
             <button
               @click="leaveGroup"
@@ -218,12 +218,39 @@
             >
               Rời nhóm
             </button>
+
+            <!-- Nút giải tán nhóm (Dành cho Trưởng nhóm) -->
+            <button
+              v-if="auth.user?.id === groupOrder.creatorId"
+              @click="disbandGroup"
+              class="px-5 py-2 bg-gray-800 hover:bg-black text-white font-semibold rounded-xl shadow-sm transition"
+            >
+              Giải tán nhóm
+            </button>
+          </div>
+
+          <!-- Nút giải tán nhóm khi status Locked (Trưởng nhóm) -->
+          <div
+            v-else-if="groupOrder.status === 'locked'"
+             class="mt-5 flex justify-center gap-3"
+          >
+            <!-- Nút giải tán nhóm (Dành cho Trưởng nhóm) -->
+            <button
+              v-if="auth.user?.id === groupOrder.creatorId"
+              @click="disbandGroup"
+              class="px-5 py-2 bg-gray-800 hover:bg-black text-white font-semibold rounded-xl shadow-sm transition"
+            >
+              Giải tán nhóm
+            </button>
           </div>
 
           <!-- Thông tin khác -->
-          <div class="mt-4 text-xs text-gray-500 text-right">
+          <div class="mt-4 text-xs text-gray-500 text-right space-y-1">
             <p class="italic text-blue-400">
-              Chỉ có thể rời nhóm khi nhóm đang mở, đã hoàn tất hoặc đã huỷ
+              Chỉ có thể rời nhóm khi nhóm đang mở, đã hoàn tất hoặc đã huỷ.
+            </p>
+            <p class="italic text-gray-500">
+              Trưởng nhóm có quyền giải tán nhóm khi chưa đặt đơn hoặc sau khi hủy đơn
             </p>
           </div>
         </template>
@@ -411,6 +438,30 @@ async function leaveGroup() {
     alert(err?.data?.error || "Không thể rời nhóm.");
   } finally {
     // Luôn đóng modal
+    emit("close");
+  }
+}
+
+async function disbandGroup() {
+  const ok = confirm(
+    "Bạn có chắc chắn muốn giải tán nhóm này không?\nHành động này không thể hoàn tác và tất cả thành viên sẽ bị mời ra khỏi nhóm!"
+  );
+  if (!ok) return;
+
+  try {
+    const res = await $fetch(`/group-orders/${props.groupOrder.id}/disband`, {
+      method: "DELETE",
+      baseURL: useRuntimeConfig().public.apiBase,
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+    });
+
+    alert(res.message || "Đã giải tán nhóm thành công.");
+    emit("leave-success"); // Kích hoạt văng ra khỏi chat
+  } catch (err) {
+    console.error("Lỗi giải tán nhóm:", err);
+    alert(err?.data?.error || "Không thể giải tán nhóm lúc này.");
+  } finally {
+    // Đóng UI modal
     emit("close");
   }
 }

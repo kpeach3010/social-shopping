@@ -52,4 +52,10 @@ router.patch(
   GroupOrderController.changeGroupOrderPaymentMethodController,
 );
 
+router.delete(
+  "/:id/disband",
+  authenticate,
+  GroupOrderController.disbandGroupOrderController,
+);
+
 export default router;

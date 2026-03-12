@@ -8,6 +8,7 @@ import {
   cancelGroupOrderAfterCheckoutService,
   changeGroupOrderProductService,
   changeGroupOrderPaymentMethodService,
+  disbandGroupOrderService,
 } from "../services/groupOrders.service.js";
 
 import { createSystemMessage } from "../services/message.service.js";
@@ -520,6 +521,74 @@ export const changeGroupOrderPaymentMethodController = async (req, res) => {
     return res.json(result);
   } catch (err) {
     console.error("Lỗi đổi phương thức thanh toán groupOrder:", err);
+    return res.status(400).json({ error: err.message });
+  }
+};
+
+// Trưởng nhóm giải tán nhóm (Disband)
+export const disbandGroupOrderController = async (req, res) => {
+  try {
+    const { id } = req.params; // groupOrderId
+    const userId = req.user.id;
+
+    // 1. Gọi Service
+    const result = await disbandGroupOrderService(id, userId);
+
+    const { mode, conversationId, groupName } = result;
+
+    if (global.io && conversationId) {
+      if (mode === "deleted") {
+        // TRƯỜNG HỢP 1: Nhóm đã giải tán (Đã xóa khỏi DB)
+        // -> KHÔNG ĐƯỢC gọi createSystemMessage (sẽ lỗi FK)
+        
+        // Báo cho mọi người trong phòng là nhóm đã giải tán
+        global.io.to(conversationId).emit("group-deleted", {
+          conversationId,
+          message: `Nhóm "${groupName}" đã bị giải tán bởi Trưởng nhóm.`,
+        });
+
+        // Ép tất cả các socket đang mở phòng chat này đóng lại
+        global.io.to(conversationId).emit("force-close-chat", { conversationId });
+
+        // Kick thực sự các socket ra khỏi phòng (giống hàm leave)
+        try {
+          const sockets = await global.io.in(conversationId).fetchSockets();
+          for (const socket of sockets) {
+            socket.leave(conversationId);
+          }
+        } catch (e) {
+          console.error("Lỗi khi kick socket (disband group):", e);
+        }
+
+      } else if (mode === "archived") {
+        // TRƯỜNG HỢP 2: Nhóm bị lưu trữ (completed/cancelled)
+        const reason = `Nhóm "${groupName}" đã được lưu trữ (giải tán) bởi Trưởng nhóm.`;
+
+        // Lưu tin nhắn hệ thống vào DB bình thường
+        const sysMsg = await createSystemMessage(conversationId, reason);
+
+        global.io.to(conversationId).emit("message", {
+          id: sysMsg.id,
+          type: "system",
+          conversationId,
+          content: reason,
+          senderId: "00000000-0000-0000-0000-000000000000",
+          createdAt: sysMsg.createdAt,
+        });
+
+        // Ép tất cả socket đóng khung chat vì nhóm đã ngừng hoạt động
+        global.io.to(conversationId).emit("force-close-chat", { conversationId });
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Đã giải tán nhóm thành công.",
+      mode,
+    });
+
+  } catch (err) {
+    console.error("Lỗi giải tán nhóm:", err);
     return res.status(400).json({ error: err.message });
   }
 };

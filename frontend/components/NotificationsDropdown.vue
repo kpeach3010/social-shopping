@@ -43,15 +43,14 @@
                 class="w-2 h-2 bg-blue-600 rounded-full mt-1.5 flex-shrink-0"
               ></div>
               <div class="flex-1 min-w-0">
-                <p class="text-sm text-gray-900">{{ n.title }}</p>
-                <p
-                  v-if="n.content"
-                  class="text-xs text-gray-600 mt-0.5"
-                >
+                <div class="flex justify-between items-start">
+                  <p class="text-sm text-gray-900 pr-2">{{ n.title }}</p>
+                  <span class="text-[10px] text-gray-400 whitespace-nowrap pt-0.5">
+                    {{ formatTime(n.createdAt) }}
+                  </span>
+                </div>
+                <p v-if="n.content" class="text-xs text-gray-600 mt-0.5">
                   {{ n.content }}
-                </p>
-                <p class="text-xs text-gray-500 mt-0.5">
-                  {{ formatTime(n.createdAt) }}
                 </p>
               </div>
             </div>
@@ -106,18 +105,24 @@ const api = (url, opts = {}) =>
   });
 
 // Format thời gian ngắn gọn
-const formatTime = (iso) => {
-  if (!iso) return "";
-  try {
-    const sec = Math.floor((Date.now() - new Date(iso)) / 1000);
-    if (sec < 60) return "Vừa xong";
-    const min = Math.floor(sec / 60);
-    if (min < 60) return `${min}p`;
-    const h = Math.floor(min / 60);
-    return h < 24 ? `${h}h` : `${Math.floor(h / 24)}d`;
-  } catch {
-    return "";
-  }
+const formatTime = (t) => {
+  if (!t) return "";
+  const date = new Date(t);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return "Vừa xong";
+  if (diffMins < 60) return `${diffMins}p`;
+  if (diffHours < 24) return `${diffHours}h`;
+  if (diffDays === 1) return "Hôm qua";
+
+  return date.toLocaleTimeString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 };
 
 // Fetch danh sách thông báo và count

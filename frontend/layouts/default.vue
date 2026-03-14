@@ -290,11 +290,29 @@ onMounted(async () => {
       chatStore.setUnreadCount(totalUnread);
     }
   });
+
+  const refreshUnread = async () => {
+    if (!auth.accessToken) return;
+    try {
+      const res = await $fetch("/messages/unread-count", {
+        baseURL: config.public.apiBase,
+        headers: { Authorization: `Bearer ${auth.accessToken}` },
+      });
+      chatStore.setUnreadCount(res.unreadCount || 0);
+    } catch (err) {
+      console.warn("Could not refresh unread count", err);
+    }
+  };
+
+  $socket.on("group-deleted", refreshUnread);
+  $socket.on("force-close-chat", refreshUnread);
   onBeforeUnmount(() => {
     $socket.off("message");
     $socket.off("unread-count-updated");
     $socket.off("new-conversation");
     $socket.off("connect");
+    $socket.off("group-deleted");
+    $socket.off("force-close-chat");
     window.removeEventListener("incoming-message");
     window.removeEventListener("unread-count-updated", unreadHandler);
     window.removeEventListener("typing-message", typingHandler);

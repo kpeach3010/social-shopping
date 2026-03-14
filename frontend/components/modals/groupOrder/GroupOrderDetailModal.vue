@@ -232,7 +232,7 @@
           <!-- Nút giải tán nhóm khi status Locked (Trưởng nhóm) -->
           <div
             v-else-if="groupOrder.status === 'locked'"
-             class="mt-5 flex justify-center gap-3"
+            class="mt-5 flex justify-center gap-3"
           >
             <!-- Nút giải tán nhóm (Dành cho Trưởng nhóm) -->
             <button
@@ -250,7 +250,8 @@
               Chỉ có thể rời nhóm khi nhóm đang mở, đã hoàn tất hoặc đã huỷ.
             </p>
             <p class="italic text-gray-500">
-              Trưởng nhóm có quyền giải tán nhóm khi chưa đặt đơn hoặc sau khi hủy đơn
+              Trưởng nhóm có quyền giải tán nhóm khi chưa đặt đơn hoặc sau khi
+              hủy đơn
             </p>
           </div>
         </template>
@@ -444,7 +445,7 @@ async function leaveGroup() {
 
 async function disbandGroup() {
   const ok = confirm(
-    "Bạn có chắc chắn muốn giải tán nhóm này không?\nHành động này không thể hoàn tác và tất cả thành viên sẽ bị mời ra khỏi nhóm!"
+    "Bạn có chắc chắn muốn giải tán nhóm này không?\nHành động này không thể hoàn tác và tất cả thành viên sẽ bị mời ra khỏi nhóm!",
   );
   if (!ok) return;
 

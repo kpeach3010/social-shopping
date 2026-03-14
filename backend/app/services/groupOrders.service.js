@@ -953,7 +953,7 @@ export const disbandGroupOrderService = async (groupOrderId, userId) => {
 
     // --- Gửi Notification hàng loạt cho các thành viên ---
     for (const memberId of notifiedUserIds) {
-      await createNotificationService({
+      const notification = await createNotificationService({
         userId: memberId,
         type: "group_disbanded", 
         title: "Nhóm mua chung bị giải tán",
@@ -961,6 +961,10 @@ export const disbandGroupOrderService = async (groupOrderId, userId) => {
         imageUrl: imageUrl, 
         link: null, 
       });
+      
+      if (global.io) {
+        global.io.to(String(memberId)).emit("notification:new", { notification });
+      }
     }
 
     return {

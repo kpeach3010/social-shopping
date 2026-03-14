@@ -321,35 +321,8 @@ export const selectItemsController = async (req, res) => {
         createdAt: sysMsg.createdAt,
       });
 
-      // Enrich items with color/size names before emitting
-      let enrichedItems = items;
-      try {
-        const variantIds = items.map((i) => i.variantId);
-        const variants = await db
-          .select({
-            id: productVariants.id,
-            colorName: colors.name,
-            colorImageUrl: colors.imageUrl,
-            sizeName: sizes.name,
-          })
-          .from(productVariants)
-          .leftJoin(colors, eq(productVariants.colorId, colors.id))
-          .leftJoin(sizes, eq(productVariants.sizeId, sizes.id))
-          .where(inArray(productVariants.id, variantIds));
-
-        const variantMap = new Map(variants.map((v) => [v.id, v]));
-        enrichedItems = items.map((item) => {
-          const v = variantMap.get(item.variantId);
-          return {
-            ...item,
-            colorName: v?.colorName || null,
-            colorImageUrl: v?.colorImageUrl || null,
-            sizeName: v?.sizeName || null,
-          };
-        });
-      } catch (err) {
-        console.error("Error enriching items for socket:", err);
-      }
+      // Use the enriched items returned directly from the service
+      const enrichedItems = result.items;
 
       // Emit thông tin chọn sản phẩm
       global.io.to(conversationId).emit("group-order-choice", {

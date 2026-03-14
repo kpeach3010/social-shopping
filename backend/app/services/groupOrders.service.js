@@ -706,22 +706,23 @@ export const selectItemsService = async ({ groupOrderId, userId, items }) => {
   }
 
   // ================================
-  // 7. LƯU ITEMS MỚI
+  // 7. LƯU ITEMS MỚI (Bulk Insert)
   // ================================
   // Xóa lựa chọn cũ
   await db
     .delete(groupOrderMemberItems)
     .where(eq(groupOrderMemberItems.memberId, member.id));
 
-  // Thêm lựa chọn mới
-  for (const item of items) {
-    await db.insert(groupOrderMemberItems).values({
+  // Thêm lựa chọn mới theo kiểu bulk insert
+  if (items.length > 0) {
+    const valuesToInsert = items.map((item) => ({
       memberId: member.id,
       variantId: item.variantId,
       quantity: item.quantity,
       createdAt: new Date(),
       updatedAt: new Date(),
-    });
+    }));
+    await db.insert(groupOrderMemberItems).values(valuesToInsert);
   }
 
   // Set hasChosen
@@ -730,10 +731,25 @@ export const selectItemsService = async ({ groupOrderId, userId, items }) => {
     .set({ hasChosen: true })
     .where(eq(groupOrderMembers.id, member.id));
 
+  // Lấy dữ liệu enrichment (màu/size) để trả về cho Controller emit socket luôn
+  const enrichedItems = await db
+    .select({
+      variantId: productVariants.id,
+      colorName: colors.name,
+      colorImageUrl: colors.imageUrl,
+      sizeName: sizes.name,
+      quantity: groupOrderMemberItems.quantity,
+    })
+    .from(groupOrderMemberItems)
+    .innerJoin(productVariants, eq(groupOrderMemberItems.variantId, productVariants.id))
+    .leftJoin(colors, eq(productVariants.colorId, colors.id))
+    .leftJoin(sizes, eq(productVariants.sizeId, sizes.id))
+    .where(eq(groupOrderMemberItems.memberId, member.id));
+
   return {
     success: true,
     message: "Chọn sản phẩm thành công",
-    items,
+    items: enrichedItems, // Trả về items đã có đủ thông tin màu/size
     couponApplied: coupon ? coupon.code : null,
     isUpdate,
   };

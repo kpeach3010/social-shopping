@@ -119,11 +119,14 @@ export const groupOrderCheckoutController = async (req, res) => {
 
         for (const createdOrder of result.orders) {
           try {
+             const isCreator = String(createdOrder.userId) === String(userId);
              const notification = await createNotificationService({
                userId: createdOrder.userId,
                type: "group_order_placed",
                title: "Đặt đơn nhóm thành công",
-               content: `Đơn hàng của "${groupName}" đã được trưởng nhóm đặt thành công. Cảm ơn bạn đã mua hàng!`,
+               content: isCreator
+                 ? `Đơn hàng của "${groupName}" đã được bạn (trưởng nhóm) đặt thành công. Cảm ơn bạn đã mua hàng!`
+                 : `Đơn hàng của "${groupName}" đã được trưởng nhóm đặt thành công. Cảm ơn bạn đã mua hàng!`,
                imageUrl: productInfo?.thumbnailUrl || null,
                actionUrl: `/profile?tab=orders&status=${result.status}`,
              });

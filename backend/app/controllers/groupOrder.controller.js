@@ -12,6 +12,7 @@ import {
 } from "../services/groupOrders.service.js";
 
 import { createSystemMessage } from "../services/message.service.js";
+import { createNotificationService } from "../services/notification.service.js";
 import { db } from "../db/client.js";
 import {
   users,
@@ -21,6 +22,8 @@ import {
   productVariants,
   colors,
   sizes,
+  products,
+  groupOrderMembers
 } from "../db/schema.js";
 import { eq, inArray } from "drizzle-orm";
 
@@ -93,6 +96,42 @@ export const groupOrderCheckoutController = async (req, res) => {
           senderFullName: "Hệ thống",
           createdAt: sysMsg.createdAt,
         });
+
+        // Gửi thông báo cho mọi người trong nhóm 
+        const [convInfo] = await db
+          .select({ name: conversations.name })
+          .from(conversations)
+          .where(eq(conversations.id, conversationId))
+          .limit(1);
+
+        const groupName = convInfo?.name || "Nhóm mua chung";
+
+        const [groupOrderInfo] = await db
+          .select({ productId: groupOrders.productId })
+          .from(groupOrders)
+          .where(eq(groupOrders.id, groupOrderId))
+          .limit(1);
+
+        const [productInfo] = await db
+          .select({ thumbnailUrl: products.thumbnailUrl })
+          .from(products)
+          .where(eq(products.id, groupOrderInfo?.productId));
+
+        for (const createdOrder of result.orders) {
+          try {
+             const notification = await createNotificationService({
+               userId: createdOrder.userId,
+               type: "group_order_placed",
+               title: "Đặt đơn nhóm thành công",
+               content: `Đơn hàng của "${groupName}" đã được trưởng nhóm đặt thành công. Cảm ơn bạn đã mua hàng!`,
+               imageUrl: productInfo?.thumbnailUrl || null,
+               actionUrl: `/profile?tab=orders&status=${result.status}`,
+             });
+             global.io.to(String(createdOrder.userId)).emit("notification:new", { notification });
+          } catch(err) {
+             console.error("Lỗi gửi thông báo đặt đơn nhóm:", err);
+          }
+        }
       } catch (err) {
         console.error("Lỗi gửi tin nhắn system khi checkout:", err);
       }
@@ -383,6 +422,38 @@ export const cancelGroupOrderController = async (req, res) => {
       });
 
       console.log(`[Socket] Group ${id} cancelled by Creator`);
+      
+      // --- GUI THONG BAO HUY DON NHOM BOI TRUONG NHOM ---
+      try {
+        const [productInfo] = await db
+          .select({ thumbnailUrl: products.thumbnailUrl })
+          .from(products)
+          .where(eq(products.id, result.productId));
+    
+        const members = await db
+          .select({ userId: groupOrderMembers.userId })
+          .from(groupOrderMembers)
+          .where(eq(groupOrderMembers.groupOrderId, id));
+          
+        for (const member of members) {
+          const isCreator = String(member.userId) === String(userId);
+          const notification = await createNotificationService({
+             userId: member.userId,
+             type: "group_order_cancelled",
+             title: "Đơn nhóm bị hủy",
+             content: isCreator 
+               ? `Đơn hàng nhóm "${result.groupName}" đã bị bạn (trưởng nhóm) hủy.`
+               : `Đơn hàng của "${result.groupName}" đã bị trưởng nhóm hủy.`,
+             imageUrl: productInfo?.thumbnailUrl || null,
+             actionUrl: `/profile?tab=orders&status=cancelled`,
+          });
+          if (global.io) {
+             global.io.to(String(member.userId)).emit("notification:new", { notification });
+          }
+        }
+      } catch (err) {
+        console.error("Lỗi gửi thông báo hủy group order:", err);
+      }
     }
 
     res.json(result);
@@ -531,15 +602,13 @@ export const disbandGroupOrderController = async (req, res) => {
     const { id } = req.params; // groupOrderId
     const userId = req.user.id;
 
-    // 1. Gọi Service
     const result = await disbandGroupOrderService(id, userId);
 
-    const { mode, conversationId, groupName } = result;
+    const { mode, conversationId, groupName, oldStatus } = result;
 
     if (global.io && conversationId) {
       if (mode === "deleted") {
         // TRƯỜNG HỢP 1: Nhóm đã giải tán (Đã xóa khỏi DB)
-        // -> KHÔNG ĐƯỢC gọi createSystemMessage (sẽ lỗi FK)
         
         // Báo cho mọi người trong phòng là nhóm đã giải tán
         global.io.to(conversationId).emit("group-deleted", {
@@ -547,37 +616,59 @@ export const disbandGroupOrderController = async (req, res) => {
           message: `Nhóm "${groupName}" đã bị giải tán bởi Trưởng nhóm.`,
         });
 
-        // Ép tất cả các socket đang mở phòng chat này đóng lại
+        // Ép đóng chatbox ngay lập tức
         global.io.to(conversationId).emit("force-close-chat", { conversationId });
 
-        // Kick thực sự các socket ra khỏi phòng (giống hàm leave)
+        // Kick sockets
         try {
           const sockets = await global.io.in(conversationId).fetchSockets();
           for (const socket of sockets) {
             socket.leave(conversationId);
           }
         } catch (e) {
-          console.error("Lỗi khi kick socket (disband group):", e);
+          console.error("Lỗi kick socket:", e);
         }
 
       } else if (mode === "archived") {
         // TRƯỜNG HỢP 2: Nhóm bị lưu trữ (completed/cancelled)
-        const reason = `Nhóm "${groupName}" đã được lưu trữ (giải tán) bởi Trưởng nhóm.`;
-
-        // Lưu tin nhắn hệ thống vào DB bình thường
-        const sysMsg = await createSystemMessage(conversationId, reason);
-
-        global.io.to(conversationId).emit("message", {
-          id: sysMsg.id,
-          type: "system",
-          conversationId,
-          content: reason,
-          senderId: "00000000-0000-0000-0000-000000000000",
-          createdAt: sysMsg.createdAt,
-        });
-
-        // Ép tất cả socket đóng khung chat vì nhóm đã ngừng hoạt động
+        
+        // Tắt chatbox cho mọi người ngay lập tức (bao gồm trưởng nhóm)
         global.io.to(conversationId).emit("force-close-chat", { conversationId });
+      }
+
+      // --- Gửi Notification hàng loạt cho các thành viên (bao gồm cả trưởng nhóm) ---
+      try {
+        const { allMemberIds, imageUrl, groupName: gName } = result;
+        if (allMemberIds && allMemberIds.length > 0) {
+          for (const memberId of allMemberIds) {
+            const isCreator = String(memberId) === String(userId);
+            let ntfContent = "";
+            if (oldStatus === "completed") {
+              ntfContent = isCreator
+                ? `Bạn (trưởng nhóm) đã giải tán nhóm "${gName}" khi nhóm hoàn thành.`
+                : "Do nhóm đã hoàn thành nên trưởng nhóm đã giải tán nhóm.";
+            } else {
+              ntfContent = isCreator
+                ? `Nhóm "${gName}" đã bị bạn (trưởng nhóm) giải tán`
+                : `Nhóm "${gName}" đã bị giải tán bởi Trưởng nhóm`;
+            }
+
+            const notification = await createNotificationService({
+              userId: memberId,
+              type: "group_disbanded",
+              title: "Nhóm mua chung bị giải tán",
+              content: ntfContent,
+              imageUrl: imageUrl,
+              link: null,
+            });
+
+            if (global.io) {
+              global.io.to(String(memberId)).emit("notification:new", { notification });
+            }
+          }
+        }
+      } catch (ntfErr) {
+        console.error("Lỗi gửi thông báo giải tán nhóm:", ntfErr);
       }
     }
 

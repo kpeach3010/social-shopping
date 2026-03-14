@@ -19,6 +19,7 @@ import { getAvailableCouponsForProductsService } from "./coupon.service.js";
 import supabase from "../../services/supbase/client.js";
 import { sendOrderStatusNotification } from "./orderNotification.service.js";
 import { createSystemMessage } from "./message.service.js";
+import { createNotificationService } from "./notification.service.js";
 
 export const restoreStockForItems = async (tx, items) => {
   for (const item of items) {
@@ -323,7 +324,8 @@ export const checkoutService = async (
         );
     }
   }
-  return { order, orderItems: finalOrderItems };
+
+  return { order, orderItems: finalOrderItems, initialStatus };
 };
 
 // Core helper: đổi phương thức thanh toán của 1 đơn sang COD
@@ -831,35 +833,20 @@ export const updateOrderStatusService = async (orderId, action, staffId) => {
         // Thực hiện hoàn kho
         await restoreStockForItems(tx, allGroupItems);
 
-        // 3. Lấy lại đơn hiện tại để trả về
+        // Lấy lại đơn hiện tại để trả về
         const [updatedCurrentOrder] = await tx
           .select()
           .from(orders)
           .where(eq(orders.id, orderId));
 
-        // 4. Gắn thêm conversationId vào order trả về
-
+        // Gắn thêm conversationId vào order trả về
         const [conv] = await tx
-          .select({ id: conversations.id })
+          .select({ id: conversations.id, name: conversations.name })
           .from(conversations)
           .where(eq(conversations.groupOrderId, order.groupOrderId))
           .limit(1);
 
         if (conv) updatedCurrentOrder.conversationId = conv.id;
-
-        // Gửi thông báo từ chối cho tất cả user trong nhóm
-        const groupOrdersList = await tx
-          .select({ id: orders.id, userId: orders.userId })
-          .from(orders)
-          .where(eq(orders.groupOrderId, order.groupOrderId));
-
-        for (const go of groupOrdersList) {
-          await sendOrderStatusNotification({
-            orderId: go.id,
-            userId: go.userId,
-            newStatus: "rejected",
-          });
-        }
 
         return updatedCurrentOrder;
       });

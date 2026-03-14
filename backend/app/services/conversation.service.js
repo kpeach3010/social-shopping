@@ -182,7 +182,9 @@ export const createInviteLinkService = async ({
         eq(inviteLinks.couponId, couponId),
         or(isNull(inviteLinks.expiresAt), gt(inviteLinks.expiresAt, now)),
         //  không lấy group đã completed
-        or(isNull(groupOrders.status), not(eq(groupOrders.status, "completed")))
+        or(isNull(groupOrders.status), not(eq(groupOrders.status, "completed"))),
+        // KHÔNG lấy conversation đã bị lưu trữ (archived)
+        eq(conversations.archived, false)
       )
     )
     .limit(1);
@@ -711,11 +713,13 @@ export const getLastMessagesService = async (userId) => {
       convName: conversations.name,
       lastMessage: conversations.lastMessage,
       lastMessageAt: conversations.lastMessageAt,
+      archived: conversations.archived,
     })
     .from(messages)
     .innerJoin(lastMsgSub, eq(messages.createdAt, lastMsgSub.lastCreatedAt))
     .innerJoin(users, eq(users.id, messages.senderId))
     .innerJoin(conversations, eq(conversations.id, messages.conversationId))
+    .where(eq(conversations.archived, false))
     .orderBy(desc(messages.createdAt));
 
   const directConvs = result.filter((r) => r.type === "direct");

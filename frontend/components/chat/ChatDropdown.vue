@@ -127,7 +127,7 @@ async function fetchConversations() {
       baseURL: config.public.apiBase,
       headers: { Authorization: `Bearer ${auth.accessToken}` },
     });
-    conversations.value = data;
+    conversations.value = data.filter((c) => !c.archived);
   } catch (err) {
     console.error("Lỗi tải danh sách hội thoại:", err);
   } finally {

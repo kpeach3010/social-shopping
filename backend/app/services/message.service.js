@@ -149,6 +149,7 @@ export const getUnreadMessageCountService = async (userId) => {
   const [{ count: unreadCount }] = await db
     .select({ count: count().mapWith(Number) })
     .from(messages)
+    .innerJoin(conversations, eq(messages.conversationId, conversations.id))
     .leftJoin(
       messageReads,
       and(
@@ -160,6 +161,7 @@ export const getUnreadMessageCountService = async (userId) => {
       and(
         inArray(messages.conversationId, conversationIds),
         ne(messages.senderId, userId), // không tính tin nhắn của chính user
+        eq(conversations.archived, false), // KHÔNG tính tin nhắn trong nhóm đã giải tán
         or(
           isNull(messageReads.lastReadAt),
           gt(messages.createdAt, messageReads.lastReadAt)

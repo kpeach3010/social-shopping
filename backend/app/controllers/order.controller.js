@@ -10,9 +10,10 @@ import {
   changeMyOrderPaymentMethodToCodService,
 } from "../services/order.service.js";
 import { db } from "../db/client.js";
-import { conversations, messages, orders } from "../db/schema.js";
+import { conversations, messages, orders, products, groupOrders } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 import { createSystemMessage } from "../services/message.service.js";
+import { createNotificationService } from "../services/notification.service.js";
 
 export const checkoutController = async (req, res) => {
   try {
@@ -27,6 +28,25 @@ export const checkoutController = async (req, res) => {
       paymentMethod,
       fromCart,
     );
+
+    // Bắn socket thông báo cá nhân
+    if (!result.order.groupOrderId) {
+      try {
+        const notification = await createNotificationService({
+          userId,
+          type: "order_placed",
+          title: "Đặt hàng thành công",
+          content: `Đơn hàng cá nhân #${result.order.id.slice(0, 8)} đã được đặt. Cảm ơn bạn đã mua hàng!`,
+          imageUrl: result.orderItems.length > 0 ? result.orderItems[0].imageUrl : null,
+          actionUrl: `/profile?tab=orders&status=${result.initialStatus}`,
+        });
+        if (global.io) {
+          global.io.to(String(userId)).emit("notification:new", { notification });
+        }
+      } catch (err) {
+        console.error("Lỗi gửi thông báo đặt hàng cá nhân:", err);
+      }
+    }
 
     res.status(201).json({
       message: "Đặt hàng thành công",
@@ -254,6 +274,45 @@ export const rejectOrderController = async (req, res) => {
       });
 
       console.log(`[Socket] Group cancelled via Order Reject: ${id}`);
+      
+      // Gửi thông báo từ chối cho tất cả user trong nhóm (Tách ra từ service)
+      const [conv] = await db
+        .select({ name: conversations.name })
+        .from(conversations)
+        .where(eq(conversations.id, conversationId))
+        .limit(1);
+        
+      const groupName = conv?.name || "Nhóm mua chung";
+
+      // Lấy product thumbnail từ group order
+      const [groupP] = await db
+        .select({ thumbnailUrl: products.thumbnailUrl })
+        .from(groupOrders)
+        .innerJoin(products, eq(groupOrders.productId, products.id))
+        .where(eq(groupOrders.id, updatedOrder.groupOrderId));
+
+      const groupOrdersList = await db
+        .select({ id: orders.id, userId: orders.userId })
+        .from(orders)
+        .where(eq(orders.groupOrderId, updatedOrder.groupOrderId));
+
+      for (const go of groupOrdersList) {
+        try {
+           const notification = await createNotificationService({
+             userId: go.userId,
+             type: "group_order_cancelled",
+             title: "Đơn nhóm bị từ chối",
+             content: `Đơn hàng của "${groupName}" đã bị nhân viên từ chối.`,
+             imageUrl: groupP?.thumbnailUrl || null,
+             actionUrl: `/profile?tab=orders&status=rejected`,
+           });
+           if (global.io) {
+             global.io.to(String(go.userId)).emit("notification:new", { notification });
+           }
+        } catch(err) {
+           console.error("Lỗi gửi thông báo từ chối đơn nhóm:", err);
+        }
+      }
     }
 
     res.json(updatedOrder);

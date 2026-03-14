@@ -1457,6 +1457,7 @@ onMounted(() => {
 
   $socket.on("force-close-chat", (payload) => {
     if (String(payload.conversationId) === String(props.conversationId)) {
+      markAsRead(); // Đánh dấu đã đọc trước khi đóng để đồng bộ count
       showGroupDetail.value = false;
       emit("close");
     }

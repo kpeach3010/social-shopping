@@ -837,7 +837,7 @@ export const cancelGroupOrderAfterCheckoutService = async (
 
     // 5.3 Lấy thông tin phòng chat để bắn socket
     const [conv] = await tx
-      .select({ id: conversations.id })
+      .select({ id: conversations.id, name: conversations.name })
       .from(conversations)
       .where(eq(conversations.groupOrderId, groupOrderId))
       .limit(1);
@@ -846,6 +846,8 @@ export const cancelGroupOrderAfterCheckoutService = async (
       success: true,
       groupOrderId,
       conversationId: conv ? conv.id : null,
+      groupName: conv?.name || "Nhóm mua chung",
+      productId: group.productId,
     };
   });
 };
@@ -907,73 +909,50 @@ export const disbandGroupOrderService = async (groupOrderId, userId) => {
     .map((m) => m.userId)
     .filter((id) => id !== userId);
 
-  // 4. Bắt đầu xử lý tuỳ theo trạng thái
-  return await db.transaction(async (tx) => {
-    let mode = "";
+    // 4. Bắt đầu xử lý tuỳ theo trạng thái
+    return await db.transaction(async (tx) => {
+      let mode = "";
+      let oldStatus = null;
 
-    if (group.status === "pending" || group.status === "locked") {
-      // MODE 1: Xoá cứng (Hard Delete) toàn bộ lịch sử
-      mode = "deleted";
+      if (group.status === "pending" || group.status === "locked") {
+        mode = "deleted";
+        oldStatus = group.status;
 
-      // Lấy danh sách coupon đã dùng từ orders thuộc group
-      const ordersInGroup = await tx
-        .select({ couponCode: orders.couponCode })
-        .from(orders)
-        .where(eq(orders.groupOrderId, groupOrderId));
+        if (conversationId) {
+          await tx
+            .delete(inviteLinks)
+            .where(eq(inviteLinks.conversationId, conversationId));
+          await tx
+            .delete(conversations)
+            .where(eq(conversations.id, conversationId));
+        }
 
-      // Xoá invite links liên kết conversation
-      if (conversationId) {
-        await tx
-          .delete(inviteLinks)
-          .where(eq(inviteLinks.conversationId, conversationId));
+        await tx.delete(groupOrders).where(eq(groupOrders.id, groupOrderId));
+      } else if (group.status === "completed" || group.status === "cancelled") {
+        mode = "archived";
+        oldStatus = group.status;
+
+        if (conversationId) {
+          await tx
+            .update(conversations)
+            .set({ archived: true, updatedAt: new Date() })
+            .where(eq(conversations.id, conversationId));
+        }
+      } else {
+        throw new Error(`Trạng thái không hợp lệ: ${group.status}`);
       }
 
-      // Xoá cuộc trò chuyện (xoá luôn member nhờ cascade)
-      if (conversationId) {
-        await tx.delete(conversations).where(eq(conversations.id, conversationId));
-      }
-
-      // Cuối cùng xoá Group Order
-      await tx.delete(groupOrders).where(eq(groupOrders.id, groupOrderId));
-
-    } else if (group.status === "completed" || group.status === "cancelled") {
-      // MODE 2: Xoá mềm (Archived)
-      mode = "archived";
-
-      if (conversationId) {
-        await tx
-          .update(conversations)
-          .set({ archived: true, updatedAt: new Date() })
-          .where(eq(conversations.id, conversationId));
-      }
-
-    } else {
-      throw new Error(`Trạng thái không hợp lệ: ${group.status}`);
-    }
-
-    // --- Gửi Notification hàng loạt cho các thành viên ---
-    for (const memberId of notifiedUserIds) {
-      const notification = await createNotificationService({
-        userId: memberId,
-        type: "group_disbanded", 
-        title: "Nhóm mua chung bị giải tán",
-        content: `Nhóm "${groupName}" đã bị giải tán bởi Trưởng nhóm`,
-        imageUrl: imageUrl, 
-        link: null, 
-      });
-      
-      if (global.io) {
-        global.io.to(String(memberId)).emit("notification:new", { notification });
-      }
-    }
-
-    return {
-      success: true,
-      mode, // "deleted" hoặc "archived"
-      conversationId,
-      groupName,
-    };
-  });
+      return {
+        success: true,
+        mode,
+        conversationId,
+        groupName,
+        oldStatus,
+        allMemberIds: [userId, ...notifiedUserIds], // Trả về cả list để controller gửi ntf
+        imageUrl,
+        productId: group.productId,
+      };
+    });
 };
 
 // Trưởng nhóm đổi phương thức thanh toán từ online -> COD khi nhóm đang chờ thanh toán

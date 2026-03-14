@@ -78,7 +78,6 @@ export const friendStatusEnum = pgEnum("friend_status", [
   "accepted", // đã chấp nhận
 ]);
 
-// Loại thông báo
 export const notificationTypeEnum = pgEnum("notification_type", [
   "friend_request", // Lời mời kết bạn
   "friend_accepted", // Chấp nhận kết bạn
@@ -86,12 +85,15 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "post_comment", // Bình luận bài viết
   "comment_reply", // Trả lời bình luận
   "comment_like", // Thích bình luận
+  "order_placed", // Đơn hàng được đặt thành công (cá nhân)
+  "group_order_placed", // Đơn hàng nhóm được đặt
   "order_cancelled", // Đơn hàng bị hủy tự động
   "order_paid", // Đơn hàng đã thanh toán
   "order_confirmed", // Đơn hàng được xác nhận
   "order_rejected", // Đơn hàng bị từ chối
   "order_completed", // Đơn hàng hoàn thành
   "group_disbanded", // Thông báo nhóm bị xóa/giải tán
+  "group_order_cancelled" // Nhóm hủy đơn hàng hoặc nhân viên từ chối
 ]);
 
 export const users = pgTable("users", {

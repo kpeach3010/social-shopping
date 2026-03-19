@@ -433,25 +433,25 @@ const threadedComments = computed(() => {
 const api = (url, options = {}) =>
   $fetch(url, { baseURL: config.public.apiBase, ...options });
 
+// Khi mở modal hoặc đổi postId, fetch dữ liệu song song để tối ưu tốc độ
+const fetchAll = async () => {
+  if (props.isOpen && props.postId) {
+    errorMsg.value = "";
+    await Promise.all([fetchPost(), fetchComments()]);
+  }
+};
+
 watch(
   () => props.isOpen,
-  async (open) => {
-    if (open && props.postId) {
-      errorMsg.value = ""; // Clear lỗi cũ
-      await fetchPost();
-      await fetchComments();
-    }
+  (open) => {
+    if (open && props.postId) fetchAll();
   },
 );
 
 watch(
   () => props.postId,
-  async (id) => {
-    if (props.isOpen && id) {
-      errorMsg.value = ""; // Clear lỗi cũ
-      await fetchPost();
-      await fetchComments();
-    }
+  (id) => {
+    if (props.isOpen && id) fetchAll();
   },
 );
 

@@ -155,7 +155,7 @@
 
         <div>
           <label class="block text-xs font-medium mb-1"
-            >Sản phẩm ({{ form.productIds.length }})</label
+            >Sản phẩm đính kèm ({{ form.productIds.length }})</label
           >
           <div
             class="max-h-32 overflow-y-auto border rounded-lg p-1 bg-gray-50 space-y-1"

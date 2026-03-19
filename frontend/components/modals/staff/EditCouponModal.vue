@@ -72,7 +72,13 @@
             v-model="coupon.value"
             type="number"
             class="w-full border px-3 py-2 rounded"
+            placeholder="VD: 10"
+            :max="coupon.type === 'percent' ? 99 : undefined"
+            @input="onDiscountInput"
           />
+          <div v-if="discountError" class="text-red-600 text-xs mt-1">
+            {{ discountError }}
+          </div>
         </div>
 
         <div class="grid grid-cols-2 gap-4">
@@ -202,7 +208,7 @@
         <button
           class="w-full bg-black text-white py-2 rounded-lg hover:bg-gray-800 transition disabled:opacity-70 disabled:cursor-not-allowed"
           @click="updateCoupon"
-          :disabled="isLoading"
+          :disabled="!isFormValid || isLoading"
         >
           {{ isLoading ? "Đang lưu..." : "Lưu thay đổi" }}
         </button>
@@ -212,7 +218,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from "vue";
+import { ref, watch, onMounted, computed } from "vue";
 import { X } from "lucide-vue-next";
 import { useAuthStore } from "@/stores/auth";
 
@@ -229,6 +235,7 @@ const config = useRuntimeConfig();
 const isLoading = ref(false);
 const isLoadingProducts = ref(false);
 const products = ref([]); // Danh sách tất cả sản phẩm
+const discountError = ref("");
 
 const coupon = ref({
   code: "",
@@ -318,12 +325,87 @@ watch(
       console.error("Không thể lấy chi tiết coupon:", err);
     }
   },
-  { immediate: true, deep: true }
+  { immediate: true, deep: true },
 );
+
+const onDiscountInput = (e) => {
+  if (coupon.value.type === "percent") {
+    let val = String(e.target.value);
+    if (val.length > 2) {
+      discountError.value = "Chỉ được nhập giá trị có 2 chữ số cho loại giảm %";
+      // Cắt bớt chỉ lấy 2 chữ số đầu
+      const truncated = val.slice(0, 2);
+      coupon.value.value = Number(truncated);
+      e.target.value = truncated;
+    } else {
+      discountError.value = "";
+      // Đảm bảo giá trị không âm và không vượt quá 99
+      let num = Number(val);
+      if (num < 0) coupon.value.value = 0;
+      if (num > 99) coupon.value.value = 99;
+    }
+  } else {
+    discountError.value = "";
+  }
+};
+
+const isFormValid = computed(() => {
+  // code is disabled but always present in edit modal from props
+  if (coupon.value.value === null || coupon.value.value === undefined || String(coupon.value.value) === "") return false;
+  if (!coupon.value.startsAt) return false;
+  if (!coupon.value.endsAt) return false;
+  if (coupon.value.usage_limit === null || coupon.value.usage_limit === undefined || String(coupon.value.usage_limit) === "") return false;
+  if (coupon.value.perUserLimit === null || coupon.value.perUserLimit === undefined || String(coupon.value.perUserLimit) === "") return false;
+  if (
+    coupon.value.kind === "group" &&
+    (coupon.value.maxMember === null || coupon.value.maxMember === undefined || String(coupon.value.maxMember) === "")
+  )
+    return false;
+  return true;
+});
 
 // 4. API Update
 const updateCoupon = async () => {
   if (isLoading.value) return;
+
+  // Validate
+  const startsAt = coupon.value.startsAt
+    ? new Date(coupon.value.startsAt)
+    : null;
+  const endsAt = coupon.value.endsAt ? new Date(coupon.value.endsAt) : null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  let msg = "";
+  if (coupon.value.value === null || coupon.value.value === undefined || String(coupon.value.value) === "") msg = "Vui lòng nhập giá trị giảm.";
+  else if (Number(coupon.value.value) <= 0)
+    msg = "Giá trị giảm phải lớn hơn 0.";
+  else if (!startsAt) msg = "Vui lòng chọn ngày bắt đầu.";
+  else if (!endsAt) msg = "Vui lòng chọn ngày kết thúc.";
+  else if (endsAt < startsAt)
+    msg = "Ngày kết thúc phải bằng hoặc sau ngày bắt đầu.";
+  else if (coupon.value.usage_limit === null || coupon.value.usage_limit === undefined || String(coupon.value.usage_limit) === "") msg = "Vui lòng nhập số lượng mã giảm giá.";
+  else if (Number(coupon.value.usage_limit) <= 0)
+    msg = "Số lượng mã giảm giá phải lớn hơn 0.";
+  else if (coupon.value.perUserLimit === null || coupon.value.perUserLimit === undefined || String(coupon.value.perUserLimit) === "") msg = "Vui lòng nhập giới hạn lượt sử dụng mỗi người.";
+  else if (Number(coupon.value.perUserLimit) <= 0)
+    msg = "Giới hạn lượt sử dụng mỗi người phải lớn hơn 0.";
+  else if (
+    coupon.value.kind === "group" &&
+    (coupon.value.maxMember === null || coupon.value.maxMember === undefined || String(coupon.value.maxMember) === "")
+  )
+    msg = "Vui lòng nhập số thành viên nhóm.";
+  else if (
+    coupon.value.kind === "group" &&
+    (!coupon.value.maxMember || coupon.value.maxMember < 2)
+  )
+    msg = "Số thành viên nhóm phải từ 2 trở lên.";
+
+  if (msg) {
+    alert(msg);
+    return;
+  }
+
   isLoading.value = true;
   try {
     await $fetch(`/coupons/update-coupon/${props.couponData.id}`, {

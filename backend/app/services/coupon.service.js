@@ -28,6 +28,35 @@ function normalizeType(value) {
 
 // tao 1 coupon
 export const createCouponService = async (data) => {
+  // Validate phía backend
+  if (!data.code || typeof data.code !== "string" || !data.code.trim()) {
+    throw new Error("Mã giảm giá là bắt buộc.");
+  }
+  if (!data.value || isNaN(Number(data.value)) || Number(data.value) <= 0) {
+    throw new Error("Giá trị giảm phải lớn hơn 0.");
+  }
+  if (!data.startsAt) {
+    throw new Error("Ngày bắt đầu là bắt buộc.");
+  }
+  if (!data.endsAt) {
+    throw new Error("Ngày kết thúc là bắt buộc.");
+  }
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const startsAt = new Date(data.startsAt);
+  const endsAt = new Date(data.endsAt);
+  if (startsAt < today) {
+    throw new Error("Ngày bắt đầu phải là hôm nay hoặc sau hôm nay.");
+  }
+  if (endsAt < startsAt) {
+    throw new Error("Ngày kết thúc phải bằng hoặc sau ngày bắt đầu.");
+  }
+  if (
+    data.kind === "group" &&
+    (!data.maxMember || Number(data.maxMember) < 2)
+  ) {
+    throw new Error("Số thành viên nhóm phải từ 2 trở lên.");
+  }
   // Dùng transaction để đảm bảo cả Coupon và Product Links cùng thành công hoặc cùng thất bại
   return await db.transaction(async (tx) => {
     // 1. Kiểm tra trùng mã Code (Kiểm tra ngay trong transaction để tránh Race Condition)
@@ -48,8 +77,8 @@ export const createCouponService = async (data) => {
       kind: data.kind || "general",
       type: data.type || "fixed",
       value: data.value, // Drizzle sẽ tự handle string -> decimal
-      startsAt: new Date(data.startsAt),
-      endsAt: new Date(data.endsAt),
+      startsAt,
+      endsAt,
       usage_limit: data.usage_limit || null,
       perUserLimit: data.perUserLimit || null,
       minOrderTotal: data.minOrderTotal || 0,
@@ -258,6 +287,35 @@ export const getAvailableCouponsForProductsService = async ({
 
 // Cập nhật coupon
 export const updateCouponService = async (couponId, data) => {
+  // Validate phía backend
+  if (
+    data.value !== undefined &&
+    (isNaN(Number(data.value)) || Number(data.value) <= 0)
+  ) {
+    throw new Error("Giá trị giảm phải lớn hơn 0.");
+  }
+  if (data.startsAt !== undefined) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const startsAt = new Date(data.startsAt);
+    if (startsAt < today) {
+      throw new Error("Ngày bắt đầu phải là hôm nay hoặc sau hôm nay.");
+    }
+  }
+  if (data.endsAt !== undefined && data.startsAt !== undefined) {
+    const startsAt = new Date(data.startsAt);
+    const endsAt = new Date(data.endsAt);
+    if (endsAt < startsAt) {
+      throw new Error("Ngày kết thúc phải bằng hoặc sau ngày bắt đầu.");
+    }
+  }
+  if (
+    data.kind === "group" &&
+    data.maxMember !== undefined &&
+    Number(data.maxMember) < 2
+  ) {
+    throw new Error("Số thành viên nhóm phải từ 2 trở lên.");
+  }
   // Sử dụng transaction để đảm bảo tính toàn vẹn dữ liệu
   return await db.transaction(async (tx) => {
     // 1. Kiểm tra coupon tồn tại

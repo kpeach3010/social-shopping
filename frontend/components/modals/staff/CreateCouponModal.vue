@@ -78,7 +78,12 @@
             type="number"
             class="w-full border px-3 py-2 rounded"
             placeholder="VD: 10"
+            :max="coupon.type === 'percent' ? 99 : undefined"
+            @input="onDiscountInput"
           />
+          <div v-if="discountError" class="text-red-600 text-xs mt-1">
+            {{ discountError }}
+          </div>
         </div>
 
         <!-- Date -->
@@ -151,7 +156,9 @@
         <!-- Product List -->
         <div class="space-y-2">
           <label class="font-medium">Áp dụng cho sản phẩm</label>
-
+          <p class="text-xs text-red-500 italic">
+            * Không chọn sản phẩm nào đồng nghĩa áp dụng cho tất cả.
+          </p>
           <div
             class="border rounded p-3 max-h-64 overflow-y-auto space-y-2 bg-gray-50"
           >
@@ -178,14 +185,15 @@
               </div>
             </label>
           </div>
-          <p class="text-xs text-gray-500 italic">
-            * Không chọn sản phẩm nào đồng nghĩa áp dụng cho tất cả.
-          </p>
         </div>
 
         <!-- Button -->
         <button
-          class="w-full bg-black text-white py-2 rounded-lg hover:bg-gray-800 transition"
+          class="w-full bg-black text-white py-2 rounded-lg transition"
+          :class="
+            !isFormValid ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-800'
+          "
+          :disabled="!isFormValid"
           @click="createCoupon"
         >
           Tạo mã giảm giá
@@ -196,7 +204,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import { X } from "lucide-vue-next";
 import { useAuthStore } from "@/stores/auth";
 const emit = defineEmits(["close", "refresh"]);
@@ -237,7 +245,76 @@ const toggleProduct = (id) => {
   }
 };
 
+// Trạng thái lỗi nhập giá trị giảm
+const discountError = ref("");
+const onDiscountInput = (e) => {
+  if (coupon.value.type === "percent") {
+    let val = String(e.target.value);
+    if (val.length > 2) {
+      discountError.value = "Chỉ được nhập giá trị có 2 chữ số cho loại giảm %";
+      // Cắt bớt chỉ lấy 2 chữ số đầu
+      const truncated = val.slice(0, 2);
+      coupon.value.value = Number(truncated);
+      e.target.value = truncated;
+    } else {
+      discountError.value = "";
+      // Đảm bảo giá trị không âm và không vượt quá 99
+      let num = Number(val);
+      if (num < 0) coupon.value.value = 0;
+      if (num > 99) coupon.value.value = 99;
+    }
+  } else {
+    discountError.value = "";
+  }
+};
+
+const isFormValid = computed(() => {
+  if (!coupon.value.code?.trim()) return false;
+  if (coupon.value.value === null || coupon.value.value === undefined || String(coupon.value.value) === "") return false;
+  if (!coupon.value.startsAt) return false;
+  if (!coupon.value.endsAt) return false;
+  if (coupon.value.usage_limit === null || coupon.value.usage_limit === undefined || String(coupon.value.usage_limit) === "") return false;
+  if (coupon.value.perUserLimit === null || coupon.value.perUserLimit === undefined || String(coupon.value.perUserLimit) === "") return false;
+  if (
+    coupon.value.kind === "group" &&
+    (coupon.value.maxMember === null || coupon.value.maxMember === undefined || String(coupon.value.maxMember) === "")
+  )
+    return false;
+  return true;
+});
+
 const createCoupon = async () => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const startsAt = coupon.value.startsAt
+    ? new Date(coupon.value.startsAt)
+    : null;
+  const endsAt = coupon.value.endsAt ? new Date(coupon.value.endsAt) : null;
+
+  let msg = "";
+  if (!coupon.value.code?.trim()) msg = "Vui lòng nhập mã giảm giá.";
+  else if (!coupon.value.value || Number(coupon.value.value) <= 0)
+    msg = "Giá trị giảm phải lớn hơn 0.";
+  else if (!startsAt) msg = "Vui lòng chọn ngày bắt đầu.";
+  else if (startsAt < today)
+    msg = "Ngày bắt đầu phải là hôm nay hoặc sau hôm nay.";
+  else if (!endsAt) msg = "Vui lòng chọn ngày kết thúc.";
+  else if (endsAt < startsAt)
+    msg = "Ngày kết thúc phải bằng hoặc sau ngày bắt đầu.";
+  else if (!coupon.value.usage_limit || Number(coupon.value.usage_limit) <= 0)
+    msg = "Số lượng mã giảm giá phải lớn hơn 0.";
+  else if (!coupon.value.perUserLimit || Number(coupon.value.perUserLimit) <= 0)
+    msg = "Giới hạn lượt sử dụng mỗi người phải lớn hơn 0.";
+  else if (
+    coupon.value.kind === "group" &&
+    (!coupon.value.maxMember || coupon.value.maxMember < 2)
+  )
+    msg = "Số thành viên nhóm phải từ 2 trở lên.";
+
+  if (msg) {
+    alert(msg);
+    return;
+  }
   try {
     await $fetch("/coupons/create-coupon", {
       method: "POST",
@@ -245,13 +322,12 @@ const createCoupon = async () => {
       headers: { Authorization: `Bearer ${auth.accessToken}` },
       body: coupon.value,
     });
-
     alert("Tạo mã giảm giá thành công!");
     emit("refresh");
     emit("close");
   } catch (err) {
     console.error(err);
-    alert("Không thể tạo mã giảm giá!");
+    alert(err.data?.message || "Không thể tạo mã giảm giá!");
   }
 };
 

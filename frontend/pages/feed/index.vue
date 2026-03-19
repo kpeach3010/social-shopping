@@ -320,22 +320,47 @@
                   Sản phẩm đính kèm:
                 </p>
                 <div class="flex flex-wrap gap-1.5">
-                  <NuxtLink
-                    v-for="product in post.products"
-                    :key="product.id"
-                    :to="`/product/${product.id}`"
-                    class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] bg-white text-gray-800 hover:bg-gray-100 transition cursor-pointer font-medium border border-gray-300 hover:border-gray-400"
-                  >
-                    <img
-                      v-if="product.thumbnailUrl"
-                      :src="product.thumbnailUrl"
-                      alt=""
-                      class="w-8 h-8 rounded object-cover border border-gray-200"
-                    />
-                    <span class="truncate max-w-[140px]">{{
-                      product.name
-                    }}</span>
-                  </NuxtLink>
+                  <template v-for="product in post.products" :key="product.id">
+                    <NuxtLink
+                      v-if="product.name"
+                      :to="`/product/${product.id}`"
+                      class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] bg-white text-gray-800 hover:bg-gray-100 transition cursor-pointer font-medium border border-gray-300 hover:border-gray-400"
+                    >
+                      <img
+                        v-if="product.thumbnailUrl"
+                        :src="product.thumbnailUrl"
+                        alt=""
+                        class="w-8 h-8 rounded object-cover border border-gray-200"
+                      />
+                      <span class="truncate max-w-[140px]">{{
+                        product.name
+                      }}</span>
+                    </NuxtLink>
+                    <div
+                      v-else
+                      class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] bg-gray-50 text-gray-400 border border-gray-200 cursor-default font-medium"
+                      title="Sản phẩm này không còn tồn tại"
+                    >
+                      <div
+                        class="w-8 h-8 rounded bg-gray-100 flex items-center justify-center border border-gray-200"
+                      >
+                        <svg
+                          class="w-4 h-4 text-gray-300"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+                          ></path>
+                        </svg>
+                      </div>
+                      <span class="italic text-[10px]">Sản phẩm đã bị xóa</span>
+                    </div>
+                  </template>
                 </div>
               </div>
 

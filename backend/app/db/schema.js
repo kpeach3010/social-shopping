@@ -341,6 +341,9 @@ export const orders = pgTable(
     isPaid: boolean("is_paid").default(false).notNull(),
     // Thời điểm thanh toán thành công
     paidAt: timestamp("paid_at", { withTimezone: true }),
+    paypalOrderId: varchar("paypal_order_id", { length: 255 }), // ID của order trên PayPal
+    paypalCaptureId: varchar("paypal_capture_id", { length: 255 }), // ID của capture payment trên PayPal
+    amountUsd: decimal("amount_usd", { precision: 12, scale: 2 }), // Số tiền thanh toán bằng USD
     subtotal: decimal("subtotal", { precision: 12, scale: 2 }).notNull(), // Tổng tiền trước giảm giá
     discountTotal: decimal("discount_total", {
       precision: 12,
@@ -448,7 +451,6 @@ export const groupOrderMembers = pgTable(
       .references(() => users.id),
     hasChosen: boolean("has_chosen").notNull().default(false), // da chon variant va qty chua
     joinedAt: timestamp("joined_at", { withTimezone: true }).defaultNow(),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
     // rang buoc 1 user chi dc tham gia 1 lan trong 1 group order
   },

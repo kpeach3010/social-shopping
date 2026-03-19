@@ -20,6 +20,7 @@ import supabase from "../../services/supbase/client.js";
 import { sendOrderStatusNotification } from "./orderNotification.service.js";
 import { createSystemMessage } from "./message.service.js";
 import { createNotificationService } from "./notification.service.js";
+import { refundPaypalPaymentService } from "./payment.service.js";
 
 export const restoreStockForItems = async (tx, items) => {
   for (const item of items) {
@@ -445,7 +446,24 @@ export const cancelOrderService = async (orderId, userId) => {
       .where(eq(productVariants.id, item.variantId));
   }
 
-  // 6) Gửi thông báo hủy đơn cho user
+  // 6) Hoàn tiền nếu thanh toán qua PayPal
+  if (order.isPaid && order.paymentMethod === "PAYPAL" && order.paypalCaptureId) {
+    try {
+      const refundResult = await refundPaypalPaymentService(
+        order.paypalCaptureId,
+        order.amountUsd || 0, // Fallback nếu chưa có amountUsd (cho đơn cũ)
+      );
+      if (refundResult.isSuccess) {
+        console.log(`Đã hoàn tiền PayPal cho đơn ${orderId}`);
+      } else {
+        console.error(`Lỗi hoàn tiền PayPal cho đơn ${orderId}:`, refundResult.error);
+      }
+    } catch (refundErr) {
+      console.error(`Lỗi hệ thống khi hoàn tiền PayPal cho đơn ${orderId}:`, refundErr);
+    }
+  }
+
+  // 7) Gửi thông báo hủy đơn cho user
   await sendOrderStatusNotification({
     orderId,
     userId,

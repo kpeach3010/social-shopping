@@ -1,0 +1,1 @@
+ALTER TABLE "group_order_members" DROP COLUMN "created_at";

@@ -728,7 +728,7 @@ export const selectItemsService = async ({ groupOrderId, userId, items }) => {
   // Set hasChosen
   await db
     .update(groupOrderMembers)
-    .set({ hasChosen: true })
+    .set({ hasChosen: true, updatedAt: new Date() })
     .where(eq(groupOrderMembers.id, member.id));
 
   // Lấy dữ liệu enrichment (màu/size) để trả về cho Controller emit socket luôn

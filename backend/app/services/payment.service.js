@@ -135,7 +135,17 @@ export const verifyPaypalReturnService = async (params) => {
     if (captureData.status === "COMPLETED") {
       // 3. Lấy reference_id = DB order ID thật
       const dbOrderId = captureData.purchase_units?.[0]?.reference_id;
-      return { isSuccess: true, orderId: dbOrderId };
+      const captureId =
+        captureData.purchase_units?.[0]?.payments?.captures?.[0]?.id;
+      const amountUsd =
+        captureData.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.value;
+      return {
+        isSuccess: true,
+        orderId: dbOrderId,
+        paypalOrderId,
+        captureId,
+        amountUsd,
+      };
     }
 
     return { isSuccess: false, message: `Trạng thái: ${captureData.status}` };
@@ -184,7 +194,17 @@ export const checkAndCapturePaypalOrder = async (paypalOrderId) => {
     // Nếu đã COMPLETED (đã capture trước đó)
     if (orderData.status === "COMPLETED") {
       const dbOrderId = orderData.purchase_units?.[0]?.reference_id;
-      return { isPaid: true, orderId: dbOrderId };
+      const captureId =
+        orderData.purchase_units?.[0]?.payments?.captures?.[0]?.id;
+      const amountUsd =
+        orderData.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.value;
+      return {
+        isPaid: true,
+        orderId: dbOrderId,
+        paypalOrderId,
+        captureId,
+        amountUsd,
+      };
     }
 
     // Nếu APPROVED (user đã approve trên ĐT nhưng chưa capture)
@@ -209,18 +229,71 @@ export const checkAndCapturePaypalOrder = async (paypalOrderId) => {
 
       if (captureData.status === "COMPLETED") {
         const dbOrderId = captureData.purchase_units?.[0]?.reference_id;
-        return { isPaid: true, orderId: dbOrderId };
+        const captureId =
+          captureData.purchase_units?.[0]?.payments?.captures?.[0]?.id;
+        const amountUsd =
+          captureData.purchase_units?.[0]?.payments?.captures?.[0]?.amount
+            ?.value;
+        return {
+          isPaid: true,
+          orderId: dbOrderId,
+          paypalOrderId,
+          captureId,
+          amountUsd,
+        };
       }
     }
 
     // Chưa approve (CREATED, SAVED, ...) hoặc lỗi
     return { isPaid: false, status: orderData.status };
   } catch (err) {
-    console.error(
-      "PayPal Check/Capture Error:",
-      err.response?.data || err.message,
-    );
     return { isPaid: false, error: err.message };
+  }
+};
+// HOÀN TIỀN QUA PAYPAL
+export const refundPaypalPaymentService = async (captureId, amountUsd) => {
+  const baseUrl = paypalConfig.sandbox
+    ? "https://api-m.sandbox.paypal.com"
+    : "https://api-m.paypal.com";
+
+  try {
+    // 1. Get access token
+    const basicAuth = Buffer.from(
+      `${paypalConfig.clientId}:${paypalConfig.clientSecret}`,
+    ).toString("base64");
+    const tokenRes = await axios.post(
+      `${baseUrl}/v1/oauth2/token`,
+      "grant_type=client_credentials",
+      {
+        headers: {
+          Authorization: `Basic ${basicAuth}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      },
+    );
+    const accessToken = tokenRes.data.access_token;
+
+    // 2. Refund call
+    const refundRes = await axios.post(
+      `${baseUrl}/v2/payments/captures/${captureId}/refund`,
+      {
+        amount: {
+          value: amountUsd,
+          currency_code: "USD",
+        },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    return { isSuccess: true, data: refundRes.data };
+  } catch (err) {
+    console.error("PayPal Refund Error:", err.response?.data || err.message);
+    return { isSuccess: false, error: err.message, detail: err.response?.data };
   }
 };
 

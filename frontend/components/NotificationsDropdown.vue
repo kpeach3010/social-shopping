@@ -45,7 +45,9 @@
               <div class="flex-1 min-w-0">
                 <div class="flex justify-between items-start">
                   <p class="text-sm text-gray-900 pr-2">{{ n.title }}</p>
-                  <span class="text-[10px] text-gray-400 whitespace-nowrap pt-0.5">
+                  <span
+                    class="text-[10px] text-gray-400 whitespace-nowrap pt-0.5"
+                  >
                     {{ formatTime(n.createdAt) }}
                   </span>
                 </div>
@@ -150,7 +152,7 @@ const toggleDropdown = async () => {
   emit("toggle");
 };
 
-// Click vào thông báo: mark read + navigate
+// Click vào thông báo: mark read + chỉ mở modal nếu là tương tác bài viết
 const handleNotificationClick = async (n) => {
   if (!n) return;
   if (n.id && !n.isRead) {
@@ -158,10 +160,30 @@ const handleNotificationClick = async (n) => {
     if (unreadCount.value > 0) unreadCount.value -= 1;
     api(`/notifications/${n.id}/read`, { method: "PATCH" }).catch(() => {});
   }
-  // Phát sự kiện để trang khác mở modal thay vì điều hướng
-  window.dispatchEvent(new CustomEvent("notification-open", { detail: n }));
 
-  // Điều hướng nếu có actionUrl
+  // Nếu là thông báo tương tác bài viết (like, comment, reply, comment_like, post_like, post_comment)
+  const postInteractionTypes = [
+    "post_like",
+    "post_comment",
+    "comment_reply",
+    "comment_like",
+  ];
+  if (postInteractionTypes.includes(n.type) && n.relatedEntityId) {
+    // Phát sự kiện để trang hiện tại mở modal bình luận bài viết
+    window.dispatchEvent(
+      new CustomEvent("notification-open", {
+        detail: {
+          ...n,
+          modal: "comments",
+          postId: n.relatedEntityId,
+        },
+      }),
+    );
+    open.value = false;
+    return;
+  }
+
+  // Các loại thông báo khác vẫn điều hướng nếu có actionUrl
   if (n.actionUrl) {
     router.push(n.actionUrl);
   }

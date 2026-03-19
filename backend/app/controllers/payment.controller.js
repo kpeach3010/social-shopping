@@ -79,6 +79,9 @@ export const checkPaypalOrderStatus = async (req, res) => {
             paidAt: new Date(),
             paymentMethod: "PAYPAL",
             status: "pending",
+            paypalOrderId: paypalResult.paypalOrderId,
+            paypalCaptureId: paypalResult.captureId,
+            amountUsd: paypalResult.amountUsd,
           })
           .where(eq(orders.id, paypalResult.orderId));
 
@@ -106,7 +109,7 @@ export const paypalReturn = async (req, res) => {
   try {
     const params = req.query;
     // Gọi service xác thực return
-    const { isSuccess, orderId, message } =
+    const { isSuccess, orderId, paypalOrderId, captureId, amountUsd, message } =
       await verifyPaypalReturnService(params);
     if (!isSuccess) {
       // Trả HTML cho phone browser
@@ -130,6 +133,9 @@ export const paypalReturn = async (req, res) => {
         paidAt: new Date(),
         paymentMethod: "PAYPAL",
         status: "pending",
+        paypalOrderId: paypalOrderId,
+        paypalCaptureId: captureId,
+        amountUsd: amountUsd,
       })
       .where(eq(orders.id, orderId))
       .returning({ userId: orders.userId });

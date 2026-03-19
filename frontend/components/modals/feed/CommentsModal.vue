@@ -64,7 +64,10 @@
                     </svg>
                   </div>
                   <div class="flex-1 min-w-0">
-                    <p class="font-semibold text-xs text-gray-900 truncate">
+                    <p
+                      class="font-semibold text-xs text-gray-900 truncate cursor-pointer hover:underline"
+                      @click="goToUserProfile(post.post.authorId)"
+                    >
                       {{ post.post.authorName || "Người dùng" }}
                     </p>
                     <p class="text-[10px] text-gray-500">
@@ -195,7 +198,8 @@
                         }"
                       >
                         <p
-                          class="text-[11px] font-semibold text-gray-900 leading-tight"
+                          class="text-[11px] font-semibold text-gray-900 leading-tight cursor-pointer hover:underline"
+                          @click="goToUserProfile(item.comment.authorId)"
                         >
                           {{ item.comment.authorName || "Người dùng" }}
                         </p>
@@ -310,6 +314,7 @@
 
 <script setup>
 import { ref, watch, computed, onMounted, onBeforeUnmount } from "vue";
+import { useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
 import MediaGalleryModal from "@/components/MediaGalleryModal.vue";
 import EmojiPicker from "@/components/chat/EmojiPicker.vue";
@@ -324,6 +329,14 @@ const props = defineProps({
   postId: { type: String, default: null },
 });
 const emit = defineEmits(["close"]);
+
+const router = useRouter();
+
+// Chuyển hướng đến trang cá nhân feed/[id]
+function goToUserProfile(userId) {
+  if (!userId) return;
+  router.push({ path: `/feed/${userId}` });
+}
 
 const auth = useAuthStore();
 const config = useRuntimeConfig();

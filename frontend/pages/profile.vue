@@ -565,9 +565,12 @@ onMounted(async () => {
   }
 });
 
-const filteredOrders = computed(() =>
-  orders.value.filter((o) => o.status === selectedStatus.value),
-);
+const filteredOrders = computed(() => {
+  return orders.value
+    .filter((o) => o.status === selectedStatus.value)
+    .slice()
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+});
 
 const totalPages = computed(() =>
   Math.ceil(filteredOrders.value.length / perPage),

@@ -371,6 +371,13 @@ onMounted(async () => {
       // Nếu sự kiện có gửi kèm số lượng thì dùng luôn
       if (typeof c === "number") {
         cartCount.value = c;
+      } else if (typeof e?.detail?.decrement === "number") {
+        // Nếu sự kiện yêu cầu trừ đi một lượng (ngay lập tức sau khi đặt đơn)
+        cartCount.value = Math.max(0, cartCount.value - e.detail.decrement);
+        // Đồng bộ luôn vào localStorage
+        if (process.client) {
+          localStorage.setItem("cartCount", cartCount.value.toString());
+        }
       } else {
         // Nếu không có số lượng (sự kiện trống), thì gọi API load lại
         await loadCartCount();

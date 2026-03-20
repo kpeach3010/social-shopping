@@ -19,7 +19,7 @@ import { createNotificationService } from "../services/notification.service.js";
  * Gửi thông báo realtime cho người dùng (kèm ảnh sản phẩm).
  * Đơn nhóm: thông báo riêng cho trưởng nhóm và thành viên.
  */
-const PAYMENT_TIMEOUT_MINUTES = 1;
+const PAYMENT_TIMEOUT_MINUTES = 30;
 
 export const cancelUnpaidOrders = async (io) => {
   const cutoff = new Date(Date.now() - PAYMENT_TIMEOUT_MINUTES * 60 * 1000);

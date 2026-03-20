@@ -601,7 +601,13 @@ const onCheckoutPaymentSuccess = async ({ orderId, paymentMethod: pm }) => {
       orderItems: orderDetail.items,
     };
     if (fromCart.value && process.client) {
-      window.dispatchEvent(new CustomEvent("cart-updated"));
+      const totalQty = checkoutItems.value.reduce(
+        (sum, i) => sum + i.quantity,
+        0,
+      );
+      window.dispatchEvent(
+        new CustomEvent("cart-updated", { detail: { decrement: totalQty } }),
+      );
     }
     cleanUpCart();
   } catch (e) {
@@ -713,8 +719,8 @@ const checkout = async () => {
     else if (paymentMethod.value === "PAYPAL") {
       paypalPendingOrderId.value = resOrder.order.id;
       paymentModalRef.value?.startPayment({
-        orderId: resOrder.order.id,
-        amount: Math.round(resOrder.order.total),
+        order: resOrder.order,
+        items: resOrder.orderItems,
         paymentMethod: "PAYPAL",
       });
     }
@@ -744,6 +750,18 @@ const checkout = async () => {
       // Thanh toán COD
       // Gán orderInfo để hiện thông báo thành công
       orderInfo.value = resOrder;
+
+      // Cập nhật cart count ngay lập tức
+      if (fromCart.value && process.client) {
+        const totalQty = checkoutItems.value.reduce(
+          (sum, i) => sum + i.quantity,
+          0,
+        );
+        window.dispatchEvent(
+          new CustomEvent("cart-updated", { detail: { decrement: totalQty } }),
+        );
+      }
+      cleanUpCart();
     }
 
     // Kết thúc checkout
@@ -785,6 +803,16 @@ const handleVnpayCallback = async () => {
         orderItems: orderDetail.items,
       };
 
+      // Cập nhật cart count ngay lập tức
+      if (fromCart.value && process.client) {
+        const totalQty = checkoutItems.value.reduce(
+          (sum, i) => sum + i.quantity,
+          0,
+        );
+        window.dispatchEvent(
+          new CustomEvent("cart-updated", { detail: { decrement: totalQty } }),
+        );
+      }
       cleanUpCart(); // Xóa giỏ hàng
     } else {
       alert(`Thanh toán thất bại: ${verifyRes.message}`);
@@ -823,6 +851,16 @@ const handlePaypalCallback = async () => {
         orderItems: orderDetail.items,
       };
 
+      // Cập nhật cart count ngay lập tức
+      if (fromCart.value && process.client) {
+        const totalQty = checkoutItems.value.reduce(
+          (sum, i) => sum + i.quantity,
+          0,
+        );
+        window.dispatchEvent(
+          new CustomEvent("cart-updated", { detail: { decrement: totalQty } }),
+        );
+      }
       cleanUpCart();
     } else {
       alert(`Thanh toán thất bại: ${verifyRes.message}`);

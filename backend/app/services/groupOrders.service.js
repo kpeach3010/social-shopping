@@ -20,6 +20,8 @@ import {
 import {
   checkoutService,
   changeOrderPaymentMethodToCodBase,
+  processOrderRefund,
+  formatVND,
 } from "./order.service.js";
 import { groupOrderStatusEnum } from "../enums/groupOrderStatus.enum.js";
 import { restoreStockForItems } from "./order.service.js";
@@ -851,7 +853,24 @@ export const cancelGroupOrderAfterCheckoutService = async (
       await restoreStockForItems(tx, allGroupItems);
     }
 
-    // 5.3 Lấy thông tin phòng chat để bắn socket
+    // 5.4 Hoàn tiền DUY NHẤT cho trưởng nhóm (người thanh toán) nếu cần
+    let refundResult = { isSuccess: false };
+    const [leaderOrder] = await tx
+      .select()
+      .from(orders)
+      .where(
+        and(
+          eq(orders.groupOrderId, groupOrderId),
+          eq(orders.userId, userId),
+        ),
+      )
+      .limit(1);
+
+    if (leaderOrder) {
+      refundResult = await processOrderRefund(leaderOrder);
+    }
+
+    // 5.5 Lấy thông tin phòng chat để bắn socket
     const [conv] = await tx
       .select({ id: conversations.id, name: conversations.name })
       .from(conversations)
@@ -864,6 +883,8 @@ export const cancelGroupOrderAfterCheckoutService = async (
       conversationId: conv ? conv.id : null,
       groupName: conv?.name || "Nhóm mua chung",
       productId: group.productId,
+      refundSuccess: refundResult.isSuccess,
+      refundAmount: leaderOrder ? leaderOrder.total : 0,
     };
   });
 };

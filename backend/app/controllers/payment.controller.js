@@ -125,28 +125,35 @@ export const paypalReturn = async (req, res) => {
         <p style="color:#666;margin-top:1rem">Bạn có thể đóng trang này.</p></div></body></html>
       `);
     }
-    // Cập nhật DB: Đã trả tiền, chuyển awaiting_payment → pending để nhân viên duyệt
-    const [updatedPaypalOrder] = await db
-      .update(orders)
-      .set({
-        isPaid: true,
-        paidAt: new Date(),
-        paymentMethod: "PAYPAL",
-        status: "pending",
-        paypalOrderId: paypalOrderId,
-        paypalCaptureId: captureId,
-        amountUsd: amountUsd,
-      })
-      .where(eq(orders.id, orderId))
-      .returning({ userId: orders.userId });
+    // Xử lý tùy theo loại đơn hàng (cá nhân hay nhóm)
+    if (String(orderId).startsWith("group_")) {
+      const groupOrderId = orderId.replace("group_", "");
+      // Đây là đơn nhóm
+      await processGroupOrderPaymentSuccess(groupOrderId, captureId, amountUsd);
+    } else {
+      // Đây là đơn cá nhân
+      const [updatedPaypalOrder] = await db
+        .update(orders)
+        .set({
+          isPaid: true,
+          paidAt: new Date(),
+          paymentMethod: "PAYPAL",
+          status: "pending",
+          paypalOrderId: paypalOrderId,
+          paypalCaptureId: captureId,
+          amountUsd: amountUsd,
+        })
+        .where(eq(orders.id, orderId))
+        .returning({ userId: orders.userId });
 
-    // Gửi thông báo thanh toán thành công
-    if (updatedPaypalOrder?.userId) {
-      await sendOrderStatusNotification({
-        orderId,
-        userId: updatedPaypalOrder.userId,
-        newStatus: "pending",
-      });
+      // Gửi thông báo thanh toán thành công
+      if (updatedPaypalOrder?.userId) {
+        await sendOrderStatusNotification({
+          orderId,
+          userId: updatedPaypalOrder.userId,
+          newStatus: "pending",
+        });
+      }
     }
 
     // Trả HTML thành công cho phone browser
@@ -451,7 +458,11 @@ export const checkGroupOrderPaymentStatus = async (req, res) => {
           ) {
             // Process payment success - wrap in try-catch to ensure we return isPaid even if processing fails
             try {
-              await processGroupOrderPaymentSuccess(groupOrderId);
+              await processGroupOrderPaymentSuccess(
+                groupOrderId,
+                captured.captureId,
+                captured.amountUsd,
+              );
               console.log(
                 `Group order ${groupOrderId} payment processing completed successfully`,
               );
@@ -488,11 +499,24 @@ export const checkGroupOrderPaymentStatus = async (req, res) => {
 };
 
 // Helper function to process successful group order payment
-async function processGroupOrderPaymentSuccess(groupOrderId) {
+async function processGroupOrderPaymentSuccess(
+  groupOrderId,
+  captureId,
+  amountUsd,
+) {
   try {
     console.log(
-      `Starting payment success processing for group order ${groupOrderId}`,
+      `Starting payment success processing for group order ${groupOrderId} with captureId ${captureId}`,
     );
+
+    // Get group order to find the creatorId
+    const [group] = await db
+      .select({ creatorId: groupOrders.creatorId })
+      .from(groupOrders)
+      .where(eq(groupOrders.id, groupOrderId))
+      .limit(1);
+
+    if (!group) throw new Error("Group order not found");
 
     // Get all orders for this group order
     const groupOrderOrders = await db
@@ -506,12 +530,29 @@ async function processGroupOrderPaymentSuccess(groupOrderId) {
 
     // Update all orders to paid status
     for (const order of groupOrderOrders) {
-      await db
-        .update(orders)
-        .set({ status: "pending", updatedAt: new Date() })
-        .where(eq(orders.id, order.id));
+      const isCreator = 
+        order.userId && 
+        group.creatorId && 
+        String(order.userId).toLowerCase() === String(group.creatorId).toLowerCase();
 
-      console.log(`Updated order ${order.id} to pending status`);
+      // Only store captureId for the creator (leader) as per user requirement
+      const updateData = {
+        status: "pending",
+        isPaid: true,
+        paidAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      if (isCreator) {
+        updateData.paypalCaptureId = captureId;
+        updateData.amountUsd = amountUsd;
+      }
+
+      await db.update(orders).set(updateData).where(eq(orders.id, order.id));
+
+      console.log(
+        `Updated order ${order.id} to paid/pending status (isCreator: ${isCreator})`,
+      );
 
       // Send notification for each user's order
       try {

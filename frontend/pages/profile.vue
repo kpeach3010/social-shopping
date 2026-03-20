@@ -211,31 +211,35 @@
                 <span class="font-medium">{{ orderTypeLabel(o) }}</span>
               </p>
 
-              <!-- Sản phẩm trong đơn -->
-              <div
-                v-for="item in o.items"
-                :key="item.id"
-                class="flex items-center gap-4"
-              >
-                <img
-                  :src="item.imageUrl"
-                  class="w-16 h-16 rounded object-cover border"
-                />
-                <div class="flex-1">
-                  <p class="font-medium">{{ item.productName }}</p>
-                  <p class="text-sm text-gray-500">
-                    {{ item.variantName }} × {{ item.quantity }}
-                  </p>
-                </div>
-                <div class="flex flex-col items-end gap-2">
-                  <p class="font-semibold">{{ formatPrice(item.price) }}</p>
-                  <button
-                    v-if="o.status === 'completed' && !item.hasReview"
-                    @click.stop="openReviewModal(item)"
-                    class="px-3 py-1 bg-white border border-black text-black text-xs hover:bg-black hover:text-white transition rounded-none"
-                  >
-                    Đánh giá
-                  </button>
+              <div class="mt-4 border-t border-b divide-y max-h-[300px] overflow-y-auto scroll-smooth">
+                <div
+                  v-for="item in o.items"
+                  :key="item.id"
+                  class="flex items-center gap-4 py-4 px-4 group cursor-pointer"
+                  @click="navigateToProduct(item.productId)"
+                >
+                  <img
+                    :src="item.imageUrl"
+                    class="w-16 h-16 rounded object-cover border group-hover:opacity-80 transition"
+                  />
+                  <div class="flex-1">
+                    <p class="font-medium group-hover:text-gray-500 transition">
+                      {{ item.productName }}
+                    </p>
+                    <p class="text-sm text-gray-500">
+                      {{ item.variantName }} × {{ item.quantity }}
+                    </p>
+                  </div>
+                  <div class="flex flex-col items-end gap-2 text-right">
+                    <p class="font-semibold">{{ formatPrice(item.price) }}</p>
+                    <button
+                      v-if="o.status === 'completed' && !item.hasReview"
+                      @click.stop="openReviewModal(item)"
+                      class="px-3 py-1 bg-white border border-black text-black text-xs hover:bg-black hover:text-white transition rounded-none"
+                    >
+                      Đánh giá
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -253,7 +257,7 @@
                     Xem chi tiết
                   </button>
                   <button
-                    v-if="o.status === 'awaiting_payment'"
+                    v-if="o.status === 'awaiting_payment' && o.couponKind !== 'group'"
                     class="px-4 py-2 rounded bg-yellow-500 text-white hover:bg-yellow-600 font-medium"
                     @click="openPaymentModal(o)"
                   >
@@ -389,14 +393,19 @@
                 <div
                   v-for="item in orderDetail.items"
                   :key="item.id"
-                  class="flex items-center gap-4 p-3"
+                  class="flex items-center gap-4 py-4 px-4 group cursor-pointer"
+                  @click="navigateToProduct(item.productId)"
                 >
                   <img
                     :src="item.imageUrl"
-                    class="w-16 h-16 object-cover border rounded-lg"
+                    class="w-16 h-16 object-cover border rounded-lg group-hover:opacity-80 transition"
                   />
                   <div class="flex-1">
-                    <p class="font-medium">{{ item.productName }}</p>
+                    <p
+                      class="font-medium group-hover:text-gray-500 transition"
+                    >
+                      {{ item.productName }}
+                    </p>
                     <p class="text-sm text-gray-500">
                       {{ item.variantName }} × {{ item.quantity }}
                     </p>
@@ -421,7 +430,7 @@
         <!-- Footer -->
         <div class="sticky bottom-0 bg-white border-t px-6s py-4 text-right">
           <button
-            v-if="orderDetail?.status === 'awaiting_payment'"
+            v-if="orderDetail?.status === 'awaiting_payment' && orderDetail?.couponKind !== 'group'"
             class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 mr-2"
             @click="openPaymentModal(orderDetail)"
           >
@@ -661,8 +670,8 @@ const orderTypeLabel = (order) =>
 const openPaymentModal = (order) => {
   if (!paymentModalRef.value) return;
   paymentModalRef.value.startPayment({
-    orderId: order.id,
-    amount: order.total,
+    order: order,
+    items: order.items,
     paymentMethod: order.paymentMethod,
   });
 };
@@ -766,6 +775,12 @@ const onReviewSubmitted = ({ orderItemId }) => {
         it.id === orderItemId ? { ...it, hasReview: true } : it,
       ),
     };
+  }
+};
+// Điều hướng đến trang sản phẩm
+const navigateToProduct = (productId) => {
+  if (productId) {
+    navigateTo(`/product/${productId}`);
   }
 };
 </script>

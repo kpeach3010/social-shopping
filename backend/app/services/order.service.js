@@ -22,6 +22,37 @@ import { createSystemMessage } from "./message.service.js";
 import { createNotificationService } from "./notification.service.js";
 import { refundPaypalPaymentService } from "./payment.service.js";
 
+// Helper format tiền VND
+export const formatVND = (amount) => {
+  return new Intl.NumberFormat("vi-VN").format(amount) + " VND";
+};
+
+// Helper xử lý hoàn tiền PayPal
+export const processOrderRefund = async (order) => {
+  // Case-insensitive check cho phương thức thanh toán
+  const isPaypal = order.paymentMethod?.toUpperCase() === "PAYPAL";
+  
+  if (order.isPaid && isPaypal && order.paypalCaptureId) {
+    try {
+      const refundResult = await refundPaypalPaymentService(
+        order.paypalCaptureId,
+        order.amountUsd || 0,
+      );
+      if (refundResult.isSuccess) {
+        console.log(`Đã hoàn tiền PayPal cho đơn ${order.id}`);
+        return { isSuccess: true, amountVnd: order.total };
+      } else {
+        console.error(`Lỗi hoàn tiền PayPal cho đơn ${order.id}:`, refundResult.error);
+        return { isSuccess: false, error: refundResult.error };
+      }
+    } catch (refundErr) {
+      console.error(`Lỗi hệ thống khi hoàn tiền PayPal cho đơn ${order.id}:`, refundErr);
+      return { isSuccess: false, error: refundErr.message };
+    }
+  }
+  return { isSuccess: false, noRefundNeeded: true };
+};
+
 export const restoreStockForItems = async (tx, items) => {
   for (const item of items) {
     // 1. Hoàn kho cho Variant
@@ -446,29 +477,20 @@ export const cancelOrderService = async (orderId, userId) => {
       .where(eq(productVariants.id, item.variantId));
   }
 
-  // 6) Hoàn tiền nếu thanh toán qua PayPal
-  if (order.isPaid && order.paymentMethod === "PAYPAL" && order.paypalCaptureId) {
-    try {
-      const refundResult = await refundPaypalPaymentService(
-        order.paypalCaptureId,
-        order.amountUsd || 0, // Fallback nếu chưa có amountUsd (cho đơn cũ)
-      );
-      if (refundResult.isSuccess) {
-        console.log(`Đã hoàn tiền PayPal cho đơn ${orderId}`);
-      } else {
-        console.error(`Lỗi hoàn tiền PayPal cho đơn ${orderId}:`, refundResult.error);
-      }
-    } catch (refundErr) {
-      console.error(`Lỗi hệ thống khi hoàn tiền PayPal cho đơn ${orderId}:`, refundErr);
-    }
-  }
+  // 6) Hoàn tiền nếu cần (dùng helper)
+  const refundRes = await processOrderRefund(updated);
 
   // 7) Gửi thông báo hủy đơn cho user
+  let customMsg = `Đơn hàng #${orderId.slice(0, 8)} đã được hủy theo yêu cầu của bạn.`;
+  if (refundRes.isSuccess) {
+    customMsg += ` Đã hoàn tiền ${formatVND(updated.total)} vào tài khoản PayPal của bạn.`;
+  }
+
   await sendOrderStatusNotification({
     orderId,
     userId,
     newStatus: "cancelled",
-    customContent: `Đơn hàng #${orderId.slice(0, 8)} đã được hủy theo yêu cầu của bạn.`,
+    customContent: customMsg,
   });
 
   return updated;
@@ -851,6 +873,38 @@ export const updateOrderStatusService = async (orderId, action, staffId) => {
         // Thực hiện hoàn kho
         await restoreStockForItems(tx, allGroupItems);
 
+        // 3. Hoàn tiền DUY NHẤT cho trưởng nhóm (người thanh toán) nếu cần
+        const [groupInfo] = await tx
+          .select({ creatorId: groupOrders.creatorId })
+          .from(groupOrders)
+          .where(eq(groupOrders.id, order.groupOrderId))
+          .limit(1);
+
+        const groupOrdersList = await tx
+          .select()
+          .from(orders)
+          .where(eq(orders.groupOrderId, order.groupOrderId));
+
+        for (const o of groupOrdersList) {
+          const isCreator = String(o.userId) === String(groupInfo?.creatorId);
+          let customMsg = `Đơn hàng nhóm #${o.id.slice(0, 8)} đã bị shop từ chối.`;
+
+          if (isCreator) {
+            const refundRes = await processOrderRefund(o);
+            if (refundRes.isSuccess) {
+              customMsg += ` Đã hoàn tiền ${formatVND(o.total)} vào tài khoản PayPal của bạn.`;
+            }
+          }
+
+          // Gửi thông báo từ chối cho từng thành viên
+          await sendOrderStatusNotification({
+            orderId: o.id,
+            userId: o.userId,
+            newStatus: "rejected",
+            customContent: customMsg,
+          });
+        }
+
         // Lấy lại đơn hiện tại để trả về
         const [updatedCurrentOrder] = await tx
           .select()
@@ -886,11 +940,19 @@ export const updateOrderStatusService = async (orderId, action, staffId) => {
     //  Hoàn kho
     await restoreStockForItems(db, items);
 
+    // Hoàn tiền nếu cần
+    const refundRes = await processOrderRefund(updated);
+    let customMsg = `Đơn hàng #${orderId.slice(0, 8)} đã bị shop từ chối.`;
+    if (refundRes.isSuccess) {
+      customMsg += ` Đã hoàn tiền ${formatVND(updated.total)} vào tài khoản PayPal của bạn.`;
+    }
+
     // Gửi thông báo từ chối cho user
     await sendOrderStatusNotification({
       orderId,
       userId: order.userId,
       newStatus: "rejected",
+      customContent: customMsg,
     });
 
     return updated;

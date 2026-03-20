@@ -38,13 +38,14 @@
           Trang sẽ tự cập nhật khi thanh toán xong.
         </p>
 
-        <!-- Hiển thị thông tin thanh toán -->
+        <!-- Hiển thị thông tin thanh toán (Group hoặc Cá nhân chi tiết) -->
         <div
-          v-if="isGroupPayment && groupProduct"
+          v-if="(isGroupPayment && groupProduct) || (!isGroupPayment && individualOrder)"
           class="w-full bg-blue-50 rounded-lg p-3 mb-3 max-h-64 overflow-y-auto"
         >
-          <!-- Product Thumbnail -->
+          <!-- Product Header for Group Order -->
           <div
+            v-if="isGroupPayment && groupProduct"
             class="flex items-center gap-2 mb-3 pb-2 border-b border-blue-200"
           >
             <img
@@ -61,8 +62,18 @@
             </div>
           </div>
 
-          <!-- Member Details -->
-          <div class="space-y-2 mb-3">
+          <!-- Header for Individual Order -->
+          <div
+            v-else
+            class="mb-3 pb-2 border-b border-blue-200"
+          >
+            <h4 class="font-semibold text-sm text-gray-800">
+              Thông tin đơn hàng #{{ (individualOrder?.id || '').slice(0, 8) }}
+            </h4>
+          </div>
+
+          <!-- Member Details (Group) -->
+          <div v-if="isGroupPayment" class="space-y-2 mb-3">
             <div
               v-for="(member, idx) in groupMemberDetails"
               :key="idx"
@@ -89,79 +100,93 @@
                   >
                 </div>
                 <span class="font-medium"
-                  >{{ item.total.toLocaleString("vi-VN") }}đ</span
+                  >{{ (item.total || 0).toLocaleString("vi-VN") }}đ</span
                 >
               </div>
+              <!-- <div
+                class="flex justify-between mt-1 pt-1 border-t border-gray-100 text-[10px] text-gray-500"
+              >
+                <span>Tạm tính:</span>
+                <span>{{ (member.subtotal || 0).toLocaleString("vi-VN") }}đ</span>
+              </div> -->
               <div
                 v-if="member.discount > 0"
-                class="flex justify-between mt-1 text-green-600 ml-2"
+                class="flex justify-between text-[10px] text-green-600"
               >
-                <span>Giảm:</span>
-                <span>-{{ member.discount.toLocaleString("vi-VN") }}đ</span>
+                <span>Giảm giá:</span>
+                <span>-{{ (member.discount || 0).toLocaleString("vi-VN") }}đ</span>
               </div>
               <div
                 v-if="member.shippingFee > 0"
-                class="flex justify-between text-gray-600 ml-2"
+                class="flex justify-between text-[10px] text-gray-500"
               >
                 <span>Phí ship:</span>
-                <span>+{{ member.shippingFee.toLocaleString("vi-VN") }}đ</span>
+                <span>+{{ (member.shippingFee || 0).toLocaleString("vi-VN") }}đ</span>
               </div>
               <div
-                class="flex justify-between mt-1 pt-1 border-t border-gray-200 font-semibold text-gray-700"
+                class="flex justify-between mt-0.5 pt-0.5 border-t border-gray-200 font-semibold text-gray-700"
               >
                 <span>Tổng:</span>
-                <span>{{ member.total.toLocaleString("vi-VN") }}đ</span>
+                <span>{{ (member.total || 0).toLocaleString("vi-VN") }}đ</span>
               </div>
             </div>
           </div>
 
-          <!-- Subtotal and Total -->
+          <!-- Member Details (Individual) -->
+          <div v-else class="space-y-2 mb-3">
+            <div
+              v-for="(item, idx) in individualItems"
+              :key="idx"
+              class="bg-white rounded p-2 text-xs border border-gray-100 flex items-center gap-3"
+            >
+              <img
+                v-if="item.imageUrl"
+                :src="item.imageUrl"
+                class="w-10 h-10 object-cover rounded"
+              />
+              <div class="flex-1 min-w-0">
+                <div class="font-semibold text-gray-800 truncate">{{ item.productName }}</div>
+                <div class="text-gray-500 text-[10px]">{{ item.variantName }} × {{ item.quantity }}</div>
+              </div>
+              <div class="font-medium text-gray-700">
+                {{ (item.price * item.quantity).toLocaleString("vi-VN") }}đ
+              </div>
+            </div>
+          </div>
+
+          <!-- Subtotal and Total block -->
           <div class="space-y-1 pt-2 border-t border-blue-300">
             <div
-              v-if="totalBeforeDiscount > 0"
+              v-if="effectiveSubtotal > 0"
               class="flex justify-between text-sm text-gray-600"
             >
               <span>Tạm tính:</span>
-              <span>{{ totalBeforeDiscount.toLocaleString("vi-VN") }} VNĐ</span>
+              <span>{{ (effectiveSubtotal).toLocaleString("vi-VN") }} VNĐ</span>
             </div>
             <div
-              v-if="groupCoupon && groupCoupon.discountAmount > 0"
+              v-if="effectiveDiscount > 0"
               class="flex justify-between text-sm text-green-600"
             >
-              <span>🎫 {{ groupCoupon.code }}:</span>
+              <span>Giảm giá:</span>
               <span
                 >-{{
-                  groupCoupon.discountAmount.toLocaleString("vi-VN")
+                  effectiveDiscount.toLocaleString("vi-VN")
                 }}
                 VNĐ</span
               >
             </div>
             <div
-              v-if="totalShippingFee > 0"
+              v-if="effectiveShipping > 0"
               class="flex justify-between text-sm text-gray-600"
             >
               <span>Phí ship:</span>
-              <span>+{{ totalShippingFee.toLocaleString("vi-VN") }} VNĐ</span>
+              <span>+{{ effectiveShipping.toLocaleString("vi-VN") }} VNĐ</span>
             </div>
             <div
               class="flex justify-between font-bold text-blue-700 pt-1 border-t border-blue-400"
             >
               <span>TỔNG THANH TOÁN:</span>
               <span class="text-base"
-                >{{ paymentAmount.toLocaleString("vi-VN") }} VNĐ</span
-              >
-            </div>
-          </div>
-        </div>
-
-        <div
-          v-else-if="!isGroupPayment"
-          class="w-full bg-blue-50 rounded-lg p-3 mb-3"
-        >
-          <div class="text-sm">
-            <div class="flex justify-between">
-              <span class="text-gray-600">Số tiền thanh toán:</span>
-              <span class="font-bold text-blue-600"
                 >{{ paymentAmount.toLocaleString("vi-VN") }} VNĐ</span
               >
             </div>
@@ -217,7 +242,7 @@ const paypalOrderId = ref("");
 const dbOrderId = ref("");
 let pollingTimer = null;
 
-// Internal variables to track if this is a group payment
+// === Group Order state ===
 const isGroupPayment = ref(false);
 const groupOrderId = ref("");
 const paymentAmount = ref(0);
@@ -228,28 +253,60 @@ const groupCoupon = ref(null);
 const totalBeforeDiscount = ref(0);
 const totalShippingFee = ref(0);
 
+// === Individual Order state ===
+const individualOrder = ref(null);
+const individualItems = ref([]);
+
+// Derived values for summary block
+const effectiveSubtotal = computed(() => {
+  if (isGroupPayment.value) return totalBeforeDiscount.value;
+  return Number(individualOrder.value?.subtotal) || 0;
+});
+const effectiveDiscount = computed(() => {
+  if (isGroupPayment.value) return groupCoupon.value?.discountAmount || 0;
+  return Number(individualOrder.value?.discountTotal) || 0;
+});
+const effectiveShipping = computed(() => {
+  if (isGroupPayment.value) return totalShippingFee.value;
+  return Number(individualOrder.value?.shippingFee) || 0;
+});
+
 // Public method: bắt đầu thanh toán cho 1 đơn hàng
-const startPayment = async ({ orderId, amount, paymentMethod }) => {
+const startPayment = async ({ order, items, paymentMethod }) => {
+  // Support both old signature (orderId, amount, paymentMethod) and new (order object)
+  const isObject = typeof order === "object";
+  const actualOrderId = isObject ? order.id : order;
+  const actualAmount = isObject ? order.total : items;
+  const actualMethod = isObject ? paymentMethod : arguments[0].paymentMethod;
+
   // Reset state
   creating.value = true;
   error.value = "";
   qrUrl.value = "";
   approvalUrl.value = "";
   paypalOrderId.value = "";
-  dbOrderId.value = orderId;
-  method.value = paymentMethod;
+  dbOrderId.value = actualOrderId;
+  method.value = actualMethod;
   visible.value = true;
   isGroupPayment.value = false;
-  paymentAmount.value = amount;
+  paymentAmount.value = Number(actualAmount);
   memberCount.value = 0;
 
+  if (isObject) {
+    individualOrder.value = order;
+    individualItems.value = items || [];
+  } else {
+    individualOrder.value = null;
+    individualItems.value = [];
+  }
+
   try {
-    if (paymentMethod === "PAYPAL") {
-      await createPaypal(orderId, amount);
-    } else if (paymentMethod === "MOMO") {
-      await createMomo(orderId, amount);
-    } else if (paymentMethod === "VNPAY") {
-      await createVnpay(orderId, amount);
+    if (actualMethod === "PAYPAL") {
+      await createPaypal(actualOrderId, actualAmount);
+    } else if (actualMethod === "MOMO") {
+      await createMomo(actualOrderId, actualAmount);
+    } else if (actualMethod === "VNPAY") {
+      await createVnpay(actualOrderId, actualAmount);
     } else {
       error.value = "Phương thức thanh toán không hỗ trợ";
     }

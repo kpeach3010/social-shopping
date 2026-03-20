@@ -59,6 +59,7 @@ export const checkoutController = async (req, res) => {
   }
 };
 
+// Customer hủy đơn hàng cá nhân
 export const cancelOrderController = async (req, res) => {
   try {
     const orderId = req.params.id;

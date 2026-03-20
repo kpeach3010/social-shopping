@@ -114,7 +114,35 @@ export const verifyPaypalReturnService = async (params) => {
     );
     const accessToken = tokenRes.data.access_token;
 
-    // 2. Capture payment (bắt buộc để tiền thực sự chuyển)
+    // 2. Lấy thông tin order trước để kiểm tra trạng thái
+    const orderDetailRes = await axios.get(
+      `${baseUrl}/v2/checkout/orders/${paypalOrderId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+      },
+    );
+    const orderData = orderDetailRes.data;
+
+    // Nếu đã COMPLETED -> đã được capture rồi (có thể do polling nhanh hơn)
+    if (orderData.status === "COMPLETED") {
+      const dbOrderId = orderData.purchase_units?.[0]?.reference_id;
+      const captureId =
+        orderData.purchase_units?.[0]?.payments?.captures?.[0]?.id;
+      const amountUsd =
+        orderData.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.value;
+      return {
+        isSuccess: true,
+        orderId: dbOrderId,
+        paypalOrderId,
+        captureId,
+        amountUsd,
+      };
+    }
+
+    // 3. Nếu chưa COMPLETED thì mới Capture payment
     const captureRes = await axios.post(
       `${baseUrl}/v2/checkout/orders/${paypalOrderId}/capture`,
       {},
@@ -133,7 +161,7 @@ export const verifyPaypalReturnService = async (params) => {
     );
 
     if (captureData.status === "COMPLETED") {
-      // 3. Lấy reference_id = DB order ID thật
+      // 4. Lấy reference_id = DB order ID thật
       const dbOrderId = captureData.purchase_units?.[0]?.reference_id;
       const captureId =
         captureData.purchase_units?.[0]?.payments?.captures?.[0]?.id;
@@ -151,7 +179,9 @@ export const verifyPaypalReturnService = async (params) => {
     return { isSuccess: false, message: `Trạng thái: ${captureData.status}` };
   } catch (err) {
     console.error("PayPal Capture Error:", err.response?.data || err.message);
-    return { isSuccess: false, message: err.message };
+    const errorMsg =
+      err.response?.data?.message || err.message || "Lỗi Capture PayPal";
+    return { isSuccess: false, message: errorMsg };
   }
 };
 // PAYPAL: Kiểm tra trạng thái order trên PayPal API, nếu APPROVED thì capture luôn

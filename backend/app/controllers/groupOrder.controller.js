@@ -12,6 +12,7 @@ import {
 } from "../services/groupOrders.service.js";
 
 import { createSystemMessage } from "../services/message.service.js";
+import { formatVND } from "../services/order.service.js";
 import { createNotificationService } from "../services/notification.service.js";
 import { db } from "../db/client.js";
 import {
@@ -411,22 +412,34 @@ export const cancelGroupOrderController = async (req, res) => {
           .from(groupOrderMembers)
           .where(eq(groupOrderMembers.groupOrderId, id));
           
-        for (const member of members) {
-          const isCreator = String(member.userId) === String(userId);
-          const notification = await createNotificationService({
-             userId: member.userId,
-             type: "group_order_cancelled",
-             title: "Đơn nhóm bị hủy",
-             content: isCreator 
-               ? `Đơn hàng nhóm "${result.groupName}" đã bị bạn (trưởng nhóm) hủy.`
-               : `Đơn hàng của "${result.groupName}" đã bị trưởng nhóm hủy.`,
-             imageUrl: productInfo?.thumbnailUrl || null,
-             actionUrl: `/profile?tab=orders&status=cancelled`,
-          });
-          if (global.io) {
-             global.io.to(String(member.userId)).emit("notification:new", { notification });
+          for (const member of members) {
+            const isCreator = 
+              member.userId && 
+              userId && 
+              String(member.userId).toLowerCase() === String(userId).toLowerCase();
+              
+            let ntfContent = isCreator
+              ? `Đơn hàng nhóm "${result.groupName}" đã bị bạn (trưởng nhóm) hủy.`
+              : `Đơn hàng của "${result.groupName}" đã bị trưởng nhóm hủy.`;
+
+            if (isCreator && result.refundSuccess) {
+              ntfContent += ` Đã hoàn tiền ${formatVND(result.refundAmount)} vào tài khoản PayPal của bạn.`;
+            }
+
+            const notification = await createNotificationService({
+              userId: member.userId,
+              type: "group_order_cancelled",
+              title: "Đơn nhóm bị hủy",
+              content: ntfContent,
+              imageUrl: productInfo?.thumbnailUrl || null,
+              actionUrl: `/profile?tab=orders&status=cancelled`,
+            });
+            if (global.io) {
+              global.io.to(String(member.userId)).emit("notification:new", {
+                notification,
+              });
+            }
           }
-        }
       } catch (err) {
         console.error("Lỗi gửi thông báo hủy group order:", err);
       }

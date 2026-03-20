@@ -21,14 +21,6 @@
               Chọn màu → tải ảnh của bạn → xem kết quả.
             </p>
           </div>
-
-          <button
-            class="shrink-0 inline-flex items-center justify-center rounded-full w-10 h-10 hover:bg-gray-100 transition"
-            @click="close"
-            aria-label="Đóng"
-          >
-            ✕
-          </button>
         </div>
 
         <!-- Body: scrollable on mobile, no scroll on desktop -->

@@ -91,11 +91,17 @@
               :key="m.userId || m.id"
               class="flex items-start gap-3 p-2 border border-gray-100 rounded-lg hover:bg-gray-50"
             >
-              <UserCircleIcon class="w-8 h-8 text-gray-400 mt-0.5" />
+              <UserCircleIcon
+                class="w-8 h-8 text-gray-400 mt-0.5 cursor-pointer hover:opacity-80 transition"
+                @click="goToUserProfile(m.userId || m.id)"
+              />
               <div class="flex-1 space-y-1">
                 <div class="flex items-center justify-between gap-2">
                   <div>
-                    <p class="font-medium text-gray-800">
+                    <p
+                      class="font-medium text-gray-800 cursor-pointer hover:underline hover:text-blue-600 transition"
+                      @click="goToUserProfile(m.userId || m.id)"
+                    >
                       {{
                         (m.userId || m.id) === auth.user?.id
                           ? "Bạn"
@@ -341,6 +347,7 @@
 
 <script setup>
 import { ref } from "vue";
+import { useRouter } from "vue-router";
 import { UserCircleIcon, UserPlusIcon } from "@heroicons/vue/24/outline";
 import { useAuthStore } from "@/stores/auth";
 
@@ -355,7 +362,15 @@ const props = defineProps({
 
 const emit = defineEmits(["close", "leave-success", "open-select-product"]);
 const auth = useAuthStore();
+const router = useRouter();
 const { $socket } = useNuxtApp();
+
+function goToUserProfile(userId) {
+  if (userId && userId !== "00000000-0000-0000-0000-000000000000") {
+    emit("close");
+    router.push(`/feed/${userId}`);
+  }
+}
 
 const tabs = ["Thành viên nhóm", "Sản phẩm mua chung"];
 const activeTab = ref("Thành viên nhóm");

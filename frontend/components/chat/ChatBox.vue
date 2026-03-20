@@ -104,7 +104,11 @@
           :class="isMine(msg) ? 'justify-end' : 'justify-start'"
         >
           <!-- Avatar -->
-          <div v-if="!isMine(msg)" class="flex-shrink-0">
+          <div
+            v-if="!isMine(msg)"
+            class="flex-shrink-0 cursor-pointer hover:opacity-80 transition"
+            @click="goToUserProfile(msg.senderId)"
+          >
             <UserCircleIcon class="w-8 h-8 text-gray-400" />
           </div>
 
@@ -118,7 +122,8 @@
             <!-- Tên người gửi (chỉ hiện cho người khác trong group) -->
             <div
               v-if="!isMine(msg) && isGroupChat"
-              class="text-xs text-gray-500 mb-0.5"
+              class="text-xs text-gray-500 mb-0.5 cursor-pointer hover:underline hover:text-blue-600 transition"
+              @click="goToUserProfile(msg.senderId)"
             >
               {{ msg.senderFullName || "Người dùng" }}
             </div>
@@ -306,7 +311,10 @@
                   ]"
                 >
                   <td class="py-0.5 pr-1">
-                    <span class="font-medium text-gray-800">
+                    <span
+                      class="font-medium text-gray-800 cursor-pointer hover:underline hover:text-blue-600"
+                      @click="goToUserProfile(m.userId)"
+                    >
                       {{ m.shortName }}
                       <span v-if="m.isCreator" class="text-[9px] text-gray-400"
                         >(trưởng)</span
@@ -1108,6 +1116,12 @@ function handleScroll() {
 function goToPartnerFeed() {
   if (props.partner && props.partner.id) {
     router.push(`/feed/${props.partner.id}`);
+  }
+}
+
+function goToUserProfile(userId) {
+  if (userId && userId !== "00000000-0000-0000-0000-000000000000") {
+    router.push(`/feed/${userId}`);
   }
 }
 

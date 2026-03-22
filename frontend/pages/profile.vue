@@ -114,7 +114,7 @@
           <!-- Nút mở modal cập nhật -->
           <div class="mt-6 flex justify-end">
             <button
-              class="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-900"
+              class="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition text-sm font-medium"
               @click="openEditProfile"
             >
               Cập nhật thông tin
@@ -206,10 +206,15 @@
                 <span class="font-medium">{{ o.paymentMethod }}</span>
               </p>
 
-              <p class="text-sm text-gray-600">
-                Loại đơn:
-                <span class="font-medium">{{ orderTypeLabel(o) }}</span>
-              </p>
+                <p class="text-sm text-gray-600">
+                  Loại đơn:
+                  <span class="font-medium text-gray-800">
+                    {{ orderTypeLabel(o) }}
+                    <span v-if="o.groupName" class="text-blue-600 ml-1">
+                      ({{ o.groupName }})
+                    </span>
+                  </span>
+                </p>
 
               <div class="mt-4 border-t border-b divide-y max-h-[300px] overflow-y-auto scroll-smooth">
                 <div
@@ -235,7 +240,7 @@
                     <button
                       v-if="o.status === 'completed' && !item.hasReview"
                       @click.stop="openReviewModal(item)"
-                      class="px-3 py-1 bg-white border border-black text-black text-xs hover:bg-black hover:text-white transition rounded-none"
+                      class="px-3 py-1 bg-white border border-black text-black text-xs hover:bg-black hover:text-white transition rounded-lg font-medium"
                     >
                       Đánh giá
                     </button>
@@ -251,14 +256,16 @@
                 </p>
                 <div class="flex gap-3">
                   <button
-                    class="px-4 py-2 rounded border text-gray-700 hover:bg-gray-100"
+                    class="px-4 py-2 bg-white border border-black text-black rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition text-sm font-medium"
+                    :disabled="loadingDetailId === o.id"
                     @click="viewOrderDetail(o.id)"
                   >
-                    Xem chi tiết
+                    <i v-if="loadingDetailId === o.id" class="bx bx-loader-alt animate-spin"></i>
+                    {{ loadingDetailId === o.id ? 'Đang tải...' : 'Xem chi tiết' }}
                   </button>
                   <button
                     v-if="o.status === 'awaiting_payment' && o.couponKind !== 'group'"
-                    class="px-4 py-2 rounded bg-yellow-500 text-white hover:bg-yellow-600 font-medium"
+                    class="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition text-sm font-medium"
                     @click="openPaymentModal(o)"
                   >
                     Thanh toán
@@ -269,10 +276,12 @@
                       o.paymentMethod !== 'COD' &&
                       o.couponKind !== 'group'
                     "
-                    class="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 font-medium"
+                    class="px-4 py-2 bg-white border border-black text-black rounded-lg hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm font-medium"
+                    :disabled="changingCodOrderId === o.id"
                     @click="changePaymentToCod(o.id)"
                   >
-                    Đổi sang COD
+                    <i v-if="changingCodOrderId === o.id" class="bx bx-loader-alt animate-spin text-lg"></i>
+                    {{ changingCodOrderId === o.id ? 'Đang xử lý...' : 'Đổi sang COD' }}
                   </button>
                   <button
                     v-if="
@@ -280,10 +289,12 @@
                         o.status === 'awaiting_payment') &&
                       o.couponKind !== 'group'
                     "
-                    class="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700"
+                    class="px-4 py-2 bg-white border border-red-600 text-red-600 rounded-lg hover:bg-red-50 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm font-medium"
+                    :disabled="cancellingOrderId === o.id"
                     @click="cancelOrder(o.id)"
                   >
-                    Hủy đơn hàng
+                    <i v-if="cancellingOrderId === o.id" class="bx bx-loader-alt animate-spin text-lg"></i>
+                    {{ cancellingOrderId === o.id ? 'Đang hủy...' : 'Hủy đơn hàng' }}
                   </button>
                 </div>
               </div>
@@ -292,7 +303,7 @@
             <!-- Phân trang -->
             <div v-if="totalPages > 1" class="flex justify-center mt-6 gap-2">
               <button
-                class="px-3 py-1 rounded border hover:bg-gray-100 disabled:opacity-40"
+                class="px-3 py-1 bg-white rounded-lg border hover:bg-gray-100 disabled:opacity-40 transition font-medium"
                 :disabled="currentPage === 1"
                 @click="prevPage"
               >
@@ -301,18 +312,18 @@
               <button
                 v-for="p in pages"
                 :key="p"
-                class="px-3 py-1 rounded border"
+                class="px-3 py-1 rounded-lg border transition font-medium"
                 :class="
                   currentPage === p
-                    ? 'bg-black text-white'
-                    : 'hover:bg-gray-100'
+                    ? 'bg-black text-white border-black'
+                    : 'bg-white hover:bg-gray-100 text-gray-600'
                 "
                 @click="goToPage(p)"
               >
                 {{ p }}
               </button>
               <button
-                class="px-3 py-1 rounded border hover:bg-gray-100 disabled:opacity-40"
+                class="px-3 py-1 bg-white rounded-lg border hover:bg-gray-100 disabled:opacity-40 transition font-medium"
                 :disabled="currentPage === totalPages"
                 @click="nextPage"
               >
@@ -333,134 +344,18 @@
     </main>
 
     <!-- Popup chi tiết đơn -->
-    <div
-      v-if="showDetail"
-      class="fixed inset-0 flex items-center justify-center z-50"
-    >
-      <!-- Overlay mờ nền -->
-      <div
-        class="absolute inset-0 bg-black/30 backdrop-blur-sm"
-        @click="closeDetail"
-      ></div>
-
-      <!-- Khung popup -->
-      <div
-        class="relative bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden z-10 border"
-      >
-        <!-- Header cố định -->
-        <div
-          class="sticky top-0 bg-white z-20 border-b px-6 py-4 flex justify-between items-center"
-        >
-          <h2 class="text-xl font-bold text-gray-800">Chi tiết đơn hàng</h2>
-          <button
-            class="text-gray-400 hover:text-black text-xl"
-            @click="closeDetail"
-          >
-            ✕
-          </button>
-        </div>
-
-        <!-- Nội dung có thể scroll -->
-        <div class="p-6 overflow-y-auto max-h-[70vh] pb-24">
-          <div v-if="orderDetail" class="space-y-4 text-gray-700">
-            <p><strong>Người nhận:</strong> {{ orderDetail.shippingName }}</p>
-            <p>
-              <strong>Số điện thoại:</strong> {{ orderDetail.shippingPhone }}
-            </p>
-            <p>
-              <strong>Địa chỉ:</strong>
-              {{ orderDetail.addressDetail }}, {{ orderDetail.ward }},
-              {{ orderDetail.district }}, {{ orderDetail.province }}
-            </p>
-            <p>
-              <strong>Ngày đặt:</strong>
-              {{ new Date(orderDetail.createdAt).toLocaleString("vi-VN") }}
-            </p>
-            <!-- Hiển thị coupon nếu có -->
-            <p v-if="orderDetail.couponCode">
-              <strong>Mã giảm giá:</strong> {{ orderDetail.couponCode }}
-            </p>
-            <p><strong>Thanh toán:</strong> {{ orderDetail.paymentMethod }}</p>
-
-            <p v-if="orderDetail.couponCode">
-              <strong>Mã giảm giá:</strong> {{ orderDetail.couponCode }}
-            </p>
-
-            <!-- Danh sách sản phẩm -->
-            <div class="mt-6">
-              <h3 class="font-semibold mb-2">Sản phẩm</h3>
-              <div class="divide-y border rounded-lg">
-                <div
-                  v-for="item in orderDetail.items"
-                  :key="item.id"
-                  class="flex items-center gap-4 py-4 px-4 group cursor-pointer"
-                  @click="navigateToProduct(item.productId)"
-                >
-                  <img
-                    :src="item.imageUrl"
-                    class="w-16 h-16 object-cover border rounded-lg group-hover:opacity-80 transition"
-                  />
-                  <div class="flex-1">
-                    <p
-                      class="font-medium group-hover:text-gray-500 transition"
-                    >
-                      {{ item.productName }}
-                    </p>
-                    <p class="text-sm text-gray-500">
-                      {{ item.variantName }} × {{ item.quantity }}
-                    </p>
-                  </div>
-                  <p class="font-semibold">{{ formatPrice(item.price) }}</p>
-                </div>
-              </div>
-            </div>
-
-            <!-- Tổng tiền -->
-            <div class="mt-6 text-right space-y-1">
-              <p>Tạm tính: {{ formatPrice(orderDetail.subtotal) }}</p>
-              <p>Phí vận chuyển: {{ formatPrice(orderDetail.shippingFee) }}</p>
-              <p>Giảm giá: {{ formatPrice(orderDetail.discountTotal) }}</p>
-              <p class="font-bold text-lg text-gray-900">
-                Tổng cộng: {{ formatPrice(orderDetail.total) }}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Footer -->
-        <div class="sticky bottom-0 bg-white border-t px-6s py-4 text-right">
-          <button
-            v-if="orderDetail?.status === 'awaiting_payment' && orderDetail?.couponKind !== 'group'"
-            class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 mr-2"
-            @click="openPaymentModal(orderDetail)"
-          >
-            Thanh toán
-          </button>
-          <button
-            v-if="
-              orderDetail?.status === 'awaiting_payment' &&
-              orderDetail?.paymentMethod !== 'COD' &&
-              orderDetail?.couponKind !== 'group'
-            "
-            class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 mr-2"
-            @click="changePaymentToCod(orderDetail.id)"
-          >
-            Đổi sang COD
-          </button>
-          <button
-            v-if="
-              (orderDetail?.status === 'pending' ||
-                orderDetail?.status === 'awaiting_payment') &&
-              orderDetail?.couponKind !== 'group'
-            "
-            class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 mr-2"
-            @click="cancelOrder(orderDetail.id)"
-          >
-            Hủy đơn hàng
-          </button>
-        </div>
-      </div>
-    </div>
+    <OrderDetailModal
+      :show="showDetail"
+      :loading="!!loadingDetailId"
+      :order="orderDetail"
+      :changingCodOrderId="changingCodOrderId"
+      :cancellingOrderId="cancellingOrderId"
+      @close="closeDetail"
+      @pay="openPaymentModal"
+      @change-to-cod="changePaymentToCod"
+      @cancel="cancelOrder"
+      @navigate-to-product="navigateToProduct"
+    />
   </div>
   <ProfileModal
     :show="showEditProfile"
@@ -502,6 +397,7 @@ import { useAuthStore } from "@/stores/auth";
 import ProfileModal from "@/components/modals/ProfileModal.vue";
 import ReviewModal from "@/components/modals/ReviewModal.vue";
 import PaymentQrModal from "@/components/modals/PaymentQrModal.vue";
+import OrderDetailModal from "@/components/modals/OrderDetailModal.vue";
 
 const auth = useAuthStore();
 const config = useRuntimeConfig();
@@ -525,6 +421,12 @@ const reviewModalRef = ref(null);
 
 // Modal thanh toán QR
 const paymentModalRef = ref(null);
+
+// Loading states
+const loadingOrders = ref(false);
+const cancellingOrderId = ref(null);
+const changingCodOrderId = ref(null);
+const loadingDetailId = ref(null);
 
 // Mở/đóng modal cập nhật
 const openEditProfile = () => {
@@ -564,6 +466,7 @@ onMounted(async () => {
   }
 
   try {
+    loadingOrders.value = true;
     const res = await $fetch("/orders/my-orders", {
       baseURL: config.public.apiBase,
       headers: { Authorization: `Bearer ${auth.accessToken}` },
@@ -571,6 +474,8 @@ onMounted(async () => {
     orders.value = res;
   } catch (e) {
     console.error("Lỗi tải đơn hàng:", e);
+  } finally {
+    loadingOrders.value = false;
   }
 });
 
@@ -608,6 +513,7 @@ const selectStatus = (status) => {
 // Xem chi tiết
 const viewOrderDetail = async (orderId) => {
   try {
+    loadingDetailId.value = orderId;
     const res = await $fetch(`/orders/my-orders/${orderId}`, {
       baseURL: config.public.apiBase,
       headers: { Authorization: `Bearer ${auth.accessToken}` },
@@ -616,6 +522,8 @@ const viewOrderDetail = async (orderId) => {
     showDetail.value = true;
   } catch (e) {
     console.error("Lỗi xem chi tiết:", e);
+  } finally {
+    loadingDetailId.value = null;
   }
 };
 const closeDetail = () => {
@@ -639,6 +547,7 @@ const cancelOrder = async (orderId) => {
   if (!confirm(confirmMsg)) return;
 
   try {
+    cancellingOrderId.value = orderId;
     await $fetch(`/orders/cancel/${orderId}`, {
       method: "PATCH",
       baseURL: config.public.apiBase,
@@ -655,6 +564,8 @@ const cancelOrder = async (orderId) => {
   } catch (e) {
     console.error("Lỗi hủy đơn:", e);
     alert("Không thể hủy đơn hàng");
+  } finally {
+    cancellingOrderId.value = null;
   }
 };
 
@@ -703,6 +614,7 @@ const changePaymentToCod = async (orderId) => {
     return;
   }
   try {
+    changingCodOrderId.value = orderId;
     const updated = await $fetch(`/orders/change-payment-method/${orderId}`, {
       method: "PATCH",
       baseURL: config.public.apiBase,
@@ -739,6 +651,8 @@ const changePaymentToCod = async (orderId) => {
         e?.data?.message ||
         "Không thể đổi sang COD, vui lòng thử lại.",
     );
+  } finally {
+    changingCodOrderId.value = null;
   }
 };
 

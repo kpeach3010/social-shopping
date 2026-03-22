@@ -801,17 +801,22 @@ export const cancelGroupOrderAfterCheckoutService = async (
 
   // 5. Thực hiện Transaction hủy nhóm
   return await db.transaction(async (tx) => {
-    // 5.1 Cập nhật trạng thái nhóm -> Cancelled
+    // 5.1 Cập nhật trạng thái nhóm -> Quay lại Locked thay vì Cancelled
     await tx
       .update(groupOrders)
-      .set({ status: "cancelled", updatedAt: new Date() })
+      .set({ status: "locked", updatedAt: new Date() })
       .where(eq(groupOrders.id, groupOrderId));
 
     // --- HOÀN LƯỢT SỬ DỤNG COUPON TỪ CÁC ĐƠN CON ---
     const groupOrds = await tx
       .select({ id: orders.id, couponCode: orders.couponCode })
       .from(orders)
-      .where(eq(orders.groupOrderId, groupOrderId));
+      .where(
+        and(
+          eq(orders.groupOrderId, groupOrderId),
+          ne(orders.status, "cancelled")
+        )
+      );
 
     const couponCodes = [
       ...new Set(
@@ -835,7 +840,12 @@ export const cancelGroupOrderAfterCheckoutService = async (
     await tx
       .update(orders)
       .set({ status: "cancelled", updatedAt: new Date() })
-      .where(eq(orders.groupOrderId, groupOrderId));
+      .where(
+        and(
+          eq(orders.groupOrderId, groupOrderId),
+          ne(orders.status, "cancelled")
+        )
+      );
 
     // Lấy tất cả items của các đơn trong nhóm để hoàn kho
     const allGroupItems = await tx
@@ -846,7 +856,12 @@ export const cancelGroupOrderAfterCheckoutService = async (
       })
       .from(orderItems)
       .innerJoin(orders, eq(orders.id, orderItems.orderId))
-      .where(eq(orders.groupOrderId, groupOrderId));
+      .where(
+        and(
+          eq(orders.groupOrderId, groupOrderId),
+          ne(orders.status, "cancelled")
+        )
+      );
 
     // gọi hàm hoàn kho với danh sách items vừa lấy
     if (allGroupItems.length > 0) {
@@ -870,6 +885,17 @@ export const cancelGroupOrderAfterCheckoutService = async (
       refundResult = await processOrderRefund(leaderOrder);
     }
 
+    // Tính tổng số tiền hoàn cho toàn bộ nhóm để gửi thông báo hoàn tiền chính xác
+    const allGroupOrders = await tx
+      .select({ total: orders.total })
+      .from(orders)
+      .where(eq(orders.groupOrderId, groupOrderId));
+      
+    const totalRefundAmount = allGroupOrders.reduce(
+      (sum, ord) => sum + Number(ord.total),
+      0,
+    );
+
     // 5.5 Lấy thông tin phòng chat để bắn socket
     const [conv] = await tx
       .select({ id: conversations.id, name: conversations.name })
@@ -884,7 +910,7 @@ export const cancelGroupOrderAfterCheckoutService = async (
       groupName: conv?.name || "Nhóm mua chung",
       productId: group.productId,
       refundSuccess: refundResult.isSuccess,
-      refundAmount: leaderOrder ? leaderOrder.total : 0,
+      refundAmount: refundResult.isSuccess ? totalRefundAmount : 0,
     };
   });
 };
@@ -1031,7 +1057,13 @@ export const changeGroupOrderPaymentMethodService = async ({
         isPaid: orders.isPaid,
       })
       .from(orders)
-      .where(eq(orders.groupOrderId, groupOrderId));
+      .where(
+        and(
+          eq(orders.groupOrderId, groupOrderId),
+          ne(orders.status, "cancelled"),
+          ne(orders.status, "rejected")
+        )
+      );
 
     const hasProcessedOrder = groupOrdersList.some(
       (o) => o.isPaid || o.status !== "awaiting_payment",

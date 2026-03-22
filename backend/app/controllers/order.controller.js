@@ -249,7 +249,7 @@ export const rejectOrderController = async (req, res) => {
 
     if (updatedOrder.groupOrderId && updatedOrder.conversationId && global.io) {
       const conversationId = updatedOrder.conversationId;
-      const reason = `Đơn hàng nhóm bị từ chối. Nhóm mua chung đã bị hủy`;
+      const reason = `Đơn hàng nhóm bị từ chối. Trưởng nhóm có thể giải tán nhóm hoặc thay đổi sản phẩm mua chung.`;
       // Dùng createSystemMessage để đồng bộ cả bảng conversations (lastMessage + lastMessageAt)
       const sysMsg = await createSystemMessage(conversationId, reason);
 
@@ -265,7 +265,7 @@ export const rejectOrderController = async (req, res) => {
       global.io.to(conversationId).emit("group-status-updated", {
         conversationId: conversationId,
         groupOrderId: updatedOrder.groupOrderId,
-        status: "cancelled",
+        status: "locked",
       });
 
       global.io.to(conversationId).emit("group-order-cancelled", {
@@ -303,7 +303,7 @@ export const rejectOrderController = async (req, res) => {
              userId: go.userId,
              type: "group_order_cancelled",
              title: "Đơn nhóm bị từ chối",
-             content: `Đơn hàng của "${groupName}" đã bị nhân viên từ chối.`,
+             content: `Đơn hàng của nhóm "${groupName}" đã bị nhân viên từ chối. Trưởng nhóm có thể giải tán nhóm hoặc thay đổi sản phẩm.`,
              imageUrl: groupP?.thumbnailUrl || null,
              actionUrl: `/profile?tab=orders&status=rejected`,
            });

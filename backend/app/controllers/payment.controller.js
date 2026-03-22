@@ -9,7 +9,7 @@ import {
 } from "../services/payment.service.js";
 import { db } from "../db/client.js";
 import { orders, groupOrders, conversations } from "../db/schema.js";
-import { eq } from "drizzle-orm";
+import { eq, and, ne } from "drizzle-orm";
 import paypalConfig from "../config/paypal.js";
 import { sendOrderStatusNotification } from "../services/orderNotification.service.js";
 // 1. API TẠO LINK THANH TOÁN PAYPAL
@@ -72,7 +72,7 @@ export const checkPaypalOrderStatus = async (req, res) => {
 
       if (paypalResult.isPaid && paypalResult.orderId) {
         // Capture thành công → cập nhật DB: awaiting_payment → pending
-        await db
+        const [updated] = await db
           .update(orders)
           .set({
             isPaid: true,
@@ -82,15 +82,21 @@ export const checkPaypalOrderStatus = async (req, res) => {
             paypalOrderId: paypalResult.paypalOrderId,
             paypalCaptureId: paypalResult.captureId,
             amountUsd: paypalResult.amountUsd,
+            updatedAt: new Date(),
           })
-          .where(eq(orders.id, paypalResult.orderId));
+          .where(
+            and(eq(orders.id, paypalResult.orderId), eq(orders.isPaid, false)),
+          )
+          .returning({ id: orders.id });
 
-        // Gửi thông báo thanh toán thành công
-        await sendOrderStatusNotification({
-          orderId: paypalResult.orderId,
-          userId: order.userId,
-          newStatus: "pending",
-        });
+        if (updated) {
+          // Gửi thông báo thanh toán thành công
+          await sendOrderStatusNotification({
+            orderId: paypalResult.orderId,
+            userId: order.userId,
+            newStatus: "pending",
+          });
+        }
 
         return res.json({ isPaid: true, paymentMethod: "PAYPAL" });
       }
@@ -142,8 +148,9 @@ export const paypalReturn = async (req, res) => {
           paypalOrderId: paypalOrderId,
           paypalCaptureId: captureId,
           amountUsd: amountUsd,
+          updatedAt: new Date(),
         })
-        .where(eq(orders.id, orderId))
+        .where(and(eq(orders.id, orderId), eq(orders.isPaid, false)))
         .returning({ userId: orders.userId });
 
       // Gửi thông báo thanh toán thành công
@@ -230,7 +237,7 @@ export const checkMomoReturn = async (req, res) => {
           paidAt: new Date(),
           status: "pending",
         })
-        .where(eq(orders.id, data.orderId))
+        .where(and(eq(orders.id, data.orderId), eq(orders.isPaid, false)))
         .returning({ userId: orders.userId });
 
       // Gửi thông báo thanh toán thành công
@@ -307,8 +314,9 @@ export const vnpayReturn = async (req, res) => {
           paidAt: new Date(),
           paymentMethod: "VNPAY",
           status: "pending",
+          updatedAt: new Date(),
         })
-        .where(eq(orders.id, orderId))
+        .where(and(eq(orders.id, orderId), eq(orders.isPaid, false)))
         .returning({ userId: orders.userId });
 
       // Gửi thông báo thanh toán thành công
@@ -548,35 +556,55 @@ async function processGroupOrderPaymentSuccess(
         updateData.amountUsd = amountUsd;
       }
 
-      await db.update(orders).set(updateData).where(eq(orders.id, order.id));
+      const [updated] = await db
+        .update(orders)
+        .set(updateData)
+        .where(and(eq(orders.id, order.id), eq(orders.isPaid, false)))
+        .returning({ id: orders.id });
 
       console.log(
-        `Updated order ${order.id} to paid/pending status (isCreator: ${isCreator})`,
+        `Updated order ${order.id} result: ${updated ? "SUCCESS" : "SKIPPED (Already Paid)"} (isCreator: ${isCreator})`,
       );
 
-      // Send notification for each user's order
-      try {
-        await sendOrderStatusNotification({
-          orderId: order.id,
-          userId: order.userId,
-          newStatus: "pending",
-        });
-        console.log(
-          `Sent notification for order ${order.id} to user ${order.userId}`,
-        );
-      } catch (notifError) {
-        console.warn(
-          `Failed to send notification for order ${order.id}:`,
-          notifError,
-        );
+      // Send notification only if update was successful
+      if (updated) {
+        try {
+          await sendOrderStatusNotification({
+            orderId: order.id,
+            userId: order.userId,
+            newStatus: "pending",
+          });
+          console.log(
+            `Sent notification for order ${order.id} to user ${order.userId}`,
+          );
+        } catch (notifError) {
+          console.warn(
+            `Failed to send notification for order ${order.id}:`,
+            notifError,
+          );
+        }
       }
     }
 
     // Update group order status to ordering (payment completed, orders ready for processing)
-    await db
+    const [updatedGroup] = await db
       .update(groupOrders)
       .set({ status: "ordering", updatedAt: new Date() })
-      .where(eq(groupOrders.id, groupOrderId));
+      .where(
+        and(
+          eq(groupOrders.id, groupOrderId),
+          ne(groupOrders.status, "ordering"),
+          ne(groupOrders.status, "completed"),
+        ),
+      )
+      .returning({ id: groupOrders.id });
+
+    if (!updatedGroup) {
+      console.log(
+        `Group order ${groupOrderId} already processed (status was already ordering or completed), skipping notification/system message.`,
+      );
+      return;
+    }
 
     console.log(`Updated group order ${groupOrderId} to ordering status`);
 

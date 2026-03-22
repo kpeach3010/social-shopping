@@ -360,7 +360,7 @@ export const cancelGroupOrderController = async (req, res) => {
     if (result.success && result.conversationId && global.io) {
       const conversationId = result.conversationId;
       const reason =
-        "Trưởng nhóm đã hủy đơn đặt hàng nhóm. Nhóm mua chung sẽ bị hủy.";
+        "Trưởng nhóm đã hủy đơn đặt hàng nhóm. Trưởng nhóm có thể giải tán nhóm hoặc thay đổi sản phẩm mua chung.";
 
       // 1. Lưu tin nhắn hệ thống
       const [sysMsg] = await db
@@ -384,11 +384,11 @@ export const cancelGroupOrderController = async (req, res) => {
         createdAt: sysMsg.createdAt,
       });
 
-      // 3. Emit cập nhật trạng thái nhóm (Ordering -> Cancelled)
+      // 3. Emit cập nhật trạng thái nhóm (Ordering -> locked)
       global.io.to(conversationId).emit("group-status-updated", {
         conversationId: conversationId,
         groupOrderId: id,
-        status: "cancelled",
+        status: "locked",
       });
 
       // 4. Emit Popup thông báo
@@ -419,8 +419,8 @@ export const cancelGroupOrderController = async (req, res) => {
               String(member.userId).toLowerCase() === String(userId).toLowerCase();
               
             let ntfContent = isCreator
-              ? `Đơn hàng nhóm "${result.groupName}" đã bị bạn (trưởng nhóm) hủy.`
-              : `Đơn hàng của "${result.groupName}" đã bị trưởng nhóm hủy.`;
+              ? `Đơn hàng nhóm "${result.groupName}" đã bị bạn hủy. Bạn có thể giải tán nhóm hoặc tiếp tục thay đổi sản phẩm mua chung.`
+              : `Đơn hàng nhóm "${result.groupName}" đã bị trưởng nhóm hủy. Trưởng nhóm sẽ quyết định việc giải tán hoặc đổi sản phẩm.`;
 
             if (isCreator && result.refundSuccess) {
               ntfContent += ` Đã hoàn tiền ${formatVND(result.refundAmount)} vào tài khoản PayPal của bạn.`;

@@ -511,9 +511,11 @@ export const getOrdersByUserService = async (userId) => {
       couponCode: orders.couponCode,
       createdAt: orders.createdAt,
       couponKind: coupons.kind,
+      groupName: conversations.name,
     })
     .from(orders)
     .leftJoin(coupons, eq(orders.couponCode, coupons.code))
+    .leftJoin(conversations, eq(orders.groupOrderId, conversations.groupOrderId))
     .where(eq(orders.userId, userId));
 
   // lấy items cho tất cả orderId
@@ -553,9 +555,11 @@ export const getOrderByIdForUserService = async (orderId, userId) => {
     .select({
       ...orders,
       couponKind: coupons.kind,
+      groupName: conversations.name,
     })
     .from(orders)
     .leftJoin(coupons, eq(orders.couponCode, coupons.code))
+    .leftJoin(conversations, eq(orders.groupOrderId, conversations.groupOrderId))
     .where(eq(orders.id, orderId))
     .limit(1);
 
@@ -847,10 +851,10 @@ export const updateOrderStatusService = async (orderId, action, staffId) => {
     // A. Nếu là ĐƠN NHÓM -> Dùng Transaction hủy cả nhóm
     if (order.groupOrderId) {
       return await db.transaction(async (tx) => {
-        // 1. Hủy nhóm
+        // 1. Trả nhóm về trạng thái locked để trưởng nhóm có thể giải tán hoặc thay đổi sản phẩm hoặc mua lại
         await tx
           .update(groupOrders)
-          .set({ status: "cancelled", updatedAt: new Date() })
+          .set({ status: "locked", updatedAt: new Date() })
           .where(eq(groupOrders.id, order.groupOrderId));
 
         // 2. Từ chối TẤT CẢ đơn trong nhóm
@@ -885,14 +889,20 @@ export const updateOrderStatusService = async (orderId, action, staffId) => {
           .from(orders)
           .where(eq(orders.groupOrderId, order.groupOrderId));
 
+        // Tính tổng tiền của tất cả đơn trong nhóm để thông báo đúng số tiền hoàn cho trưởng nhóm
+        const totalRefundAmount = groupOrdersList.reduce(
+          (sum, ord) => sum + Number(ord.total),
+          0,
+        );
+
         for (const o of groupOrdersList) {
           const isCreator = String(o.userId) === String(groupInfo?.creatorId);
-          let customMsg = `Đơn hàng nhóm #${o.id.slice(0, 8)} đã bị shop từ chối.`;
+          let customMsg = `Đơn hàng nhóm #${o.id.slice(0, 8)} đã bị shop từ chối. Trưởng nhóm có thể giải tán nhóm hoặc thay đổi sản phẩm mua chung.`;
 
           if (isCreator) {
             const refundRes = await processOrderRefund(o);
             if (refundRes.isSuccess) {
-              customMsg += ` Đã hoàn tiền ${formatVND(o.total)} vào tài khoản PayPal của bạn.`;
+              customMsg += ` Đã hoàn tiền ${formatVND(totalRefundAmount)} vào tài khoản PayPal của bạn.`;
             }
           }
 

@@ -178,9 +178,51 @@ export const verifyPaypalReturnService = async (params) => {
 
     return { isSuccess: false, message: `Trạng thái: ${captureData.status}` };
   } catch (err) {
-    console.error("PayPal Capture Error:", err.response?.data || err.message);
-    const errorMsg =
-      err.response?.data?.message || err.message || "Lỗi Capture PayPal";
+    const errorData = err.response?.data;
+    console.error("PayPal Capture Error:", errorData || err.message);
+
+    // Xử lý trường hợp order đã được capture rồi (do race condition vs polling)
+    const isUnprocessable = errorData?.name === "UNPROCESSABLE_ENTITY" || errorData?.message?.includes("semantically incorrect");
+    
+    // Nếu có dấu hiệu 422, chúng ta chủ động GET lại thông tin để verify
+    if (isUnprocessable) {
+      console.log(
+        `PayPal Order ${paypalOrderId} returned 422, checking if already captured...`,
+      );
+      try {
+        const orderDetailRes = await axios.get(
+          `${baseUrl}/v2/checkout/orders/${paypalOrderId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+          },
+        );
+        const orderData = orderDetailRes.data;
+        
+        // Nếu fetch lại thấy COMPLETED, tức là polling đã capture trước đó 1 tíc tắc
+        if (orderData.status === "COMPLETED") {
+          const dbOrderId = orderData.purchase_units?.[0]?.reference_id;
+          const captureId =
+            orderData.purchase_units?.[0]?.payments?.captures?.[0]?.id;
+          const amountUsd =
+            orderData.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.value;
+
+          return {
+            isSuccess: true,
+            orderId: dbOrderId,
+            paypalOrderId,
+            captureId,
+            amountUsd,
+          };
+        }
+      } catch (getErr) {
+        console.error("Error fetching order details after 422:", getErr.message);
+      }
+    }
+
+    const errorMsg = errorData?.message || err.message || "Lỗi Capture PayPal";
     return { isSuccess: false, message: errorMsg };
   }
 };

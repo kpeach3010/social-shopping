@@ -207,20 +207,15 @@
     <!-- Khung mua chung -->
     <div
       v-if="showGroupOrderBox"
-      class="border-t border-gray-200 bg-gray-50 px-3 py-1.5 text-[11px] text-gray-700"
+      class="border-t border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700"
     >
       <!-- Header -->
-      <div class="flex items-center justify-between mt-1">
-        <span class="text-[10px] text-gray-500">
+      <div class="flex items-center justify-between">
+        <span class="text-xs text-gray-500">
           {{ chosenCount }}/{{ totalMemberCount }} đã chọn
         </span>
         <div class="flex items-center gap-2">
-          <button
-            @click="toggleGroupBox"
-            class="text-[10px] border border-gray-300 rounded-md px-2 py-0.5 hover:bg-gray-100 transition"
-          >
-            {{ groupBoxExpanded ? "Ẩn ▲" : "Chi tiết ▼" }}
-          </button>
+
           <button
             v-if="
               isGroupChat &&
@@ -230,7 +225,7 @@
             "
             @click="checkoutGroupOrder"
             :disabled="checkoutLoading"
-            class="bg-black hover:bg-gray-800 text-white text-[10px] font-medium px-2.5 py-1 rounded-md transition flex items-center justify-center min-w-[90px]"
+            class="bg-black hover:bg-gray-800 text-white text-xs font-medium px-3 py-1 rounded-md transition flex items-center justify-center min-w-[100px]"
           >
             <span v-if="checkoutLoading" class="loader mr-1"></span>
             <span v-if="checkoutLoading">Đang đặt...</span>
@@ -245,11 +240,11 @@
               groupDetail?.canCancelGroupOrder
             "
             @click="cancelGroupOrder"
-            :disabled="groupOrderActionLoading"
-            class="bg-red-600 hover:bg-red-700 text-white text-[10px] font-medium px-2.5 py-1 rounded-md transition ml-1 flex items-center justify-center min-w-[70px]"
+            :disabled="cancelGroupOrderLoading"
+            class="bg-red-600 hover:bg-red-700 text-white text-xs font-medium px-3 py-1 rounded-md transition ml-1 flex items-center justify-center min-w-[80px]"
           >
-            <span v-if="groupOrderActionLoading" class="loader mr-1"></span>
-            <span v-if="groupOrderActionLoading">Đang huỷ...</span>
+            <span v-if="cancelGroupOrderLoading" class="loader mr-1"></span>
+            <span v-if="cancelGroupOrderLoading">Đang huỷ...</span>
             <span v-else>Hủy đơn</span>
           </button>
 
@@ -261,12 +256,10 @@
               groupDetail?.groupOrder?.status === 'awaiting_payment'
             "
             @click="openGroupPaymentModal"
-            :disabled="groupOrderActionLoading"
-            class="bg-yellow-500 hover:bg-yellow-600 text-white text-[10px] font-medium px-2.5 py-1 rounded-md transition flex items-center justify-center min-w-[90px]"
+            :disabled="changeCodLoading"
+            class="bg-yellow-500 hover:bg-yellow-600 text-white text-xs font-medium px-3 py-1 rounded-md transition flex items-center justify-center min-w-[100px]"
           >
-            <span v-if="groupOrderActionLoading" class="loader mr-1"></span>
-            <span v-if="groupOrderActionLoading">Đang thanh...</span>
-            <span v-else>Thanh toán ngay</span>
+            <span>Thanh toán ngay</span>
           </button>
 
           <!-- Button đổi sang COD cho trưởng nhóm khi đang chờ thanh toán online -->
@@ -277,86 +270,18 @@
               groupDetail?.groupOrder?.status === 'awaiting_payment'
             "
             @click="changeGroupOrderPaymentToCod"
-            :disabled="groupOrderActionLoading"
-            class="bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-medium px-2.5 py-1 rounded-md transition flex items-center justify-center min-w-[110px]"
+            :disabled="changeCodLoading"
+            class="bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-medium px-3 py-1 rounded-md transition flex items-center justify-center min-w-[120px]"
           >
-            <span v-if="groupOrderActionLoading" class="loader mr-1"></span>
-            <span v-if="groupOrderActionLoading">Đang đổi...</span>
+            <span v-if="changeCodLoading" class="loader mr-1"></span>
+            <span v-if="changeCodLoading">Đang đổi...</span>
             <span v-else>Đổi sang COD</span>
           </button>
         </div>
       </div>
 
-      <!-- Chi tiết -->
-      <transition name="fade">
-        <div v-if="groupBoxExpanded" class="mt-1">
-          <div
-            class="bg-white border border-gray-200 rounded-lg p-1.5 max-h-28 overflow-y-auto"
-          >
-            <table class="w-full text-[10px]">
-              <thead>
-                <tr class="text-gray-500 border-b">
-                  <th class="py-0.5 text-left">Thành viên</th>
-                  <th class="py-0.5 text-left">Sản phẩm</th>
-                  <th class="py-0.5 text-right w-8">SL</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="m in groupMembersDisplay"
-                  :key="m.userId"
-                  :class="[
-                    m.isCurrentUser ? 'bg-blue-50' : '',
-                    'border-b last:border-0',
-                  ]"
-                >
-                  <td class="py-0.5 pr-1">
-                    <span
-                      class="font-medium text-gray-800 cursor-pointer hover:underline hover:text-blue-600"
-                      @click="goToUserProfile(m.userId)"
-                    >
-                      {{ m.shortName }}
-                      <span v-if="m.isCreator" class="text-[9px] text-gray-400"
-                        >(trưởng)</span
-                      >
-                      <span
-                        v-if="m.isCurrentUser"
-                        class="ml-1 text-[9px] text-blue-500"
-                        >(bạn)</span
-                      >
-                    </span>
-                  </td>
-                  <td class="py-0.5 pr-1 text-gray-600 truncate max-w-[80px]">
-                    <span v-if="m.hasChosen">{{
-                      m.variantText || "Đã chọn"
-                    }}</span>
-                    <span v-else class="text-gray-400 italic">Chưa</span>
-                  </td>
-                  <td class="py-0.5 text-right">
-                    <span
-                      v-if="m.hasChosen"
-                      class="text-green-600 font-medium"
-                      >{{ m.quantity }}</span
-                    >
-                    <span v-else class="text-gray-400">-</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </transition>
 
-      <!-- Nút Đặt đơn nhóm - chỉ hiện với trưởng nhóm -->
-      <div
-        v-if="
-          isGroupChat &&
-          groupDetail?.groupOrder?.creatorId === currentUserId &&
-          groupDetail?.groupOrder?.status === 'locked' &&
-          chosenCount === totalMemberCount
-        "
-        class="flex justify-center mt-2 mb-2"
-      ></div>
+
     </div>
 
     <!-- Input -->
@@ -434,6 +359,7 @@
     <GroupOrderDetailModal
       v-if="showGroupDetail"
       :open="showGroupDetail"
+      :loading="isFetchingGroupDetail"
       :groupOrder="groupDetail?.groupOrder"
       :product="groupDetail?.product"
       :coupon="groupDetail?.coupon"
@@ -518,6 +444,7 @@ const showPaymentMethodModal = ref(false);
 const paymentModalRef = ref(null);
 const showEmojiPicker = ref(false);
 const emojiPickerRef = ref(null);
+const isFetchingGroupDetail = ref(false);
 let supabaseChannel;
 // Thêm biến cho upload
 const fileInput = ref(null);
@@ -712,6 +639,7 @@ const fetchGroupDetail = async () => {
     `[ChatBox] Fetching group detail for conversation ${props.conversationId}...`,
   );
 
+  isFetchingGroupDetail.value = true;
   try {
     const res = await $fetch(`/group-orders/${props.conversationId}`, {
       method: "GET",
@@ -733,6 +661,8 @@ const fetchGroupDetail = async () => {
   } catch (error) {
     console.error("[ChatBox] ❌ Error fetching group detail:", error);
     groupDetail.value = null;
+  } finally {
+    isFetchingGroupDetail.value = false;
   }
 };
 
@@ -829,44 +759,7 @@ const chosenCount = computed(
   () => groupMembers.value.filter((m) => m.hasChosen).length,
 );
 
-// Chuẩn hóa dữ liệu hiển thị
-const groupMembersDisplay = computed(() => {
-  return groupMembers.value.map((m) => {
-    const fullName = m.fullName || m.name || "Người dùng";
-    const shortName = fullName.split(" ").slice(-1)[0]; // lấy tên cuối
 
-    // backend nên trả sẵn colorName / sizeName; nếu không có thì fallback
-    const color = m.colorName || m.color || "";
-    const size = m.sizeName || m.size || "";
-    let variantText = "";
-
-    let totalQuantity = 0;
-    if (m.items && Array.isArray(m.items)) {
-      totalQuantity = m.items.reduce((sum, item) => sum + item.quantity, 0);
-    }
-
-    if (m.hasChosen) {
-      if (color || size) {
-        variantText = [color, size].filter(Boolean).join(" / ");
-      } else {
-        variantText = "Đã chọn";
-      }
-    }
-
-    return {
-      userId: m.userId,
-      fullName,
-      shortName,
-      hasChosen: !!m.hasChosen,
-      quantity: m.hasChosen ? totalQuantity : null,
-      variantText,
-      isCreator:
-        String(m.userId) ===
-        String(groupDetail.value?.groupOrder?.creatorId || ""),
-      isCurrentUser: String(m.userId) === String(props.currentUserId),
-    };
-  });
-});
 
 function formatMessage(content) {
   if (!content) return "";
@@ -893,11 +786,15 @@ function handleLeaveSuccess() {
   messages.value = [];
   groupDetail.value = null;
 
+  // Mua chung
+const cancelGroupOrderLoading = ref(false);
+const payGroupOrderLoading = ref(false);
+const changeCodLoading = ref(false);
+const checkoutLoading = ref(false);
   // 3. Đóng Chatbox
   emit("close");
 }
 
-const groupOrderActionLoading = ref(false);
 const checkoutLoading = ref(false);
 async function checkoutGroupOrder() {
   const groupOrder = groupDetail.value?.groupOrder;
@@ -974,7 +871,7 @@ async function changeGroupOrderPaymentToCod() {
   );
   if (!ok) return;
 
-  groupOrderActionLoading.value = true;
+  changeCodLoading.value = true;
   try {
     const res = await $fetch(
       `/group-orders/${groupOrder.id}/change-payment-method`,
@@ -999,7 +896,7 @@ async function changeGroupOrderPaymentToCod() {
         "Không thể đổi phương thức thanh toán, vui lòng thử lại.",
     );
   } finally {
-    groupOrderActionLoading.value = false;
+    changeCodLoading.value = false;
   }
 }
 
@@ -1052,6 +949,11 @@ const message = ref("");
 const loading = ref(false);
 const typing = ref(false);
 let typingTimeout = null;
+
+
+const cancelGroupOrderLoading = ref(false);
+const payGroupOrderLoading = ref(false);
+const changeCodLoading = ref(false);
 
 const deliveredIds = new Set();
 const pendingMap = new Map();
@@ -1168,7 +1070,7 @@ async function cancelGroupOrder() {
   const confirmed = confirm(confirmMsg);
   if (!confirmed) return;
 
-  groupOrderActionLoading.value = true;
+  cancelGroupOrderLoading.value = true;
   try {
     // 2. Gọi API Cancel
     await $fetch(`/group-orders/${groupOrder.id}/cancel`, {
@@ -1191,7 +1093,7 @@ async function cancelGroupOrder() {
       err?.data?.error || err?.message || "Không thể hủy nhóm lúc này.";
     alert(`Lỗi: ${errorMsg}`);
   } finally {
-    groupOrderActionLoading.value = false;
+    cancelGroupOrderLoading.value = false;
   }
 }
 watch(
@@ -1698,6 +1600,10 @@ async function openGroupDetail() {
     return;
   }
 
+  // Open modal immediately (stale-while-revalidate)
+  showGroupDetail.value = true;
+  isFetchingGroupDetail.value = true;
+
   try {
     console.log("FETCHING...");
     const res = await $fetch(`/group-orders/${props.conversationId}`, {
@@ -1710,9 +1616,10 @@ async function openGroupDetail() {
 
     console.log("Group detail fetched:", res);
     groupDetail.value = res;
-    showGroupDetail.value = true;
   } catch (err) {
     console.error("Không thể lấy thông tin nhóm:", err);
+  } finally {
+    isFetchingGroupDetail.value = false;
   }
 }
 
@@ -1797,24 +1704,6 @@ onBeforeUnmount(() => {
   opacity: 0;
   max-height: 0;
   transform: scaleY(0.9);
-}
-/* Loader CSS cho nút */
-.loader {
-  border: 2px solid #f3f3f3;
-  border-top: 2px solid #fff;
-  border-radius: 50%;
-  width: 14px;
-  height: 14px;
-  animation: spin 0.7s linear infinite;
-  display: inline-block;
-}
-@keyframes spin {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
 }
 /* Loader CSS cho nút */
 .loader {

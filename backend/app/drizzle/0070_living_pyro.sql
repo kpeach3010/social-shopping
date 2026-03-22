@@ -1,0 +1,2 @@
+CREATE TYPE "public"."group_stock_status" AS ENUM('normal', 'insufficient', 'competing');--> statement-breakpoint
+ALTER TABLE "group_orders" ADD COLUMN "last_stock_status" "group_stock_status" DEFAULT 'normal';

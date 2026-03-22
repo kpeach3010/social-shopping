@@ -9,6 +9,7 @@ import {
 } from "../db/schema.js";
 import { sql, eq, and, ne, asc, desc, notInArray } from "drizzle-orm";
 import supabase from "../../services/supbase/client.js";
+import { notifyAffectedGroups } from "./groupOrders.service.js";
 
 // Hàm upload ảnh lên bucket
 async function uploadToBucket(
@@ -906,6 +907,12 @@ export const updateProductService = async (productId, data) => {
         .update(products)
         .set({ stock: realTotalStock })
         .where(eq(products.id, productId));
+
+      // Plan V11: Trigger thông báo cho các nhóm bị ảnh hưởng (Hàng về)
+      // Không await để không làm chậm response trả về cho staff
+      notifyAffectedGroups(productId, true).catch(err => 
+        console.error("Error in notifyAffectedGroups trigger (Staff Update):", err)
+      );
 
       return { success: true, productId };
     });

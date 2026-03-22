@@ -21,6 +21,7 @@ import { sendOrderStatusNotification } from "./orderNotification.service.js";
 import { createSystemMessage } from "./message.service.js";
 import { createNotificationService } from "./notification.service.js";
 import { refundPaypalPaymentService } from "./payment.service.js";
+import { notifyAffectedGroups } from "./groupOrders.service.js";
 
 // Helper format tiền VND
 export const formatVND = (amount) => {
@@ -142,6 +143,14 @@ export const restoreStockForItems = async (tx, items) => {
         })
         .where(eq(products.id, item.productId));
     }
+  }
+
+  // Plan V11: Trigger thông báo "Hàng về" (isStockUp = true)
+  const productIds = [...new Set(items.map((i) => i.productId).filter(Boolean))];
+  for (const productId of productIds) {
+    notifyAffectedGroups(productId, true).catch((err) =>
+      console.error("Error in restoreStockForItems trigger:", err),
+    );
   }
 };
 
@@ -400,6 +409,14 @@ export const checkoutService = async (
       .update(products)
       .set({ stock: totalStock })
       .where(eq(products.id, variant.productId));
+  }
+
+  // Plan V11: Trigger thông báo cho các nhóm bị ảnh hưởng (Stock Down)
+  const productIds = [...new Set(orderItemsData.map((oi) => oi.variant.productId).filter(Boolean))];
+  for (const productId of productIds) {
+    notifyAffectedGroups(productId, false).catch((err) =>
+      console.error("Error in checkoutService trigger:", err),
+    );
   }
 
   // 8) Xoá cartItems nếu từ giỏ hàng

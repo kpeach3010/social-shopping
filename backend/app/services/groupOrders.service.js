@@ -26,6 +26,7 @@ import {
 import { groupOrderStatusEnum } from "../enums/groupOrderStatus.enum.js";
 import { restoreStockForItems } from "./order.service.js";
 import { createNotificationService } from "./notification.service.js";
+import { createSystemMessage } from "./message.service.js";
 import { and, eq, inArray, sql, asc, ne } from "drizzle-orm";
 
 // lay thong tin group order theo conversationId
@@ -748,13 +749,21 @@ export const selectItemsService = async ({ groupOrderId, userId, items }) => {
     .leftJoin(sizes, eq(productVariants.sizeId, sizes.id))
     .where(eq(groupOrderMemberItems.memberId, member.id));
 
-  return {
+  const result = {
     success: true,
     message: "Chọn sản phẩm thành công",
     items: enrichedItems, // Trả về items đã có đủ thông tin màu/size
     couponApplied: coupon ? coupon.code : null,
     isUpdate,
   };
+
+  // Plan V11: Trigger thông báo cho các nhóm bị ảnh hưởng
+  // (Không await để không làm chậm response của user hiện tại)
+  notifyAffectedGroups(groupOrder.productId, false).catch(err => 
+    console.error("Error in notifyAffectedGroups trigger:", err)
+  );
+
+  return result;
 };
 
 // Trưởng nhóm hủy đơn nhóm khi tất cả đơn chưa được xác nhận
@@ -1236,4 +1245,214 @@ export const changeGroupOrderProductService = async ({
       );
     return { success: true };
   });
+};
+
+/**
+ * Tính tổng nhu cầu (Demand) của tất cả các nhóm đang mua sản phẩm này
+ * (Chỉ tính các nhóm ở trạng thái PENDING hoặc LOCKED)
+ */
+export const calculateProductGlobalDemand = async (productId) => {
+  const activeGroups = await db
+    .select({
+      targetMember: groupOrders.targetMember,
+      minOrderTotal: coupons.minOrderTotal,
+      productPrice: products.price_default,
+    })
+    .from(groupOrders)
+    .innerJoin(products, eq(groupOrders.productId, products.id))
+    .leftJoin(coupons, eq(groupOrders.couponId, coupons.id))
+    .where(
+      and(
+        eq(groupOrders.productId, productId),
+        inArray(groupOrders.status, ["pending", "locked", "ordering"]) // Tính cả ordering vì đang trong quá trình checkout
+      )
+    );
+
+  let totalDemandQty = 0;
+  for (const g of activeGroups) {
+    const minTotal = Number(g.minOrderTotal) || 0;
+    const price = Number(g.productPrice) || 1;
+    const qtyPerMember = Math.ceil(minTotal / price) || 1; // Tối thiểu 1 sản phẩm/người
+    totalDemandQty += g.targetMember * qtyPerMember;
+  }
+  return totalDemandQty;
+};
+
+/**
+ * Kiểm tra trạng thái kho của một nhóm cụ thể
+ * Trả về: 'insufficient' | 'competing' | 'normal' | 'low_stock'
+ */
+export const checkGroupStockStatus = async (groupOrderId) => {
+  const [group] = await db
+    .select({
+      id: groupOrders.id,
+      productId: groupOrders.productId,
+      targetMember: groupOrders.targetMember,
+      minOrderTotal: coupons.minOrderTotal,
+      productStock: products.stock,
+      productPrice: products.price_default,
+    })
+    .from(groupOrders)
+    .innerJoin(products, eq(groupOrders.productId, products.id))
+    .leftJoin(coupons, eq(groupOrders.couponId, coupons.id))
+    .where(eq(groupOrders.id, groupOrderId))
+    .limit(1);
+
+  if (!group) return "normal";
+
+  // Calculate group's demand in quantity
+  const minTotal = Number(group.minOrderTotal) || 0;
+  const price = Number(group.productPrice) || 1;
+  const qtyPerMember = Math.ceil(minTotal / price) || 1; // Tối thiểu 1 sản phẩm/người
+  const groupDemandQty = group.targetMember * qtyPerMember;
+
+  const totalStockQty = group.productStock; // This is already quantity
+  const globalDemandQty = await calculateProductGlobalDemand(group.productId);
+
+  if (totalStockQty < groupDemandQty) {
+    return "insufficient"; // Không đủ cho chính nhóm này
+  } else if (totalStockQty < globalDemandQty) {
+    return "competing"; // Đủ cho nhóm này nhưng đang tranh chấp với các nhóm khác
+  } else if (totalStockQty - groupDemandQty <= 2) {
+    return "low_stock"; // Sắp hết hàng dù chưa tranh chấp (dư ít hơn hoặc bằng 2)
+  }
+  return "normal"; // Kho an toàn
+};
+
+/**
+ * Phát tán thông báo cho các nhóm bị ảnh hưởng bởi thay đổi tồn kho của sản phẩm
+ */
+export const notifyAffectedGroups = async (productId, isStockUp = false) => {
+  try {
+    // 0. Lấy thông tin sản phẩm (stock và thumbnail)
+    const [product] = await db
+      .select({ 
+        stock: products.stock, 
+        thumbnailUrl: products.thumbnailUrl 
+      })
+      .from(products)
+      .where(eq(products.id, productId))
+      .limit(1);
+
+    if (!product) return;
+
+    // 1. Tìm tất cả các nhóm đang PENDING hoặc LOCKED hoặc ORDERING của sản phẩm này
+    const affectedGroups = await db
+      .select({
+        id: groupOrders.id,
+        conversationId: conversations.id,
+        groupName: conversations.name,
+        targetMember: groupOrders.targetMember,
+        lastStockStatus: groupOrders.lastStockStatus,
+      })
+      .from(groupOrders)
+      .leftJoin(conversations, eq(groupOrders.id, conversations.groupOrderId))
+      .where(
+        and(
+          eq(groupOrders.productId, productId),
+          inArray(groupOrders.status, ["pending", "locked", "ordering"])
+        )
+      );
+
+    if (affectedGroups.length === 0) return;
+
+    for (const group of affectedGroups) {
+      const status = await checkGroupStockStatus(group.id);
+      
+      // CHỈ THÔNG BÁO NẾU TRẠNG THÁI THAY ĐỔI (Tránh lặp lại thông báo khi Staff cập nhật kho nhiều lần)
+      if (status === group.lastStockStatus) continue;
+
+      // Cập nhật trạng thái mới nhất vào DB để không lặp lại thông báo
+      await db
+        .update(groupOrders)
+        .set({ lastStockStatus: status, updatedAt: new Date() })
+        .where(eq(groupOrders.id, group.id));
+      let messageContent = "";
+      let ntfContent = "";
+      let ntfTitle = "";
+      let ntfType = "";
+
+      const gName = group.groupName || "Nhóm mình";
+
+      if (status === "insufficient") {
+        messageContent = `⚠️ THÔNG BÁO: Hiện tại tồn kho của sản phẩm không đủ`;
+        ntfContent = `Sản phẩm trong nhóm "${gName}" hiện đang không đủ số lượng không đủ đáp ứng số lượng nhóm cần. Hãy thay đổi sản phẩm mua chung hoặc chờ đợt hàng sau nhé!`;
+        ntfTitle = "Tồn kho không đủ!";
+        ntfType = "group_stock_warning";
+      } else if (isStockUp && group.lastStockStatus === "insufficient") {
+        // TRƯỜNG HỢP ƯU TIÊN: Hàng đã về sau khi từng bị hết (insufficient -> any)
+        messageContent = `📣 THÔNG BÁO: Sản phẩm của nhóm đã có hàng trở lại!`;
+        if (status === "low_stock" || status === "competing") {
+          messageContent += ` Tuy nhiên số lượng vẫn còn khá ít!`;
+        }
+        ntfContent = `Sản phẩm trong nhóm "${gName}" đã về thêm. Vào hoàn tất đơn hàng ngay thôi nào!`;
+        ntfTitle = "Hàng đã về thêm!";
+        ntfType = "group_stock_recovered";
+      } else if (status === "competing") {
+        messageContent = `🔥 CẢNH BÁO: Sản phẩm này đang được rất nhiều nhóm săn đón và có thể hết hàng bất cứ lúc nào`;
+        ntfContent = `Nhiều nhóm đang cùng đặt sản phẩm này. Hãy nhanh tay chốt đơn kẻo lỡ nhé!`;
+        ntfTitle = "Sắp hết hàng - Chốt ngay!";
+        ntfType = "group_stock_warning";
+      } else if (status === "low_stock") {
+        messageContent = `📢 LƯU Ý: Sản phẩm mua chung hiện chỉ còn rất ít trong kho`;
+        ntfContent = `Sản phẩm trong nhóm "${gName}" sắp hết hàng. Hãy nhanh tay hoàn tất đơn hàng nhé!`;
+        ntfTitle = "Sắp hết hàng!";
+        ntfType = "group_stock_warning";
+      } else if (status === "normal" && isStockUp) {
+        messageContent = `📣 THÔNG BÁO: Sản phẩm của nhóm đã có hàng trở lại!`;
+        ntfContent = `Sản phẩm trong nhóm "${gName}" đã về thêm. Vào hoàn tất đơn hàng ngay thôi nào!`;
+        ntfTitle = "Hàng đã về thêm!";
+        ntfType = "group_stock_recovered";
+      }
+
+      if (messageContent && group.conversationId) {
+        // A. Gửi System Message vào Chat
+        const sysMsg = await createSystemMessage(group.conversationId, messageContent);
+        
+        // Emit Socket.io cho Chat (Realtime)
+        if (global.io) {
+          global.io.to(group.conversationId).emit("message", {
+            id: sysMsg.id,
+            conversationId: group.conversationId,
+            content: messageContent,
+            type: "system",
+            senderId: "00000000-0000-0000-0000-000000000000",
+            senderFullName: "Hệ thống",
+            imageUrl: product.thumbnailUrl, // Thêm ảnh vào Chat
+            createdAt: sysMsg.createdAt,
+          });
+        }
+
+        // B. Gửi Notification cho tất cả thành viên trong nhóm
+        const members = await db
+          .select({ userId: groupOrderMembers.userId })
+          .from(groupOrderMembers)
+          .where(eq(groupOrderMembers.groupOrderId, group.id));
+
+        for (const member of members) {
+          try {
+            const notification = await createNotificationService({
+              userId: member.userId,
+              type: ntfType,
+              title: ntfTitle,
+              content: ntfContent,
+              imageUrl: product.thumbnailUrl,
+              relatedEntityType: "group_order",
+              relatedEntityId: group.id,
+              actionUrl: `/conversation/${group.conversationId}`
+            });
+
+            // Emit Socket.io cho Notification (Realtime)
+            if (global.io && member.userId) {
+              global.io.to(String(member.userId)).emit("notification:new", { notification });
+            }
+          } catch (ntfErr) {
+            console.error(`Error creating notification for user ${member.userId}:`, ntfErr);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Lỗi trong notifyAffectedGroups:", err);
+  }
 };

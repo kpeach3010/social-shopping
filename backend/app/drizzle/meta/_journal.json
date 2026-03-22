@@ -491,6 +491,20 @@
       "when": 1774158722218,
       "tag": "0069_add_group_order_paid_notification_type",
       "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1774191050283,
+      "tag": "0070_living_pyro",
+      "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1774195791256,
+      "tag": "0071_acoustic_cable",
+      "breakpoints": true
     }
   ]
 }

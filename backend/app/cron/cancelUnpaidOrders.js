@@ -9,6 +9,7 @@ import {
   productVariants,
   coupons,
 } from "../db/schema.js";
+import { notifyAffectedGroups } from "../services/groupOrders.service.js";
 import { eq, and, lt, isNull, isNotNull, sql } from "drizzle-orm";
 import { sendOrderStatusNotification } from "../services/orderNotification.service.js";
 import { createNotificationService } from "../services/notification.service.js";
@@ -135,6 +136,14 @@ export const cancelUnpaidOrders = async (io) => {
             console.log(
               `[Cron] Đã hoàn kho ${itemsToRestore.length} items cho nhóm ${groupOrderId}`,
             );
+
+            // Plan V11: Thông báo cho các nhóm khác về việc có hàng về
+            const affectedProductIds = [...new Set(itemsToRestore.map(i => i.productId).filter(Boolean))];
+            for (const pid of affectedProductIds) {
+              notifyAffectedGroups(pid, true).catch(err => 
+                console.error(`[Cron] Error notifying for product ${pid}:`, err)
+              );
+            }
           }
 
           // === 2.2. Giảm coupon.used cho những đơn có dùng coupon ===

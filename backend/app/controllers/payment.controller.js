@@ -11,7 +11,6 @@ import { db } from "../db/client.js";
 import { orders, groupOrders, conversations } from "../db/schema.js";
 import { eq, and, ne } from "drizzle-orm";
 import paypalConfig from "../config/paypal.js";
-import { sendOrderStatusNotification } from "../services/orderNotification.service.js";
 // 1. API TẠO LINK THANH TOÁN PAYPAL
 export const createPaypalPaymentUrl = async (req, res) => {
   try {
@@ -52,6 +51,7 @@ export const checkPaypalOrderStatus = async (req, res) => {
         isPaid: orders.isPaid,
         paymentMethod: orders.paymentMethod,
         userId: orders.userId,
+        groupOrderId: orders.groupOrderId,
       })
       .from(orders)
       .where(eq(orders.id, orderId))
@@ -89,8 +89,9 @@ export const checkPaypalOrderStatus = async (req, res) => {
           )
           .returning({ id: orders.id });
 
-        if (updated) {
-          // Gửi thông báo thanh toán thành công
+        // Chỉ gửi notification cá nhân nếu KHÔNG phải đơn nhóm
+        // (Đơn nhóm đã được xử lý bởi processGroupOrderPaymentSuccess)
+        if (updated && !order.groupOrderId) {
           await sendOrderStatusNotification({
             orderId: paypalResult.orderId,
             userId: order.userId,
@@ -526,7 +527,7 @@ async function processGroupOrderPaymentSuccess(
 
     if (!group) throw new Error("Group order not found");
 
-    // Get all orders for this group order
+    // Get all orders for this group order (all statuses)
     const groupOrderOrders = await db
       .select()
       .from(orders)
@@ -536,14 +537,16 @@ async function processGroupOrderPaymentSuccess(
       `Found ${groupOrderOrders.length} orders for group order ${groupOrderId}`,
     );
 
-    // Update all orders to paid status
+    // Update only unpaid, active orders (not cancelled/rejected history)
+    const updatedUserIds = new Set();
     for (const order of groupOrderOrders) {
-      const isCreator = 
-        order.userId && 
-        group.creatorId && 
+      if (order.status === "cancelled" || order.status === "rejected") continue;
+
+      const isCreator =
+        order.userId &&
+        group.creatorId &&
         String(order.userId).toLowerCase() === String(group.creatorId).toLowerCase();
 
-      // Only store captureId for the creator (leader) as per user requirement
       const updateData = {
         status: "pending",
         isPaid: true,
@@ -566,23 +569,70 @@ async function processGroupOrderPaymentSuccess(
         `Updated order ${order.id} result: ${updated ? "SUCCESS" : "SKIPPED (Already Paid)"} (isCreator: ${isCreator})`,
       );
 
-      // Send notification only if update was successful
       if (updated) {
-        try {
-          await sendOrderStatusNotification({
-            orderId: order.id,
-            userId: order.userId,
-            newStatus: "pending",
-          });
-          console.log(
-            `Sent notification for order ${order.id} to user ${order.userId}`,
-          );
-        } catch (notifError) {
-          console.warn(
-            `Failed to send notification for order ${order.id}:`,
-            notifError,
-          );
+        updatedUserIds.add(String(order.userId));
+      }
+    }
+
+    // Send exactly 1 consolidated group notification per unique member
+    if (updatedUserIds.size > 0) {
+      try {
+        const { createNotificationService } = await import(
+          "../services/notification.service.js"
+        );
+
+        // Lấy thumbnail sản phẩm từ group order
+        const [groupProduct] = await db
+          .select({ thumbnailUrl: groupOrders.productId })
+          .from(groupOrders)
+          .where(eq(groupOrders.id, groupOrderId))
+          .limit(1);
+
+        // Lấy thumbnail thực sự
+        const { products } = await import("../db/schema.js");
+        const [productInfo] = await db
+          .select({ thumbnailUrl: products.thumbnailUrl })
+          .from(products)
+          .innerJoin(groupOrders, eq(groupOrders.productId, products.id))
+          .where(eq(groupOrders.id, groupOrderId))
+          .limit(1);
+
+        // Lấy tên nhóm
+        const [conv] = await db
+          .select({ name: conversations.name })
+          .from(conversations)
+          .where(eq(conversations.groupOrderId, groupOrderId))
+          .limit(1);
+
+        const groupName = conv?.name || "Nhóm mua chung";
+        const thumbnailUrl = productInfo?.thumbnailUrl || null;
+        const creatorId = String(group.creatorId);
+
+        for (const uid of updatedUserIds) {
+          const isCreator = uid.toLowerCase() === creatorId.toLowerCase();
+          const content = isCreator
+            ? `Bạn đã thanh toán thành công cho đơn nhóm "${groupName}". Đơn hàng đang chờ shop xác nhận.`
+            : `Trưởng nhóm đã thanh toán thành công cho đơn nhóm "${groupName}". Đơn hàng đang chờ shop xác nhận.`;
+
+          try {
+            const notification = await createNotificationService({
+              userId: uid,
+              type: "group_order_paid",
+              title: "Thanh toán nhóm thành công",
+              content,
+              imageUrl: thumbnailUrl,
+              actionUrl: "/profile?tab=orders&status=pending",
+            });
+
+            if (global.io) {
+              global.io.to(uid).emit("notification:new", { notification });
+            }
+          } catch (notifError) {
+            console.warn(`Failed to send group notification to user ${uid}:`, notifError);
+          }
         }
+      } catch (notifError) {
+        console.warn("Failed to send group payment notifications:", notifError);
       }
     }
 

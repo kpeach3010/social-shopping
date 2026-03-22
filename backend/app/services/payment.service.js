@@ -97,6 +97,8 @@ export const verifyPaypalReturnService = async (params) => {
     ? "https://api-m.sandbox.paypal.com"
     : "https://api-m.paypal.com";
 
+  let accessToken = null;
+
   try {
     // 1. Lấy access token
     const basicAuth = Buffer.from(
@@ -112,7 +114,7 @@ export const verifyPaypalReturnService = async (params) => {
         },
       },
     );
-    const accessToken = tokenRes.data.access_token;
+    accessToken = tokenRes.data.access_token;
 
     // 2. Lấy thông tin order trước để kiểm tra trạng thái
     const orderDetailRes = await axios.get(
@@ -185,7 +187,7 @@ export const verifyPaypalReturnService = async (params) => {
     const isUnprocessable = errorData?.name === "UNPROCESSABLE_ENTITY" || errorData?.message?.includes("semantically incorrect");
     
     // Nếu có dấu hiệu 422, chúng ta chủ động GET lại thông tin để verify
-    if (isUnprocessable) {
+    if (isUnprocessable && accessToken) {
       console.log(
         `PayPal Order ${paypalOrderId} returned 422, checking if already captured...`,
       );

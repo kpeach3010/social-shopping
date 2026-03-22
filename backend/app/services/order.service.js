@@ -27,6 +27,74 @@ export const formatVND = (amount) => {
   return new Intl.NumberFormat("vi-VN").format(amount) + " VND";
 };
 
+/**
+ * Gửi thông báo nhóm (confirmed hoặc completed) cho toàn bộ thành viên duy nhất trong nhóm.
+ * @param {{ groupOrderId: string, newStatus: "confirmed" | "completed" }} param
+ */
+const sendGroupOrderStatusNotification = async ({ groupOrderId, newStatus }) => {
+  try {
+    // Lấy thumbnail sản phẩm
+    const [productInfo] = await db
+      .select({ thumbnailUrl: products.thumbnailUrl })
+      .from(products)
+      .innerJoin(groupOrders, eq(groupOrders.productId, products.id))
+      .where(eq(groupOrders.id, groupOrderId))
+      .limit(1);
+
+    // Lấy tên nhóm từ conversations
+    const [conv] = await db
+      .select({ name: conversations.name })
+      .from(conversations)
+      .where(eq(conversations.groupOrderId, groupOrderId))
+      .limit(1);
+
+    const groupName = conv?.name || "Nhóm mua chung";
+    const thumbnailUrl = productInfo?.thumbnailUrl || null;
+
+    // Lấy tất cả userId đang active trong nhóm (không lấy đơn đã hủy/từ chối trước đó)
+    const activeOrders = await db
+      .select({ userId: orders.userId })
+      .from(orders)
+      .where(
+        and(
+          eq(orders.groupOrderId, groupOrderId),
+          ne(orders.status, "cancelled"),
+          ne(orders.status, "rejected"),
+        ),
+      );
+
+    const uniqueUserIds = [...new Set(activeOrders.map((o) => String(o.userId)))];
+
+    const isConfirmed = newStatus === "confirmed";
+    const title = isConfirmed ? "Đơn nhóm được xác nhận" : "Đơn nhóm hoàn thành";
+    const content = isConfirmed
+      ? `Đơn hàng của nhóm "${groupName}" đã được shop xác nhận và đang chuẩn bị giao.`
+      : `Đơn hàng của nhóm "${groupName}" đã giao thành công. Cảm ơn bạn đã mua hàng!`;
+    const type = isConfirmed ? "group_order_confirmed" : "group_order_completed";
+    const statusTab = isConfirmed ? "confirmed" : "completed";
+
+    for (const uid of uniqueUserIds) {
+      try {
+        const notification = await createNotificationService({
+          userId: uid,
+          type,
+          title,
+          content,
+          imageUrl: thumbnailUrl,
+          actionUrl: `/profile?tab=orders&status=${statusTab}`,
+        });
+        if (global.io) {
+          global.io.to(uid).emit("notification:new", { notification });
+        }
+      } catch (err) {
+        console.error(`[Notification] Lỗi gửi ${type} cho user ${uid}:`, err);
+      }
+    }
+  } catch (err) {
+    console.error("[sendGroupOrderStatusNotification] Lỗi:", err);
+  }
+};
+
 // Helper xử lý hoàn tiền PayPal
 export const processOrderRefund = async (order) => {
   // Case-insensitive check cho phương thức thanh toán
@@ -681,13 +749,19 @@ const checkGroupOrderComplete = async (groupOrderId) => {
         return group; 
       }
 
-      // 2. Lấy checklist
+      // 2. Lấy checklist - chỉ xét đơn active (không tính đơn đã hủy/từ chối lịch sử)
       const list = await tx
         .select({ status: orders.status })
         .from(orders)
-        .where(eq(orders.groupOrderId, groupOrderId));
+        .where(
+          and(
+            eq(orders.groupOrderId, groupOrderId),
+            ne(orders.status, "cancelled"),
+            ne(orders.status, "rejected"),
+          ),
+        );
 
-      console.log(`Kiểm tra GroupOrder ${groupOrderId} - Tổng số đơn: ${list.length}`);
+      console.log(`Kiểm tra GroupOrder ${groupOrderId} - Tổng số đơn active: ${list.length}`);
 
       if (list.length === 0) return group;
 
@@ -786,11 +860,29 @@ export const updateOrderStatusService = async (orderId, action, staffId) => {
       .returning();
 
     // Gửi thông báo cho user
-    await sendOrderStatusNotification({
-      orderId,
-      userId: order.userId,
-      newStatus,
-    });
+    if (order.groupOrderId) {
+      if (newStatus === "confirmed") {
+        // Chỉ gửi thông báo khi TẤT CẢ đơn active trong nhóm đã được confirmed
+        const pendingOrders = await db
+          .select({ id: orders.id })
+          .from(orders)
+          .where(
+            and(
+              eq(orders.groupOrderId, order.groupOrderId),
+              ne(orders.status, "confirmed"),
+              ne(orders.status, "completed"),
+              ne(orders.status, "cancelled"),
+              ne(orders.status, "rejected"),
+            ),
+          );
+        if (pendingOrders.length === 0) {
+          await sendGroupOrderStatusNotification({ groupOrderId: order.groupOrderId, newStatus: "confirmed" });
+        }
+      }
+      // completed được xử lý bởi checkGroupOrderComplete, không cần thêm logic ở đây
+    } else {
+      await sendOrderStatusNotification({ orderId, userId: order.userId, newStatus });
+    }
 
     // Auto-complete (chờ 30s sau khi confirmed)
     if (newStatus === "confirmed") {
@@ -811,19 +903,31 @@ export const updateOrderStatusService = async (orderId, action, staffId) => {
             .set({ status: "completed", updatedAt: new Date() })
             .where(eq(orders.id, orderId));
 
-          // 3. Gửi thông báo hoàn thành đơn của user
-          await sendOrderStatusNotification({
-            orderId,
-            userId: order.userId,
-            newStatus: "completed",
-          });
+          // 3. Gửi thông báo hoàn thành
+          if (order.groupOrderId) {
+            // Chỉ gửi notification nhóm khi TẤT CẢ đơn trong nhóm đã completed
+            const notCompletedOrders = await db
+              .select({ id: orders.id })
+              .from(orders)
+              .where(
+                and(
+                  eq(orders.groupOrderId, order.groupOrderId),
+                  ne(orders.status, "completed"),
+                  ne(orders.status, "cancelled"),
+                  ne(orders.status, "rejected"),
+                ),
+              );
+            if (notCompletedOrders.length === 0) {
+              await sendGroupOrderStatusNotification({ groupOrderId: order.groupOrderId, newStatus: "completed" });
+            }
+          } else {
+            await sendOrderStatusNotification({ orderId, userId: order.userId, newStatus: "completed" });
+          }
 
           console.log(`Order ${orderId} auto completed`);
 
           // 4. Nếu là đơn nhóm, gọi checkGroupOrderComplete chung
           if (order.groupOrderId) {
-            // Để tránh race condition khi nhiều đơn cùng trigger check,
-            //thêm gọi trực tiếp
             await checkGroupOrderComplete(order.groupOrderId);
           }
         } catch (err) {
@@ -857,25 +961,37 @@ export const updateOrderStatusService = async (orderId, action, staffId) => {
           .set({ status: "locked", updatedAt: new Date() })
           .where(eq(groupOrders.id, order.groupOrderId));
 
-        // 2. Từ chối TẤT CẢ đơn trong nhóm
-        await tx
+        // 2. Từ chối TẤT CẢ đơn đang hoạt động trong nhóm
+        const updatedOrders = await tx
           .update(orders)
           .set({ status: "rejected", updatedAt: new Date() })
-          .where(eq(orders.groupOrderId, order.groupOrderId));
+          .where(
+            and(
+              eq(orders.groupOrderId, order.groupOrderId),
+              ne(orders.status, "cancelled"),
+              ne(orders.status, "rejected")
+            )
+          )
+          .returning();
 
-        // Join bảng orders để lấy items của tất cả đơn thuộc groupOrderId này
-        const allGroupItems = await tx
-          .select({
-            variantId: orderItems.variantId,
-            productId: orderItems.productId,
-            quantity: orderItems.quantity,
-          })
-          .from(orderItems)
-          .innerJoin(orders, eq(orders.id, orderItems.orderId))
-          .where(eq(orders.groupOrderId, order.groupOrderId));
+        const updatedOrderIds = updatedOrders.map((o) => o.id);
+
+        let allGroupItems = [];
+        if (updatedOrderIds.length > 0) {
+          allGroupItems = await tx
+            .select({
+              variantId: orderItems.variantId,
+              productId: orderItems.productId,
+              quantity: orderItems.quantity,
+            })
+            .from(orderItems)
+            .where(inArray(orderItems.orderId, updatedOrderIds));
+        }
 
         // Thực hiện hoàn kho
-        await restoreStockForItems(tx, allGroupItems);
+        if (allGroupItems.length > 0) {
+          await restoreStockForItems(tx, allGroupItems);
+        }
 
         // 3. Hoàn tiền DUY NHẤT cho trưởng nhóm (người thanh toán) nếu cần
         const [groupInfo] = await tx
@@ -884,35 +1000,24 @@ export const updateOrderStatusService = async (orderId, action, staffId) => {
           .where(eq(groupOrders.id, order.groupOrderId))
           .limit(1);
 
-        const groupOrdersList = await tx
-          .select()
-          .from(orders)
-          .where(eq(orders.groupOrderId, order.groupOrderId));
+        const groupOrdersList = updatedOrders;
 
-        // Tính tổng tiền của tất cả đơn trong nhóm để thông báo đúng số tiền hoàn cho trưởng nhóm
         const totalRefundAmount = groupOrdersList.reduce(
           (sum, ord) => sum + Number(ord.total),
           0,
         );
 
+        let creatorRefundMessage = "";
+
         for (const o of groupOrdersList) {
           const isCreator = String(o.userId) === String(groupInfo?.creatorId);
-          let customMsg = `Đơn hàng nhóm #${o.id.slice(0, 8)} đã bị shop từ chối. Trưởng nhóm có thể giải tán nhóm hoặc thay đổi sản phẩm mua chung.`;
 
           if (isCreator) {
             const refundRes = await processOrderRefund(o);
-            if (refundRes.isSuccess) {
-              customMsg += ` Đã hoàn tiền ${formatVND(totalRefundAmount)} vào tài khoản PayPal của bạn.`;
+            if (refundRes.isSuccess && !creatorRefundMessage) {
+              creatorRefundMessage = `Đã hoàn tiền ${formatVND(totalRefundAmount)} vào tài khoản PayPal của bạn.`;
             }
           }
-
-          // Gửi thông báo từ chối cho từng thành viên
-          await sendOrderStatusNotification({
-            orderId: o.id,
-            userId: o.userId,
-            newStatus: "rejected",
-            customContent: customMsg,
-          });
         }
 
         // Lấy lại đơn hiện tại để trả về
@@ -920,6 +1025,10 @@ export const updateOrderStatusService = async (orderId, action, staffId) => {
           .select()
           .from(orders)
           .where(eq(orders.id, orderId));
+
+        if (creatorRefundMessage) {
+          updatedCurrentOrder.creatorRefundMessage = creatorRefundMessage;
+        }
 
         // Gắn thêm conversationId vào order trả về
         const [conv] = await tx

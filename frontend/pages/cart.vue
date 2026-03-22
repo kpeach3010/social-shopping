@@ -188,6 +188,7 @@
   <CouponModal
     :open="openCoupon"
     :coupons="coupons"
+    :subtotal="totalSelected"
     @close="openCoupon = false"
     @select="applyCoupon"
   />

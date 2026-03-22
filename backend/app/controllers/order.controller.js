@@ -275,8 +275,8 @@ export const rejectOrderController = async (req, res) => {
       });
 
       console.log(`[Socket] Group cancelled via Order Reject: ${id}`);
-      
-      // Gửi thông báo từ chối cho tất cả user trong nhóm (Tách ra từ service)
+
+      // Gửi thông báo từ chối cho tất cả user trong nhóm
       const [conv] = await db
         .select({ name: conversations.name })
         .from(conversations)
@@ -287,28 +287,36 @@ export const rejectOrderController = async (req, res) => {
 
       // Lấy product thumbnail từ group order
       const [groupP] = await db
-        .select({ thumbnailUrl: products.thumbnailUrl })
+        .select({ thumbnailUrl: products.thumbnailUrl, creatorId: groupOrders.creatorId })
         .from(groupOrders)
         .innerJoin(products, eq(groupOrders.productId, products.id))
         .where(eq(groupOrders.id, updatedOrder.groupOrderId));
 
       const groupOrdersList = await db
-        .select({ id: orders.id, userId: orders.userId })
+        .select({ userId: orders.userId })
         .from(orders)
         .where(eq(orders.groupOrderId, updatedOrder.groupOrderId));
 
-      for (const go of groupOrdersList) {
+      const uniqueUserIds = [...new Set(groupOrdersList.map(o => String(o.userId)))];
+
+      for (const uid of uniqueUserIds) {
         try {
+           let content = `Đơn hàng của nhóm "${groupName}" đã bị nhân viên từ chối. Trưởng nhóm có thể giải tán nhóm hoặc thay đổi sản phẩm.`;
+           
+           if (uid === String(groupP?.creatorId) && updatedOrder.creatorRefundMessage) {
+             content += ` ${updatedOrder.creatorRefundMessage}`;
+           }
+
            const notification = await createNotificationService({
-             userId: go.userId,
+             userId: uid,
              type: "group_order_cancelled",
              title: "Đơn nhóm bị từ chối",
-             content: `Đơn hàng của nhóm "${groupName}" đã bị nhân viên từ chối. Trưởng nhóm có thể giải tán nhóm hoặc thay đổi sản phẩm.`,
+             content: content,
              imageUrl: groupP?.thumbnailUrl || null,
              actionUrl: `/profile?tab=orders&status=rejected`,
            });
            if (global.io) {
-             global.io.to(String(go.userId)).emit("notification:new", { notification });
+             global.io.to(String(uid)).emit("notification:new", { notification });
            }
         } catch(err) {
            console.error("Lỗi gửi thông báo từ chối đơn nhóm:", err);

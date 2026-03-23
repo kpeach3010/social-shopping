@@ -786,6 +786,7 @@ const buyNow = () => {
 
   localStorage.setItem("checkoutItems", JSON.stringify(items));
   localStorage.setItem("checkoutFromCart", "false");
+  localStorage.removeItem("checkoutCoupon");
   navigateTo("/checkout");
 };
 

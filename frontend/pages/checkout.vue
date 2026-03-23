@@ -286,6 +286,10 @@
               >- {{ formatPrice(discountTotal) }}</span
             >
           </div>
+          <div class="flex justify-between mt-1 text-sm text-gray-600">
+            <span>Phí ship</span>
+            <span>{{ formatPrice(20000) }}</span>
+          </div>
           <div class="flex justify-between mt-2 text-lg font-bold">
             <span>Tổng cộng</span>
             <span>{{ formatPrice(total) }}</span>
@@ -897,6 +901,7 @@ const initCart = async () => {
   // Load danh sách coupon khả dụng (nếu mua ngay)
   if (!fromCart.value && checkoutItems.value.length) {
     localStorage.removeItem("checkoutCoupon");
+    selectedCoupon.value = null;
     const variantIds = checkoutItems.value.map((i) => i.variantId).join(",");
     couponLoading.value = true;
     try {
@@ -918,5 +923,6 @@ const cleanUpCart = () => {
   localStorage.removeItem("checkoutItems");
   localStorage.removeItem("checkoutCoupon");
   localStorage.removeItem("checkoutFromCart");
+  selectedCoupon.value = null;
 };
 </script>

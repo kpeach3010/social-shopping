@@ -182,6 +182,32 @@ const handleNotificationClick = async (n) => {
     open.value = false;
     return;
   }
+  
+  // Nếu là thông báo về tồn kho nhóm mua chung
+  if (['group_stock_warning', 'group_stock_recovered'].includes(n.type) && n.actionUrl) {
+    try {
+      // actionUrl có dạng /conversation/[id]
+      const parts = n.actionUrl.split('/');
+      const conversationId = parts[parts.length - 1];
+      
+      if (conversationId) {
+        window.dispatchEvent(
+          new CustomEvent("open-group-chat", {
+            detail: {
+              id: conversationId,
+              // Lấy tên nhóm từ title có dạng "[Tên nhóm] ..."
+              name: n.title?.match(/\[(.*?)\]/)?.[1] || "Nhóm mua chung",
+              type: 'group'
+            },
+          }),
+        );
+        open.value = false;
+        return;
+      }
+    } catch (err) {
+      console.error("Lỗi xử lý click thông báo nhóm:", err);
+    }
+  }
 
   // Các loại thông báo khác vẫn điều hướng nếu có actionUrl
   if (n.actionUrl) {

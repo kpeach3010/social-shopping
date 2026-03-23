@@ -455,6 +455,11 @@ export const leaveGroupOrderService = async ({ userId, groupOrderId }) => {
           .where(eq(conversations.id, conversationId));
         await tx.delete(groupOrders).where(eq(groupOrders.id, groupOrderId));
 
+        // Plan V11: Trigger thông báo cho các nhóm bị ảnh hưởng (Do nhóm bị giải tán làm giảm tổng cầu)
+        notifyAffectedGroups(groupOrder.productId).catch((err) =>
+          console.error("Error in notifyAffectedGroups trigger (Disband):", err)
+        );
+
         return {
           message: "Nhóm đã bị giải tán do tất cả thành viên rời khỏi.",
           isDisbanded: true,
@@ -1313,8 +1318,8 @@ export const checkGroupStockStatus = async (groupOrderId) => {
     return "insufficient"; // Không đủ cho chính nhóm này
   } else if (totalStockQty < globalDemandQty) {
     return "competing"; // Đủ cho nhóm này nhưng đang tranh chấp với các nhóm khác
-  } else if (totalStockQty - groupDemandQty <= 2) {
-    return "low_stock"; // Sắp hết hàng dù chưa tranh chấp (dư ít hơn hoặc bằng 2)
+  } else if (totalStockQty - groupDemandQty <= 10) {
+    return "low_stock"; // Sắp hết hàng dù chưa tranh chấp (dư ít hơn hoặc bằng 10)
   }
   return "normal"; // Kho an toàn
 };
@@ -1376,8 +1381,8 @@ export const notifyAffectedGroups = async (productId, isStockUp = false) => {
 
       if (status === "insufficient") {
         messageContent = `⚠️ THÔNG BÁO: Hiện tại tồn kho của sản phẩm không đủ`;
-        ntfContent = `Sản phẩm trong nhóm "${gName}" hiện đang không đủ số lượng không đủ đáp ứng số lượng nhóm cần. Hãy thay đổi sản phẩm mua chung hoặc chờ đợt hàng sau nhé!`;
-        ntfTitle = "Tồn kho không đủ!";
+        ntfContent = `Sản phẩm trong nhóm "${gName}" hiện đang không đủ đáp ứng số lượng nhóm cần. Hãy thay đổi sản phẩm mua chung hoặc chờ đợt hàng sau nhé!`;
+        ntfTitle = `[${gName}] Tồn kho không đủ!`;
         ntfType = "group_stock_warning";
       } else if (isStockUp && group.lastStockStatus === "insufficient") {
         // TRƯỜNG HỢP ƯU TIÊN: Hàng đã về sau khi từng bị hết (insufficient -> any)
@@ -1386,22 +1391,22 @@ export const notifyAffectedGroups = async (productId, isStockUp = false) => {
           messageContent += ` Tuy nhiên số lượng vẫn còn khá ít!`;
         }
         ntfContent = `Sản phẩm trong nhóm "${gName}" đã về thêm. Vào hoàn tất đơn hàng ngay thôi nào!`;
-        ntfTitle = "Hàng đã về thêm!";
+        ntfTitle = `[${gName}] Hàng đã về thêm!`;
         ntfType = "group_stock_recovered";
       } else if (status === "competing") {
         messageContent = `🔥 CẢNH BÁO: Sản phẩm này đang được rất nhiều nhóm săn đón và có thể hết hàng bất cứ lúc nào`;
         ntfContent = `Nhiều nhóm đang cùng đặt sản phẩm này. Hãy nhanh tay chốt đơn kẻo lỡ nhé!`;
-        ntfTitle = "Sắp hết hàng - Chốt ngay!";
+        ntfTitle = `[${gName}] Sắp hết hàng - Chốt ngay!`;
         ntfType = "group_stock_warning";
       } else if (status === "low_stock") {
         messageContent = `📢 LƯU Ý: Sản phẩm mua chung hiện chỉ còn rất ít trong kho`;
         ntfContent = `Sản phẩm trong nhóm "${gName}" sắp hết hàng. Hãy nhanh tay hoàn tất đơn hàng nhé!`;
-        ntfTitle = "Sắp hết hàng!";
+        ntfTitle = `[${gName}] Sắp hết hàng!`;
         ntfType = "group_stock_warning";
       } else if (status === "normal" && isStockUp) {
         messageContent = `📣 THÔNG BÁO: Sản phẩm của nhóm đã có hàng trở lại!`;
         ntfContent = `Sản phẩm trong nhóm "${gName}" đã về thêm. Vào hoàn tất đơn hàng ngay thôi nào!`;
-        ntfTitle = "Hàng đã về thêm!";
+        ntfTitle = `[${gName}] Hàng đã về thêm!`;
         ntfType = "group_stock_recovered";
       }
 

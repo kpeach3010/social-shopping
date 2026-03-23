@@ -12,6 +12,7 @@ import {
   messageReads,
   orders,
 } from "../db/schema.js";
+import { notifyAffectedGroups } from "./groupOrders.service.js";
 import {
   getAvailableCouponsForProductsService,
   getValidCouponsService,
@@ -363,6 +364,11 @@ export const joinGroupOrderByInviteTokenService = async ({ token, userId }) => {
       userId: link.creatorId,
       hasChosen: false,
     });
+
+    // Plan V11: Trigger thông báo cho các nhóm bị ảnh hưởng (Do có nhóm mới làm tăng tổng cầu)
+    notifyAffectedGroups(link.productId).catch((err) =>
+      console.error("Error in notifyAffectedGroups trigger (New Group):", err)
+    );
   }
 
   const [user] = await db

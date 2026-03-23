@@ -2,6 +2,7 @@
   <div
     v-if="partner || conversation"
     class="fixed bottom-6 right-6 w-96 h-[520px] bg-white border border-gray-200 rounded-2xl shadow-2xl flex flex-col z-40 overflow-hidden"
+    :class="{ 'animate-attention': isShaking }"
   >
     <!-- Header -->
     <div class="flex items-center p-3 border-b border-gray-200 bg-gray-100">
@@ -444,6 +445,19 @@ const showPaymentMethodModal = ref(false);
 const paymentModalRef = ref(null);
 const showEmojiPicker = ref(false);
 const emojiPickerRef = ref(null);
+const isShaking = ref(false);
+
+const triggerAttention = () => {
+  isShaking.value = true;
+  setTimeout(() => {
+    isShaking.value = false;
+  }, 500);
+};
+
+defineExpose({
+  triggerAttention
+});
+
 const isFetchingGroupDetail = ref(false);
 let supabaseChannel;
 // Thêm biến cho upload
@@ -1722,5 +1736,17 @@ onBeforeUnmount(() => {
   100% {
     transform: rotate(360deg);
   }
+}
+/* Animation gây chú ý khi nhấn lại vào thông báo */
+@keyframes attention-shake {
+  0%, 100% { transform: scale(1); }
+  25% { transform: scale(1.02) translateY(-5px); }
+  50% { transform: scale(1) translateY(0); }
+  75% { transform: scale(1.02) translateY(-5px); }
+}
+.animate-attention {
+  animation: attention-shake 0.4s ease-in-out;
+  border-color: #3b82f6; /* Highlight border màu xanh khi có chú ý */
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
 }
 </style>

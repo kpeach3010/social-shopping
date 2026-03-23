@@ -30,6 +30,7 @@
 
     <!-- ChatBox -->
     <ChatBox
+      ref="chatBoxRef"
       v-show="(activePartner || activeConversation) && chatBoxVisible"
       v-model:conversationId="activeConversationId"
       :partner="activePartner"
@@ -71,6 +72,7 @@ const activePartner = ref(null);
 const activeConversation = ref(null);
 const activeConversationId = ref(null);
 const chatBoxVisible = ref(false);
+const chatBoxRef = ref(null);
 
 // Modal bình luận khi mở từ thông báo (dùng toàn cục)
 const notifyPostId = ref(null);
@@ -87,6 +89,15 @@ watch(activeConversationId, (val) => {
 });
 
 function openChat(payload) {
+  // Nếu đã mở chính hội thoại này -> trigger hiệu ứng
+  const isSameDirect = payload.type === "direct" && activePartner.value?.id === payload.partner?.id;
+  const isSameGroup = payload.type === "group" && String(activeConversationId.value) === String(payload.conversation?.id);
+
+  if (chatBoxVisible.value && (isSameDirect || isSameGroup)) {
+    chatBoxRef.value?.triggerAttention();
+    return;
+  }
+
   chatBoxVisible.value = true;
   if (payload.type === "direct") {
     activePartner.value = payload.partner;
@@ -146,11 +157,17 @@ onMounted(async () => {
     const conv = e.detail;
     if (!conv) return;
 
-    chatBoxVisible.value = true;
-    activePartner.value = null;
-
     const conversationId = conv.id || conv.conversationId || conv.groupOrderId;
     if (!conversationId) return;
+
+    // Nếu chatbox đã mở đúng hội thoại này -> trigger hiệu ứng gây chú ý
+    if (chatBoxVisible.value && String(activeConversationId.value) === String(conversationId)) {
+      chatBoxRef.value?.triggerAttention();
+      return;
+    }
+
+    chatBoxVisible.value = true;
+    activePartner.value = null;
 
     activeConversation.value = {
       id: conversationId,

@@ -164,41 +164,47 @@ export const createInviteLinkService = async ({
   if (coupon.kind !== "group")
     throw new Error("Coupon này không phải loại group, không thể tạo link mời");
 
-  // 2. Kiểm tra link hiện có
-  const [existing] = await db
+  // 2. Kiểm tra xem user đã ở trong nhóm active nào chưa (do mình tạo hoặc do tham gia)
+  const [existingGroupMember] = await db
     .select({
       token: inviteLinks.token,
       expiresAt: inviteLinks.expiresAt,
       conversationName: conversations.name,
       isUsed: inviteLinks.isUsed,
       groupStatus: groupOrders.status,
+      linkCreatorId: inviteLinks.creatorId,
     })
-    .from(inviteLinks)
-    .leftJoin(conversations, eq(inviteLinks.conversationId, conversations.id))
-    .leftJoin(groupOrders, eq(conversations.groupOrderId, groupOrders.id))
+    .from(groupOrderMembers)
+    .innerJoin(groupOrders, eq(groupOrderMembers.groupOrderId, groupOrders.id))
+    .leftJoin(conversations, eq(groupOrders.id, conversations.groupOrderId))
+    .leftJoin(inviteLinks, eq(conversations.id, inviteLinks.conversationId))
     .where(
       and(
-        eq(inviteLinks.creatorId, creatorId),
-        eq(inviteLinks.productId, productId),
-        eq(inviteLinks.couponId, couponId),
-        or(isNull(inviteLinks.expiresAt), gt(inviteLinks.expiresAt, now)),
-        //  không lấy group đã completed
-        or(isNull(groupOrders.status), not(eq(groupOrders.status, "completed"))),
-        // KHÔNG lấy conversation đã bị lưu trữ (archived)
-        eq(conversations.archived, false)
+        eq(groupOrderMembers.userId, creatorId),
+        eq(groupOrders.productId, productId),
+        eq(groupOrders.couponId, couponId),
+        not(inArray(groupOrders.status, ["completed", "cancelled"]))
       )
     )
     .limit(1);
 
-  // 3.Nếu có link hợp lệ
-  if (existing) {
-    return {
-      reused: true,
-      inviteLink: `${frontendId}/invite/${existing.token}`,
-      expiresAt: existing.expiresAt,
-      conversationName: existing.conversationName,
-      isUsed: existing.isUsed,
-    };
+  // 3. Nếu đã tham gia 1 nhóm (active)
+  if (existingGroupMember) {
+    if (existingGroupMember.linkCreatorId === creatorId) {
+      // Nếu mình là người tạo link -> Trả về link cũ
+      return {
+        reused: true,
+        inviteLink: `${frontendId}/invite/${existingGroupMember.token}`,
+        expiresAt: existingGroupMember.expiresAt,
+        conversationName: existingGroupMember.conversationName,
+        isUsed: existingGroupMember.isUsed,
+      };
+    } else {
+      // Nếu mình tham gia nhóm của người khác -> Không cho phép tạo nhóm mới
+      throw new Error(
+        `Bạn đã tham gia một nhóm mua chung cho sản phẩm và mã giảm giá này. Tên nhóm: "${existingGroupMember.conversationName}"`
+      );
+    }
   }
 
   // 4. Nếu chưa có -> tạo mới
@@ -277,6 +283,31 @@ export const joinGroupOrderByInviteTokenService = async ({ token, userId }) => {
     .limit(1);
 
   if (!coupon) throw new Error("Coupon không tồn tại hoặc đã bị xóa");
+
+  // X. KIỂM TRA: Mỗi người chỉ có 1 nhóm active tại 1 thời điểm
+  const [otherActiveMembership] = await db
+    .select({
+      id: groupOrders.id,
+      conversationName: conversations.name,
+    })
+    .from(groupOrderMembers)
+    .innerJoin(groupOrders, eq(groupOrderMembers.groupOrderId, groupOrders.id))
+    .leftJoin(conversations, eq(groupOrders.id, conversations.groupOrderId))
+    .where(
+      and(
+        eq(groupOrderMembers.userId, userId),
+        eq(groupOrders.productId, link.productId),
+        eq(groupOrders.couponId, link.couponId),
+        not(inArray(groupOrders.status, ["completed", "cancelled"]))
+      )
+    )
+    .limit(1);
+
+  if (otherActiveMembership) {
+    throw new Error(
+      `Bạn đã tham gia một nhóm mua chung cho sản phẩm và mã giảm giá này rồi. Tên nhóm: "${otherActiveMembership.conversationName}"`
+    );
+  }
 
   // 2. --- Kiểm tra điều kiện mã giảm giá trước khi cho phép tham gia ---
   if (coupon.usage_limit && coupon.used >= coupon.usage_limit) {

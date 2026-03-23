@@ -822,11 +822,9 @@ const createInviteLink = async (couponId) => {
     });
 
     if (res.reused) {
-      if (res.isUsed) {
-        alert(
-          `Bạn đã có nhóm đang hoạt động!\nTên nhóm: ${res.conversationName}`,
-        );
-      }
+      alert(
+        `Bạn đã có nhóm đang hoạt động cho sản phẩm này!\nTên nhóm: ${res.conversationName}`
+      );
     }
 
     groupInviteLinks.value = {
@@ -834,7 +832,9 @@ const createInviteLink = async (couponId) => {
       [couponId]: res.inviteLink,
     };
   } catch (e) {
-    alert("Không thể tạo link mời: " + (e?.data?.message || e.message));
+    const errorMsg =
+      e?.data?.error || e?.data?.message || e.message || "Có lỗi xảy ra";
+    alert(`Không thể tạo nhóm: ${errorMsg}`);
   }
 };
 

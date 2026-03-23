@@ -3,16 +3,17 @@
     <div class="container mx-auto px-4 py-3 flex items-center justify-between">
       <!-- Logo + Menu -->
       <div class="flex items-center space-x-6">
-        <NuxtLink to="/" class="text-xl font-bold text-black"
-          >🛍 SocialShop</NuxtLink
-        >
+        <NuxtLink to="/" class="flex items-center gap-2 text-3xl font-black text-green-600 hover:opacity-80 transition-opacity">
+          <img src="/logo.png" alt="SocialShop Logo" class="h-12 w-auto object-contain" />
+          <span>SocialShop</span>
+        </NuxtLink>
         <NuxtLink to="/" class="text-gray-700 hover:text-black"
           >Trang chủ</NuxtLink
         >
         <NuxtLink
           to="/feed"
           class="flex items-center gap-1 text-gray-700 hover:text-black"
-          ><FireIcon class="w-5 h-5" />NEW FEED</NuxtLink
+          ><FireIcon class="w-5 h-5 text-red-500" />NEW FEED</NuxtLink
         >
 
         <!-- Danh mục -->

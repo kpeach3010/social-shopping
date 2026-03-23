@@ -11,7 +11,7 @@
       >
         <!-- Header -->
         <div
-          class="flex items-start sm:items-center justify-between gap-2 sm:gap-4 px-4 sm:px-7 py-3 sm:py-4 border-b shrink-0"
+          class="flex items-start sm:items-center justify-between gap-2 sm:gap-4 px-4 sm:px-7 py-3 sm:py-4 border-b shrink-0 relative"
         >
           <div class="min-w-0">
             <h2 class="text-base sm:text-xl font-bold text-gray-900 truncate">
@@ -21,6 +21,29 @@
               Chọn màu → tải ảnh của bạn → xem kết quả.
             </p>
           </div>
+
+          <!-- Close Button (X) -->
+          <button
+            type="button"
+            class="p-2 rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition"
+            @click="close"
+            aria-label="Close"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="w-6 h-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
         </div>
 
         <!-- Body: scrollable on mobile, no scroll on desktop -->
@@ -201,21 +224,10 @@
                   />
                   <span>{{ loading ? "Đang xử lý…" : "Thử ngay" }}</span>
                 </button>
-                <div class="flex gap-2 mt-2">
-                  <!-- <button
-                    type="button"
-                    class="flex-1 py-1 rounded bg-gray-100 text-gray-800 text-xs hover:bg-gray-200 transition"
-                    @click="resetAll"
-                  >
-                    Làm lại
-                  </button> -->
-                  <button
-                    type="button"
-                    class="flex-1 py-1 rounded bg-white border text-gray-800 text-xs hover:bg-gray-50 transition"
-                    @click="close"
-                  >
-                    Đóng
-                  </button>
+                <div v-if="loading" class="mt-2">
+                  <p class="text-xs text-blue-600 text-center animate-pulse">
+                    Đang xử lý, vui lòng đợi...
+                  </p>
                 </div>
               </div>
             </div>

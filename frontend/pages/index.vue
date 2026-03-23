@@ -1,12 +1,72 @@
 <template>
   <div class="flex flex-col min-h-screen">
-    <!-- Banner -->
-    <section class="relative">
-      <img
-        src="/banner.png"
-        alt="Banner giới thiệu"
-        class="w-full h-[400px] object-cover"
-      />
+    <!-- Banner Slider -->
+    <section class="relative w-full h-[300px] md:h-[450px] overflow-hidden group mt-0 lg:-mt-1">
+      <ClientOnly>
+        <!-- Slides -->
+        <div
+          class="flex transition-transform duration-700 ease-in-out h-full w-full flex-nowrap gap-0"
+          :style="{ transform: `translateX(-${currentSliderIndex * 100}%)` }"
+        >
+          <div
+            v-for="(image, index) in sliderImages"
+            :key="index"
+            class="w-full h-full flex-shrink-0 flex-grow-0 basis-full bg-white flex items-center justify-center overflow-hidden"
+          >
+            <img
+              :src="image"
+              alt="Banner Slider"
+              class="max-w-full max-h-full object-contain select-none"
+              draggable="false"
+            />
+          </div>
+        </div>
+
+        <!-- Navigation Arrows -->
+        <button
+          v-if="sliderImages.length > 1"
+          @click="prevSlide"
+          class="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/30 backdrop-blur-md border border-white/20 text-white transition-all hover:bg-black/50 z-30 flex items-center justify-center shadow-lg"
+          aria-label="Previous slide"
+        >
+          <ChevronLeftIcon class="w-6 h-6" />
+        </button>
+        <button
+          v-if="sliderImages.length > 1"
+          @click="nextSlide"
+          class="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/30 backdrop-blur-md border border-white/20 text-white transition-all hover:bg-black/50 z-30 flex items-center justify-center shadow-lg"
+          aria-label="Next slide"
+        >
+          <ChevronRightIcon class="w-6 h-6" />
+        </button>
+
+        <!-- Indicators (Dots) -->
+        <div
+          v-if="sliderImages.length > 1"
+          class="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-3 z-30"
+        >
+          <button
+            v-for="(_, index) in sliderImages"
+            :key="index"
+            @click="goToSlide(index)"
+            class="h-2 rounded-full transition-all duration-300 shadow-sm"
+            :class="[
+              currentSliderIndex === index
+                ? 'w-8 bg-white shadow-[0_0_12px_rgba(255,255,255,1)]'
+                : 'w-2 bg-white/60 hover:bg-white/90'
+            ]"
+            :aria-label="`Go to slide ${index + 1}`"
+          ></button>
+        </div>
+
+        <!-- Empty State -->
+        <div
+          v-if="sliderImages.length === 0"
+          class="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500 italic"
+        >
+          Không tìm thấy ảnh slider
+        </div>
+      </ClientOnly>
     </section>
 
     <!-- Loading -->
@@ -20,9 +80,9 @@
     </div>
 
     <!-- Danh sách sản phẩm -->
-    <section v-else class="container mx-auto px-4 py-10">
+    <section v-else class="container mx-auto px-4 pt-4 pb-10">
       <div class="text-center">
-        <h2 class="text-2xl font-bold mb-6">TẤT CẢ SẢN PHẨM</h2>
+        <h2 class="text-2xl font-bold mb-6 inline-block border-b-3 border-green-500 pb-1">TẤT CẢ SẢN PHẨM</h2>
       </div>
 
       <!-- Bộ lọc -->
@@ -138,6 +198,39 @@
 
 <script setup>
 import { FunnelIcon } from "@heroicons/vue/24/outline";
+import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/vue/24/outline";
+
+// Slider Images from public/slider
+const glob = import.meta.glob("/public/slider/*.{png,jpg,jpeg,webp,svg}", { eager: true });
+const sliderImages = Object.keys(glob).map((path) => path.replace("/public", ""));
+
+const currentSliderIndex = ref(0);
+let sliderTimer = null;
+
+const startSliderTimer = () => {
+  if (sliderImages.length > 1) {
+    stopSliderTimer();
+    sliderTimer = setInterval(nextSlide, 5000);
+  }
+};
+
+const stopSliderTimer = () => {
+  if (sliderTimer) clearInterval(sliderTimer);
+};
+
+const nextSlide = () => {
+  currentSliderIndex.value = (currentSliderIndex.value + 1) % sliderImages.length;
+};
+
+const prevSlide = () => {
+  currentSliderIndex.value =
+    currentSliderIndex.value === 0 ? sliderImages.length - 1 : currentSliderIndex.value - 1;
+};
+
+const goToSlide = (index) => {
+  currentSliderIndex.value = index;
+  startSliderTimer();
+};
 
 const showFilter = ref(false);
 const filterDropdown = ref(null);
@@ -165,6 +258,7 @@ const handleClickOutside = (event) => {
 // Thêm/bỏ event listener cho click outside
 onMounted(async () => {
   document.addEventListener("click", handleClickOutside);
+  startSliderTimer();
   try {
     const res = await $fetch("/product/all-products", {
       baseURL: config.public.apiBase,
@@ -179,6 +273,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   document.removeEventListener("click", handleClickOutside);
+  stopSliderTimer();
 });
 
 const filterByPrice = async (sort) => {

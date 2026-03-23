@@ -3,6 +3,7 @@
     v-if="partner || conversation"
     class="fixed bottom-6 right-6 w-96 h-[520px] bg-white border border-gray-200 rounded-2xl shadow-2xl flex flex-col z-40 overflow-hidden"
     :class="{ 'animate-attention': isShaking }"
+    @click="markAsRead"
   >
     <!-- Header -->
     <div class="flex items-center p-3 border-b border-gray-200 bg-gray-100">
@@ -1027,6 +1028,9 @@ const visibleReaders = computed(() => {
 function handleScroll() {
   const el = scrollWrap.value;
   if (!el || !props.conversationId) return;
+
+  // Mark as read when scrolling
+  markAsRead();
 }
 
 function goToPartnerFeed() {

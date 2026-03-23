@@ -36,7 +36,7 @@
                   <span class="font-semibold">{{ friendCount }}</span> bạn bè
                 </p>
 
-                <div v-if="!isOwnProfile && auth.user" class="mt-3 space-y-2">
+                <div v-if="!isOwnProfile && auth.user && auth.isCustomer" class="mt-3 space-y-2">
                   <button
                     v-if="
                       friendshipStatus === 'not_friends' || !friendshipStatus

@@ -1,6 +1,7 @@
 import express from "express";
 import * as ConversationController from "../controllers/conversation.controller.js";
-import { authenticate } from "../middlewares/auth.middleware.js";
+import { authenticate, hasRoles } from "../middlewares/auth.middleware.js";
+import { Role } from "../enums/role.enum.js";
 
 const router = express.Router();
 
@@ -27,6 +28,7 @@ router.get(
 router.post(
   "/invite-links",
   authenticate,
+  hasRoles(Role.CUSTOMER),
   ConversationController.createInviteLinkController
 );
 router.post(
@@ -37,6 +39,7 @@ router.post(
 router.post(
   "/join/:token",
   authenticate,
+  hasRoles(Role.CUSTOMER),
   ConversationController.joinGroupOrderByInviteTokenController
 );
 router.get(

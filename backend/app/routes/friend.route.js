@@ -1,11 +1,13 @@
 import { Router } from "express";
 import * as FriendController from "../controllers/friend.controller.js";
-import { authenticate } from "../middlewares/auth.middleware.js";
+import { authenticate, hasRoles } from "../middlewares/auth.middleware.js";
+import { Role } from "../enums/role.enum.js";
 
 const router = Router();
 
-// Tất cả endpoints cần authenticate
+// Tất cả endpoints cần authenticate và role customer
 router.use(authenticate);
+router.use(hasRoles(Role.CUSTOMER));
 
 // Gửi lời mời kết bạn
 router.post("/request", FriendController.sendFriendRequestController);

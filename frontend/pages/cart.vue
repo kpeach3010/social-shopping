@@ -9,6 +9,14 @@
         ></div>
       </div>
 
+      <div v-else-if="auth.isLoggedIn && !auth.isCustomer" class="text-gray-500 py-10 text-center">
+        <div class="bg-amber-50 border border-amber-200 rounded-lg p-6 max-w-md mx-auto">
+          <p class="text-amber-800 font-medium">Quyền truy cập bị hạn chế</p>
+          <p class="text-amber-700 text-sm mt-2">Tính năng giỏ hàng chỉ dành cho tài khoản Khách hàng.</p>
+          <NuxtLink to="/feed" class="mt-4 inline-block text-sm font-semibold text-amber-900 underline">Quay lại trang chủ</NuxtLink>
+        </div>
+      </div>
+
       <div v-else-if="!cart?.items?.length" class="text-gray-500">
         Giỏ hàng trống.
       </div>

@@ -224,9 +224,10 @@
             <!-- Nút rời nhóm -->
             <div
               v-if="
-                groupOrder.status === 'pending' ||
-                groupOrder.status === 'completed' ||
-                groupOrder.status === 'cancelled'
+                auth.isCustomer &&
+                (groupOrder.status === 'pending' ||
+                  groupOrder.status === 'completed' ||
+                  groupOrder.status === 'cancelled')
               "
               class="mt-5 flex justify-center gap-3"
             >
@@ -254,7 +255,7 @@
             </div>
 
             <div
-              v-else-if="groupOrder.status === 'locked'"
+              v-else-if="auth.isCustomer && groupOrder.status === 'locked'"
               class="mt-5 flex justify-center gap-3"
             >
               <!-- Nút giải tán nhóm (Dành cho Trưởng nhóm) -->
@@ -306,6 +307,7 @@
             <!-- Nút đổi sản phẩm, chỉ trưởng nhóm mới thấy -->
             <div
               v-if="
+                auth.isCustomer &&
                 auth.user?.id === groupOrder.creatorId &&
                 (groupOrder.status === 'pending' ||
                   groupOrder.status === 'locked')

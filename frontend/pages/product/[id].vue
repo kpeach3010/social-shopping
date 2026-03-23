@@ -108,8 +108,9 @@
           </div>
 
           <!-- Nút hành động -->
-          <div class="mt-6 flex gap-3">
+          <div class="mt-6 flex flex-wrap gap-3">
             <button
+              v-if="!auth.isLoggedIn || auth.isCustomer"
               @click="addToCart"
               :disabled="isOutOfStock"
               class="px-6 py-2 bg-gray-200 rounded hover:bg-gray-300 cursor-pointer disabled:opacity-60"
@@ -117,6 +118,7 @@
               Thêm vào giỏ hàng
             </button>
             <button
+              v-if="!auth.isLoggedIn || auth.isCustomer"
               @click="buyNow"
               :disabled="isOutOfStock"
               class="px-6 py-2 bg-black text-white rounded hover:bg-gray-800 cursor-pointer disabled:opacity-60"
@@ -131,9 +133,31 @@
             </button>
           </div>
 
+          <!-- Thông báo cho Staff/Admin -->
+          <div
+            v-if="auth.isLoggedIn && !auth.isCustomer"
+            class="mt-6 p-4 bg-amber-50 border border-amber-200 text-amber-700 rounded-lg text-sm flex items-center gap-2"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="1.5"
+              stroke="currentColor"
+              class="w-5 h-5"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
+              />
+            </svg>
+            Tài khoản nhân viên/admin không thể thực hiện mua hàng và tạo nhóm.
+          </div>
+
           <!-- Coupon -->
           <div class="mt-6">
-            <h3 class="font-semibold mb-2">Mã giảm giá</h3>
+            <h3 class="font-semibold mb-2">Mã giảm giá dành cho bạn</h3>
 
             <div v-if="loadingCoupons" class="flex justify-center py-4">
               <div
@@ -175,6 +199,7 @@
                   class="flex flex-col items-end gap-1 mt-1 text-sm text-gray-900"
                 >
                   <button
+                    v-if="!auth.isLoggedIn || auth.isCustomer"
                     @click.stop="createInviteLink(c.id)"
                     class="px-3 py-1 bg-black text-white rounded-full hover:bg-gray-800 text-xs font-semibold shadow-sm active:scale-[0.97] cursor-pointer"
                   >

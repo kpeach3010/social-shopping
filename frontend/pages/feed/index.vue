@@ -66,7 +66,7 @@
         </div>
 
         <!-- DISCOVER USERS -->
-        <div class="mb-8" v-if="auth.isLoggedIn">
+        <div class="mb-8" v-if="auth.isLoggedIn && auth.isCustomer">
           <div
             class="bg-white rounded-lg border border-gray-200 overflow-hidden"
           >

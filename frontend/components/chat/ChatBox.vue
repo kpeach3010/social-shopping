@@ -58,7 +58,10 @@
     <!-- Chưa chọn -->
     <div
       v-if="
-        currentUserMember && !currentUserMember.hasChosen && isGroupOrderLocked
+        auth.isCustomer &&
+        currentUserMember &&
+        !currentUserMember.hasChosen &&
+        isGroupOrderLocked
       "
       class="mx-3 mt-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-[12px] flex items-center justify-between"
     >
@@ -74,7 +77,10 @@
     <!-- Đã chọn nhưng vẫn được phép sửa -->
     <div
       v-if="
-        currentUserMember && currentUserMember.hasChosen && isGroupOrderLocked
+        auth.isCustomer &&
+        currentUserMember &&
+        currentUserMember.hasChosen &&
+        isGroupOrderLocked
       "
       class="mx-3 mt-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-[12px] flex items-center justify-between"
     >

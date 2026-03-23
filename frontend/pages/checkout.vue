@@ -1,6 +1,16 @@
 <template>
   <div>
     <main class="container mx-auto px-4 py-8">
+      <!-- Restricted access for non-customers -->
+      <div v-if="auth.isLoggedIn && !auth.isCustomer" class="text-gray-500 py-20 text-center">
+        <div class="bg-amber-50 border border-amber-200 rounded-lg p-8 max-w-lg mx-auto shadow-sm">
+          <h2 class="text-amber-800 font-bold text-lg">Quyền truy cập bị hạn chế</h2>
+          <p class="text-amber-700 mt-2">Tính năng thanh toán chỉ dành cho tài khoản Khách hàng.</p>
+          <p class="text-amber-600 text-sm mt-1">Vui lòng sử dụng tài khoản phù hợp để thực hiện giao dịch.</p>
+          <NuxtLink to="/feed" class="mt-6 inline-block px-6 py-2 bg-amber-600 text-white rounded-lg font-semibold hover:bg-amber-700 transition shadow-sm">Quay lại trang chủ</NuxtLink>
+        </div>
+      </div>
+
       <!-- Nếu đặt đơn thành công -->
       <div
         v-if="orderInfo"

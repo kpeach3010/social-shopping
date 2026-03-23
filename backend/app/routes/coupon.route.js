@@ -18,11 +18,13 @@ router.get("/all-coupons", CouponController.getAllCouponsController);
 router.get(
   "/valid-coupons",
   authenticate,
+  hasRoles(Role.CUSTOMER),
   CouponController.getValidCouponsController,
 );
 router.get(
   "/available",
   authenticate,
+  hasRoles(Role.CUSTOMER),
   CouponController.getAvailableCouponsController,
 );
 // Lấy danh sách sản phẩm áp dụng cho coupon

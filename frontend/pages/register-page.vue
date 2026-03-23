@@ -172,17 +172,25 @@
               <label class="block text-sm font-medium text-gray-700">
                 Mật khẩu
               </label>
-              <div class="mt-1">
+              <div class="mt-1 relative">
                 <input
                   v-model="form.password"
-                  type="password"
+                  :type="showPassword ? 'text' : 'password'"
                   placeholder="Lớn hơn 5 ký tự"
                   required
                   :class="[
-                    'appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500',
+                    'appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 pr-10',
                     passwordError ? 'border-red-300' : 'border-gray-300',
                   ]"
                 />
+                <button
+                  type="button"
+                  @click="showPassword = !showPassword"
+                  class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none"
+                >
+                  <EyeIcon v-if="!showPassword" class="h-5 w-5" />
+                  <EyeSlashIcon v-else class="h-5 w-5" />
+                </button>
               </div>
               <p v-if="passwordError" class="text-sm text-red-600 mt-1">
                 {{ passwordError }}
@@ -215,16 +223,24 @@
               <label class="block text-sm font-medium text-gray-700">
                 Nhập lại mật khẩu
               </label>
-              <div class="mt-1">
+              <div class="mt-1 relative">
                 <input
                   v-model="form.confirmPassword"
-                  type="password"
+                  :type="showConfirmPassword ? 'text' : 'password'"
                   required
                   :class="[
-                    'appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500',
+                    'appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 pr-10',
                     confirmPasswordError ? 'border-red-300' : 'border-gray-300',
                   ]"
                 />
+                <button
+                  type="button"
+                  @click="showConfirmPassword = !showConfirmPassword"
+                  class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none"
+                >
+                  <EyeIcon v-if="!showConfirmPassword" class="h-5 w-5" />
+                  <EyeSlashIcon v-else class="h-5 w-5" />
+                </button>
               </div>
               <p v-if="confirmPasswordError" class="text-sm text-red-600 mt-1">
                 {{ confirmPasswordError }}
@@ -304,7 +320,7 @@
 </template>
 
 <script setup lang="ts">
-import { CheckCircleIcon, ArrowPathIcon } from "@heroicons/vue/24/solid";
+import { CheckCircleIcon, ArrowPathIcon, EyeIcon, EyeSlashIcon } from "@heroicons/vue/24/solid";
 definePageMeta({ layout: false });
 import { reactive, ref, computed } from "vue";
 
@@ -312,6 +328,8 @@ const config = useRuntimeConfig();
 const errorMessage = ref("");
 const isSubmitting = ref(false);
 const showSuccessScreen = ref(false);
+const showPassword = ref(false);
+const showConfirmPassword = ref(false);
 
 const form = reactive({
   email: "",
@@ -430,6 +448,7 @@ const districtError = computed(() => {
 
 const wardError = computed(() => {
   if (!form.ward.trim()) return "";
+  if (/\d/.test(form.ward)) return "Tên phường/xã không được chứa số";
   if (form.ward.trim().length < 2) return "Tên phường/xã quá ngắn";
   if (form.ward.trim().length > 50) return "Tên phường/xã quá dài";
   return "";

@@ -127,7 +127,7 @@
             </button>
             <button
               @click="showTryProduct = true"
-              class="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 cursor-pointer"
+              class="px-6 py-2 bg-blue-700 text-white rounded hover:bg-blue-500 cursor-pointer"
             >
               Thử sản phẩm
             </button>
@@ -157,7 +157,10 @@
 
           <!-- Coupon -->
           <div class="mt-6">
-            <h3 class="font-semibold mb-2">Mã giảm giá dành cho bạn</h3>
+            <h3 class="font-semibold mb-2 flex items-center gap-2">
+              <img src="/coupon.png" alt="Coupon Icon" class="w-6 h-6 object-contain" />
+              Mã giảm giá dành cho bạn
+            </h3>
 
             <div v-if="loadingCoupons" class="flex justify-center py-4">
               <div

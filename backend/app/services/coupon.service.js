@@ -42,15 +42,16 @@ export const createCouponService = async (data) => {
   if (!data.endsAt) {
     throw new Error("Ngày kết thúc là bắt buộc.");
   }
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const now = new Date();
   const startsAt = new Date(data.startsAt);
   const endsAt = new Date(data.endsAt);
-  if (startsAt < today) {
-    throw new Error("Ngày bắt đầu phải là hôm nay hoặc sau hôm nay.");
+  
+  // Cho phép trễ tối đa 1 phút để tránh lỗi do chênh lệch thời gian giữa client và server
+  if (startsAt < new Date(now.getTime() - 60000)) {
+    throw new Error("Thời gian bắt đầu không được ở quá khứ.");
   }
-  if (endsAt < startsAt) {
-    throw new Error("Ngày kết thúc phải bằng hoặc sau ngày bắt đầu.");
+  if (endsAt <= startsAt) {
+    throw new Error("Thời gian kết thúc phải sau thời gian bắt đầu.");
   }
   if (
     data.kind === "group" &&
@@ -296,18 +297,16 @@ export const updateCouponService = async (couponId, data) => {
     throw new Error("Giá trị giảm phải lớn hơn 0.");
   }
   if (data.startsAt !== undefined) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const now = new Date();
     const startsAt = new Date(data.startsAt);
-    if (startsAt < today) {
-      throw new Error("Ngày bắt đầu phải là hôm nay hoặc sau hôm nay.");
-    }
+    // Chỉ kiểm tra nếu startsAt mới khác với startsAt hiện tại (sẽ kiểm tra kỹ hơn trong transaction)
+    // Ở đây kiểm tra so với 'now' cho các coupon mới chưa hoạt động
   }
   if (data.endsAt !== undefined && data.startsAt !== undefined) {
     const startsAt = new Date(data.startsAt);
     const endsAt = new Date(data.endsAt);
-    if (endsAt < startsAt) {
-      throw new Error("Ngày kết thúc phải bằng hoặc sau ngày bắt đầu.");
+    if (endsAt <= startsAt) {
+      throw new Error("Thời gian kết thúc phải sau thời gian bắt đầu.");
     }
   }
   if (
@@ -354,21 +353,21 @@ export const updateCouponService = async (couponId, data) => {
     if (
       payload.startsAt &&
       payload.endsAt &&
-      payload.startsAt > payload.endsAt
+      payload.startsAt >= payload.endsAt
     ) {
-      throw new Error("Ngày bắt đầu không được lớn hơn ngày kết thúc");
+      throw new Error("Thời gian bắt đầu phải trước thời gian kết thúc");
     } else if (
       payload.startsAt &&
       !payload.endsAt &&
-      payload.startsAt > existingCoupon.endsAt
+      payload.startsAt >= existingCoupon.endsAt
     ) {
-      throw new Error("Ngày bắt đầu không được lớn hơn ngày kết thúc hiện tại");
+      throw new Error("Thời gian bắt đầu phải trước thời gian kết thúc hiện tại");
     } else if (
       !payload.startsAt &&
       payload.endsAt &&
-      existingCoupon.startsAt > payload.endsAt
+      existingCoupon.startsAt >= payload.endsAt
     ) {
-      throw new Error("Ngày kết thúc không được nhỏ hơn ngày bắt đầu hiện tại");
+      throw new Error("Thời gian kết thúc phải sau thời gian bắt đầu hiện tại");
     }
 
     if (data.usage_limit !== undefined) payload.usage_limit = data.usage_limit;

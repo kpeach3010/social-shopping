@@ -86,7 +86,7 @@
             <label class="font-medium">Ngày bắt đầu</label>
             <input
               v-model="coupon.startsAt"
-              type="date"
+              type="datetime-local"
               class="w-full border px-3 py-2 rounded"
             />
           </div>
@@ -95,7 +95,7 @@
             <label class="font-medium">Ngày kết thúc</label>
             <input
               v-model="coupon.endsAt"
-              type="date"
+              type="datetime-local"
               class="w-full border px-3 py-2 rounded"
             />
           </div>
@@ -277,7 +277,19 @@ const toggleProduct = (id) => {
   }
 };
 
-// 3. WATCHER: Đổ dữ liệu coupon vào Form khi mở modal
+// 3. Helper: Format ISO to YYYY-MM-DDTHH:mm
+const formatToDateTimeLocal = (isoString) => {
+  if (!isoString) return "";
+  const date = new Date(isoString);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
+// 4. WATCHER: Đổ dữ liệu coupon vào Form khi mở modal
 watch(
   () => props.couponData,
   async (val) => {
@@ -291,8 +303,8 @@ watch(
       kind: val.kind || "general",
       type: val.type || "fixed",
       value: val.value || 0,
-      startsAt: val.startsAt ? val.startsAt.substring(0, 10) : "",
-      endsAt: val.endsAt ? val.endsAt.substring(0, 10) : "",
+      startsAt: val.startsAt ? formatToDateTimeLocal(val.startsAt) : "",
+      endsAt: val.endsAt ? formatToDateTimeLocal(val.endsAt) : "",
       usage_limit: val.usage_limit || 0,
       perUserLimit: val.perUserLimit || 0,
       minOrderTotal: val.minOrderTotal || 0,
@@ -380,10 +392,10 @@ const updateCoupon = async () => {
   if (coupon.value.value === null || coupon.value.value === undefined || String(coupon.value.value) === "") msg = "Vui lòng nhập giá trị giảm.";
   else if (Number(coupon.value.value) <= 0)
     msg = "Giá trị giảm phải lớn hơn 0.";
-  else if (!startsAt) msg = "Vui lòng chọn ngày bắt đầu.";
-  else if (!endsAt) msg = "Vui lòng chọn ngày kết thúc.";
-  else if (endsAt < startsAt)
-    msg = "Ngày kết thúc phải bằng hoặc sau ngày bắt đầu.";
+  else if (!startsAt) msg = "Vui lòng chọn thời gian bắt đầu.";
+  else if (!endsAt) msg = "Vui lòng chọn thời gian kết thúc.";
+  else if (endsAt <= startsAt)
+    msg = "Thời gian kết thúc phải sau thời gian bắt đầu.";
   else if (coupon.value.usage_limit === null || coupon.value.usage_limit === undefined || String(coupon.value.usage_limit) === "") msg = "Vui lòng nhập số lượng mã giảm giá.";
   else if (Number(coupon.value.usage_limit) <= 0)
     msg = "Số lượng mã giảm giá phải lớn hơn 0.";

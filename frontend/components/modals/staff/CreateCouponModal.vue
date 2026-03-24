@@ -92,7 +92,7 @@
             <label class="font-medium">Ngày bắt đầu</label>
             <input
               v-model="coupon.startsAt"
-              type="date"
+              type="datetime-local"
               class="w-full border px-3 py-2 rounded"
             />
           </div>
@@ -101,7 +101,7 @@
             <label class="font-medium">Ngày kết thúc</label>
             <input
               v-model="coupon.endsAt"
-              type="date"
+              type="datetime-local"
               class="w-full border px-3 py-2 rounded"
             />
           </div>
@@ -287,23 +287,25 @@ const isFormValid = computed(() => {
 
 const createCoupon = async () => {
   if (isLoading.value) return;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const now = new Date();
   const startsAt = coupon.value.startsAt
     ? new Date(coupon.value.startsAt)
     : null;
   const endsAt = coupon.value.endsAt ? new Date(coupon.value.endsAt) : null;
+  
+  // Cho phép lệch 1 phút để tránh lỗi đồng bộ
+  const nowWithBuffer = new Date(now.getTime() - 60000);
 
   let msg = "";
   if (!coupon.value.code?.trim()) msg = "Vui lòng nhập mã giảm giá.";
   else if (!coupon.value.value || Number(coupon.value.value) <= 0)
     msg = "Giá trị giảm phải lớn hơn 0.";
-  else if (!startsAt) msg = "Vui lòng chọn ngày bắt đầu.";
-  else if (startsAt < today)
-    msg = "Ngày bắt đầu phải là hôm nay hoặc sau hôm nay.";
-  else if (!endsAt) msg = "Vui lòng chọn ngày kết thúc.";
-  else if (endsAt < startsAt)
-    msg = "Ngày kết thúc phải bằng hoặc sau ngày bắt đầu.";
+  else if (!startsAt) msg = "Vui lòng chọn thời gian bắt đầu.";
+  else if (startsAt < nowWithBuffer)
+    msg = "Thời gian bắt đầu không được ở quá khứ.";
+  else if (!endsAt) msg = "Vui lòng chọn thời gian kết thúc.";
+  else if (endsAt <= startsAt)
+    msg = "Thời gian kết thúc phải sau thời gian bắt đầu.";
   else if (!coupon.value.usage_limit || Number(coupon.value.usage_limit) <= 0)
     msg = "Số lượng mã giảm giá phải lớn hơn 0.";
   else if (!coupon.value.perUserLimit || Number(coupon.value.perUserLimit) <= 0)

@@ -419,8 +419,8 @@ export const cancelGroupOrderController = async (req, res) => {
               String(member.userId).toLowerCase() === String(userId).toLowerCase();
               
             let ntfContent = isCreator
-              ? `Đơn hàng nhóm "${result.groupName}" đã bị bạn hủy. Bạn có thể giải tán nhóm hoặc tiếp tục thay đổi sản phẩm mua chung.`
-              : `Đơn hàng nhóm "${result.groupName}" đã bị trưởng nhóm hủy. Trưởng nhóm sẽ quyết định việc giải tán hoặc đổi sản phẩm.`;
+              ? `Đơn hàng nhóm "${result.groupName}" đã bị bạn hủy.`
+              : `Đơn hàng nhóm "${result.groupName}" đã bị trưởng nhóm hủy.`;
 
             if (isCreator && result.refundSuccess) {
               ntfContent += ` Đã hoàn tiền ${formatVND(result.refundAmount)} vào tài khoản PayPal của bạn.`;

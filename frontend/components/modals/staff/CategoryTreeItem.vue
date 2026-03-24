@@ -57,10 +57,12 @@
         </button>
 
         <button
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-red-600 bg-red-600 text-white hover:bg-red-500 active:bg-red-700 transition"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-red-600 bg-red-600 text-white hover:bg-red-500 active:bg-red-700 transition disabled:opacity-70 disabled:cursor-not-allowed"
           @click="$emit('delete', category.id, category.name)"
+          :disabled="isDeleting"
         >
-          <Trash2 class="w-4 h-4" />
+          <Loader2 v-if="isDeleting" class="w-4 h-4 animate-spin" />
+          <Trash2 v-else class="w-4 h-4" />
           <span class="text-sm">Xóa</span>
         </button>
       </div>
@@ -73,6 +75,7 @@
         :category="child"
         :level="level + 1"
         :is-expanded="isExpanded"
+        :is-deleting="false"
         @toggle="$emit('toggle', $event)"
         @edit="$emit('edit', $event)"
         @delete="(id, name) => $emit('delete', id, name)"
@@ -88,11 +91,12 @@ import {
   Folder,
   Trash2,
   PencilLine,
+  Loader2,
 } from "lucide-vue-next";
 
 export default {
   name: "CategoryTreeItem",
-  components: { ChevronDown, ChevronRight, Folder, Trash2, PencilLine },
+  components: { ChevronDown, ChevronRight, Folder, Trash2, PencilLine, Loader2 },
   props: {
     category: {
       type: Object,
@@ -103,6 +107,10 @@ export default {
       default: 0,
     },
     isExpanded: {
+      type: Boolean,
+      default: false,
+    },
+    isDeleting: {
       type: Boolean,
       default: false,
     },

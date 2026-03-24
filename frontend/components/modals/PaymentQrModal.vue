@@ -68,7 +68,7 @@
             class="mb-3 pb-2 border-b border-blue-200"
           >
             <h4 class="font-semibold text-sm text-gray-800">
-              Thông tin đơn hàng #{{ (individualOrder?.id || '').slice(0, 8) }}
+              Thông tin đơn hàng #{{ (individualOrder?.id || '') }}
             </h4>
           </div>
 

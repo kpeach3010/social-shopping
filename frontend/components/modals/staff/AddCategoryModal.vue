@@ -1,7 +1,7 @@
 <script setup>
 /* Modal thêm danh mục – chỉ tạo mới */
 import { ref, onMounted } from "vue";
-import { X } from "lucide-vue-next";
+import { X, Loader2 } from "lucide-vue-next";
 import { useAuthStore } from "@/stores/auth";
 
 const emit = defineEmits(["close", "refresh"]);
@@ -12,6 +12,7 @@ const name = ref(""); // tên danh mục
 const parentId = ref(""); // danh mục cha
 const sort = ref(0); // thứ tự hiển thị
 const categories = ref([]); // danh sách category để chọn cha
+const isLoading = ref(false);
 
 // load tất cả danh mục (flat list)
 const fetchCategories = async () => {
@@ -25,7 +26,9 @@ onMounted(fetchCategories);
 
 // gọi API tạo category
 const createCategory = async () => {
+  if (isLoading.value) return;
   try {
+    isLoading.value = true;
     await $fetch("/category/create-category", {
       baseURL: config.public.apiBase,
       method: "POST",
@@ -45,6 +48,8 @@ const createCategory = async () => {
   } catch (err) {
     console.error(err);
     alert("Không thể tạo danh mục");
+  } finally {
+    isLoading.value = false;
   }
 };
 </script>
@@ -104,10 +109,12 @@ const createCategory = async () => {
 
         <!-- Button -->
         <button
-          class="w-full bg-black text-white py-2 rounded hover:bg-gray-800"
+          class="w-full bg-black text-white py-2 rounded hover:bg-gray-800 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           @click="createCategory"
+          :disabled="isLoading"
         >
-          Thêm danh mục
+          <Loader2 v-if="isLoading" class="w-4 h-4 animate-spin" />
+          <span>{{ isLoading ? "Đang xử lý..." : "Thêm danh mục" }}</span>
         </button>
       </div>
     </div>

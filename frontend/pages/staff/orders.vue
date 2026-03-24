@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from "vue";
 import Sidebar from "@/components/modals/staff/Sidebar.vue";
 
-import { Check, X } from "lucide-vue-next";
+import { Check, X, Loader2 } from "lucide-vue-next";
 import Pagination from "@/components/Pagination.vue";
 import OrderDetailModal from "@/components/modals/staff/OrderDetailModal.vue";
 
@@ -16,6 +16,8 @@ const toggleSidebar = () => {
 };
 const orders = ref([]);
 const loading = ref(false);
+const processingOrderId = ref(null);
+const processingGroupId = ref(null);
 const selectedStatus = ref("all");
 const showDetailModal = ref(false);
 const detailOrderId = ref(null);
@@ -130,6 +132,7 @@ const groupColorMap = computed(() => {
 
 const approveOrder = async (id) => {
   if (!confirm("Xác nhận đơn hàng này?")) return;
+  processingOrderId.value = id;
   try {
     await $fetch(`/orders/approve/${id}`, {
       method: "PATCH",
@@ -141,12 +144,15 @@ const approveOrder = async (id) => {
   } catch (err) {
     alert("Lỗi xác nhận đơn hàng!");
     console.error(err);
+  } finally {
+    processingOrderId.value = null;
   }
 };
 
 // Xác nhận tất cả đơn trong một nhóm
 const approveGroup = async (groupOrderId) => {
   if (!confirm("Xác nhận tất cả đơn trong nhóm này?")) return;
+  processingGroupId.value = groupOrderId;
   try {
     await $fetch(`/orders/approve-group/${groupOrderId}`, {
       method: "PATCH",
@@ -158,11 +164,14 @@ const approveGroup = async (groupOrderId) => {
   } catch (err) {
     alert("Lỗi xác nhận đơn nhóm!");
     console.error(err);
+  } finally {
+    processingGroupId.value = null;
   }
 };
 
 const rejectOrder = async (id) => {
   if (!confirm("Từ chối đơn hàng này?")) return;
+  processingOrderId.value = id;
   try {
     await $fetch(`/orders/reject/${id}`, {
       method: "PATCH",
@@ -174,12 +183,15 @@ const rejectOrder = async (id) => {
   } catch (err) {
     alert("Lỗi từ chối đơn hàng!");
     console.error(err);
+  } finally {
+    processingOrderId.value = null;
   }
 };
 
 // Từ chối cả nhóm: dùng 1 order bất kỳ trong nhóm (service đã xử lý cả nhóm)
-const rejectGroup = async (orderId) => {
+const rejectGroup = async (orderId, groupOrderId) => {
   if (!confirm("Từ chối toàn bộ đơn trong nhóm này?")) return;
+  processingGroupId.value = groupOrderId;
   try {
     await $fetch(`/orders/reject/${orderId}`, {
       method: "PATCH",
@@ -191,6 +203,8 @@ const rejectGroup = async (orderId) => {
   } catch (err) {
     alert("Lỗi từ chối đơn nhóm!");
     console.error(err);
+  } finally {
+    processingGroupId.value = null;
   }
 };
 
@@ -254,10 +268,12 @@ const searchOrders = async () => {
             @keyup.enter="searchOrders"
           />
           <button
-            class="px-4 py-2 bg-black text-white rounded"
+            class="px-4 py-2 bg-black text-white rounded disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2"
             @click="searchOrders"
+            :disabled="loading"
           >
-            Tìm kiếm
+            <Loader2 v-if="loading && searchKeyword" class="w-4 h-4 animate-spin" />
+            <span>Tìm kiếm</span>
           </button>
 
           <!-- nút reset -->
@@ -437,10 +453,12 @@ const searchOrders = async () => {
                       <template v-if="groupFirstOrderIds.has(o.id)">
                         <button
                           v-if="o.status === 'pending'"
-                          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-green-600 bg-green-600 text-white text-base font-medium hover:bg-green-700 active:bg-green-800 transition"
+                          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-green-600 bg-green-600 text-white text-base font-medium hover:bg-green-700 active:bg-green-800 transition disabled:opacity-70 disabled:cursor-not-allowed"
                           @click.stop="approveGroup(o.groupOrderId)"
+                          :disabled="processingGroupId === o.groupOrderId"
                         >
-                          <Check class="w-4 h-4" />
+                          <Loader2 v-if="processingGroupId === o.groupOrderId" class="w-4 h-4 animate-spin" />
+                          <Check v-else class="w-4 h-4" />
                           <span class="text-sm font-medium">Xác nhận nhóm</span>
                         </button>
                         <button
@@ -448,10 +466,12 @@ const searchOrders = async () => {
                             o.status === 'pending' ||
                             o.status === 'awaiting_payment'
                           "
-                          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-red-600 bg-red-600 text-white text-base font-medium hover:bg-red-700 active:bg-red-800 transition"
-                          @click.stop="rejectGroup(o.id)"
+                          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-red-600 bg-red-600 text-white text-base font-medium hover:bg-red-700 active:bg-red-800 transition disabled:opacity-70 disabled:cursor-not-allowed"
+                          @click.stop="rejectGroup(o.id, o.groupOrderId)"
+                          :disabled="processingGroupId === o.groupOrderId"
                         >
-                          <X class="w-4 h-4" />
+                          <Loader2 v-if="processingGroupId === o.groupOrderId" class="w-4 h-4 animate-spin" />
+                          <X v-else class="w-4 h-4" />
                           <span class="text-sm font-medium">Từ chối nhóm</span>
                         </button>
                       </template>
@@ -467,10 +487,12 @@ const searchOrders = async () => {
                       >
                       <button
                         v-if="o.status === 'pending'"
-                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-green-600 bg-green-600 text-white text-base font-medium hover:bg-green-700 active:bg-green-800 transition"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-green-600 bg-green-600 text-white text-base font-medium hover:bg-green-700 active:bg-green-800 transition disabled:opacity-70 disabled:cursor-not-allowed"
                         @click.stop="approveOrder(o.id)"
+                        :disabled="processingOrderId === o.id"
                       >
-                        <Check class="w-4 h-4" />
+                        <Loader2 v-if="processingOrderId === o.id" class="w-4 h-4 animate-spin" />
+                        <Check v-else class="w-4 h-4" />
                         <span class="text-sm font-medium">Xác nhận</span>
                       </button>
                       <button
@@ -478,10 +500,12 @@ const searchOrders = async () => {
                           o.status === 'pending' ||
                           o.status === 'awaiting_payment'
                         "
-                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-red-600 bg-red-600 text-white text-base font-medium hover:bg-red-700 active:bg-red-800 transition"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-red-600 bg-red-600 text-white text-base font-medium hover:bg-red-700 active:bg-red-800 transition disabled:opacity-70 disabled:cursor-not-allowed"
                         @click.stop="rejectOrder(o.id)"
+                        :disabled="processingOrderId === o.id"
                       >
-                        <X class="w-4 h-4" />
+                        <Loader2 v-if="processingOrderId === o.id" class="w-4 h-4 animate-spin" />
+                        <X v-else class="w-4 h-4" />
                         <span class="text-sm font-medium">Từ chối</span>
                       </button>
                       <span v-else class="text-sm text-gray-500 italic">-</span>

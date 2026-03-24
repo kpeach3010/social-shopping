@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch, computed } from "vue";
-import { X, Folder, LayoutList } from "lucide-vue-next";
+import { X, Folder, LayoutList, Loader2 } from "lucide-vue-next";
 import { useAuthStore } from "@/stores/auth";
 
 // Props nhận vào danh mục đang sửa và danh sách tất cả danh mục (để chọn cha)
@@ -203,8 +203,8 @@ const submitCategory = async () => {
           :disabled="loading"
           class="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
         >
-          <span v-if="loading">Đang lưu...</span>
-          <span v-else>Lưu thay đổi</span>
+          <Loader2 v-if="loading" class="w-4 h-4 animate-spin" />
+          <span>{{ loading ? "Đang lưu..." : "Lưu thay đổi" }}</span>
         </button>
       </div>
     </div>

@@ -11,6 +11,7 @@ import { db } from "../db/client.js";
 import { orders, groupOrders, conversations } from "../db/schema.js";
 import { eq, and, ne } from "drizzle-orm";
 import paypalConfig from "../config/paypal.js";
+import { sendOrderStatusNotification } from "../services/orderNotification.service.js";
 // 1. API TẠO LINK THANH TOÁN PAYPAL
 export const createPaypalPaymentUrl = async (req, res) => {
   try {

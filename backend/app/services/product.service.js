@@ -6,8 +6,9 @@ import {
   colors,
   productVariants,
   couponProducts,
+  groupOrders,
 } from "../db/schema.js";
-import { sql, eq, and, ne, asc, desc, notInArray } from "drizzle-orm";
+import { sql, eq, and, ne, asc, desc, notInArray, inArray } from "drizzle-orm";
 import supabase from "../../services/supbase/client.js";
 import { notifyAffectedGroups } from "./groupOrders.service.js";
 
@@ -118,6 +119,37 @@ export async function renameFileInBucket(oldPath, newPath) {
   };
 }
 
+// Helper validate dữ liệu sản phẩm
+function validateProductData(data) {
+  // 1. Kiểm tra giá mặc định
+  const priceDefault = Number(data.price_default || 0);
+  if (priceDefault <= 50) {
+    throw new Error("Giá của sản phẩm phải lớn hơn 50");
+  }
+
+  // 2. Kiểm tra các màu và biến thể
+  if (Array.isArray(data.colors)) {
+    data.colors.forEach((color) => {
+      if (Array.isArray(color.sizes)) {
+        color.sizes.forEach((size) => {
+          // Kiểm tra giá biến thể (nếu có nhập)
+          if (size.price !== undefined && size.price !== "" && size.price !== null) {
+            const variantPrice = Number(size.price);
+            if (variantPrice < 50) {
+              throw new Error(`Giá của size "${size.sizeName}" phải lớn hơn 50`);
+            }
+          }
+          // Kiểm tra tồn kho
+          const stock = Number(size.stock || 0);
+          if (stock < 0) {
+            throw new Error(`Số lượng tồn kho của size "${size.sizeName}" không được âm.`);
+          }
+        });
+      }
+    });
+  }
+}
+
 // Di chuyển file trong supabase
 export async function moveAllFilesRecursive(bucket, oldPrefix, newPrefix) {
   const { data: items, error } = await supabase.storage
@@ -147,6 +179,9 @@ export async function moveAllFilesRecursive(bucket, oldPrefix, newPrefix) {
 
 // tạo sản phẩm mới, kèm upload ảnh, tạo variant, color, size
 export const createProductService = async (data) => {
+  // Validate trước khi làm bất cứ việc gì (bao gồm upload ảnh)
+  validateProductData(data);
+
   try {
     // Kiểm tra thông tin cơ bản của sản phẩm
     if (!data.name || !data.name.trim()) {
@@ -474,6 +509,29 @@ export const deleteVariantService = async (variantId) => {
 
     if (!variant) throw new Error("Variant not found");
 
+    // 1.1) Kiểm tra xem có nhóm mua chung nào đang hoạt động cho sản phẩm của variant này không
+    const activeGroups = await db
+      .select({ productName: products.name })
+      .from(groupOrders)
+      .innerJoin(products, eq(groupOrders.productId, products.id))
+      .where(
+        and(
+          eq(groupOrders.productId, variant.productId),
+          inArray(groupOrders.status, [
+            "pending",
+            "locked",
+            "ordering",
+            "awaiting_payment",
+          ]),
+        ),
+      );
+
+    if (activeGroups.length > 0) {
+      throw new Error(
+        `Không thể xóa kích cỡ/màu sắc này vì sản phẩm "${activeGroups[0].productName}" đang có nhóm mua chung đang hoạt động.`,
+      );
+    }
+
     // 2) Lấy product để build đường dẫn storage
     const [product] = await db
       .select({ categoryId: products.categoryId })
@@ -538,16 +596,46 @@ export const deleteVariantService = async (variantId) => {
     return { message: "Variant deleted successfully" };
   } catch (error) {
     console.error("Error deleting variant:", error);
-    throw new Error("Failed to delete variant");
+    throw error;
   }
 };
 
 export const deleteProductService = async (productIds) => {
   try {
-    // Hỗ trợ truyền 1 id hoặc mảng id
     const ids = Array.isArray(productIds) ? productIds : [productIds];
+    if (ids.length === 0) return { message: "No products to delete" };
+
+    // 1) Kiểm tra xem có nhóm mua chung nào đang hoạt động cho các sản phẩm này không
+    const activeGroups = await db
+      .select({
+        productId: groupOrders.productId,
+        productName: products.name,
+      })
+      .from(groupOrders)
+      .innerJoin(products, eq(groupOrders.productId, products.id))
+      .where(
+        and(
+          inArray(groupOrders.productId, ids),
+          inArray(groupOrders.status, [
+            "pending",
+            "locked",
+            "ordering",
+            "awaiting_payment",
+          ]),
+        ),
+      );
+
+    if (activeGroups.length > 0) {
+      const problematicProducts = [
+        ...new Set(activeGroups.map((g) => g.productName)),
+      ];
+      throw new Error(
+        `Không thể xóa sản phẩm: "${problematicProducts.join(", ")}" vì đang có nhóm mua chung đang hoạt động.`,
+      );
+    }
+
     for (const productId of ids) {
-      // 1) Lấy product để biết categoryPath
+      // 1) Lấy sản phẩm để biết categoryPath
       const [product] = await db
         .select({
           id: products.id,
@@ -574,7 +662,7 @@ export const deleteProductService = async (productIds) => {
     };
   } catch (error) {
     console.error("Error deleting product:", error);
-    throw new Error("Failed to delete product(s)");
+    throw error; // Ném nguyên error để controller xử lý message
   }
 };
 
@@ -582,8 +670,11 @@ export const deleteProductService = async (productIds) => {
 // ==========================
 // UPDATE PRODUCT (đồng bộ với CREATE)
 // ==========================
-
+// update sản phẩm
 export const updateProductService = async (productId, data) => {
+  // Validate trước khi xử lý (rename file, upload...)
+  validateProductData(data);
+
   try {
     return await db.transaction(async (tx) => {
       // 1) Lấy product cũ
@@ -932,6 +1023,29 @@ export const deleteColorService = async (colorId) => {
       .where(eq(colors.id, colorId))
       .limit(1);
     if (!color) throw new Error("Color not found");
+
+    // 1.1) Kiểm tra nhóm mua chung đang hoạt động cho sản phẩm này
+    const activeGroups = await db
+      .select({ productName: products.name })
+      .from(groupOrders)
+      .innerJoin(products, eq(groupOrders.productId, products.id))
+      .where(
+        and(
+          eq(groupOrders.productId, color.productId),
+          inArray(groupOrders.status, [
+            "pending",
+            "locked",
+            "ordering",
+            "awaiting_payment",
+          ]),
+        ),
+      );
+
+    if (activeGroups.length > 0) {
+      throw new Error(
+        `Không thể xóa màu sắc này vì sản phẩm "${activeGroups[0].productName}" đang có nhóm mua chung đang hoạt động.`,
+      );
+    }
     // 2) Lấy danh sách variants thuộc màu này
     const variants = await db
       .select({ id: productVariants.id })
@@ -950,7 +1064,7 @@ export const deleteColorService = async (colorId) => {
     return { message: `Deleted color ${colorId} and all related variants.` };
   } catch (error) {
     console.error("Error deleting color:", error);
-    throw new Error("Failed to delete color");
+    throw error;
   }
 };
 

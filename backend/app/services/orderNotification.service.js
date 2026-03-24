@@ -11,34 +11,34 @@ const STATUS_NOTIFICATION_MAP = {
     type: "order_paid",
     title: "Đơn hàng đã được thanh toán",
     content: (id) =>
-      `Đơn hàng #${id.slice(0, 8)} đã thanh toán thành công. Chờ shop xác nhận.`,
+      `Đơn hàng #${id} đã thanh toán thành công. Chờ shop xác nhận.`,
     statusTab: "pending",
   },
   confirmed: {
     type: "order_confirmed",
     title: "Đơn hàng đã được xác nhận",
     content: (id) =>
-      `Đơn hàng #${id.slice(0, 8)} đã được shop xác nhận và đang chuẩn bị giao.`,
+      `Đơn hàng #${id} đã được shop xác nhận và đang chuẩn bị giao.`,
     statusTab: "confirmed",
   },
   rejected: {
     type: "order_rejected",
     title: "Đơn hàng bị từ chối",
     content: (id) =>
-      `Đơn hàng #${id.slice(0, 8)} đã bị shop từ chối. Vui lòng liên hệ shop để biết thêm chi tiết.`,
+      `Đơn hàng #${id} đã bị shop từ chối. Vui lòng liên hệ shop để biết thêm chi tiết.`,
     statusTab: "rejected",
   },
   completed: {
     type: "order_completed",
     title: "Đơn hàng hoàn thành",
     content: (id) =>
-      `Đơn hàng #${id.slice(0, 8)} đã giao thành công. Cảm ơn bạn đã mua hàng!`,
+      `Đơn hàng #${id} đã giao thành công. Cảm ơn bạn đã mua hàng!`,
     statusTab: "completed",
   },
   cancelled: {
     type: "order_cancelled",
     title: "Đơn hàng đã bị hủy",
-    content: (id) => `Đơn hàng #${id.slice(0, 8)} đã bị hủy.`,
+    content: (id) => `Đơn hàng #${id} đã bị hủy.`,
     statusTab: "cancelled",
   },
 };

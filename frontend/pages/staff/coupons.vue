@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted, computed } from "vue";
-import { BadgePercent, PencilLine, Trash2 } from "lucide-vue-next";
+import { BadgePercent, PencilLine, Trash2, Loader2 } from "lucide-vue-next";
 
 import Sidebar from "@/components/modals/staff/Sidebar.vue";
 import CreateCouponModal from "@/components/modals/staff/CreateCouponModal.vue";
@@ -10,6 +10,8 @@ const auth = useAuthStore();
 const isOpen = ref(true);
 const coupons = ref([]);
 const loading = ref(false);
+const isBulkDeleting = ref(false);
+const deletingCouponIds = ref(new Set());
 const config = useRuntimeConfig();
 const showCreateModal = ref(false);
 const showEditModal = ref(false);
@@ -83,8 +85,15 @@ const toggleSelect = (id) => {
 // Xóa 1 hoặc nhiều coupon
 const deleteCoupons = async (ids) => {
   const arr = Array.isArray(ids) ? ids : [ids];
+  if (!arr.length) return;
 
   if (!confirm(`Xác nhận xóa ${arr.length} coupon?`)) return;
+
+  if (arr.length === 1) {
+    deletingCouponIds.value.add(arr[0]);
+  } else {
+    isBulkDeleting.value = true;
+  }
 
   try {
     await $fetch(`/coupons/delete-coupon/${arr.join(",")}`, {
@@ -96,9 +105,16 @@ const deleteCoupons = async (ids) => {
     alert("Đã xóa!");
     selectedIds.value = [];
     fetchCoupons();
-  } catch (e) {
-    console.error("Delete lỗi:", e);
-    alert("Không thể xóa coupon");
+  } catch (err) {
+    console.error("Delete lỗi:", err);
+    const errorMsg = err?.response?._data?.error || "Không thể xóa coupon";
+    alert(errorMsg);
+  } finally {
+    if (arr.length === 1) {
+      deletingCouponIds.value.delete(arr[0]);
+    } else {
+      isBulkDeleting.value = false;
+    }
   }
 };
 </script>
@@ -118,9 +134,11 @@ const deleteCoupons = async (ids) => {
           <button
             v-if="selectedIds.length"
             @click="deleteCoupons(selectedIds)"
-            class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-500"
+            :disabled="isBulkDeleting"
+            class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-500 disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2"
           >
-            Xóa đã chọn ({{ selectedIds.length }})
+            <Loader2 v-if="isBulkDeleting" class="w-4 h-4 animate-spin" />
+            <span>Xóa đã chọn ({{ selectedIds.length }})</span>
           </button>
 
           <button
@@ -212,9 +230,14 @@ const deleteCoupons = async (ids) => {
                   <button
                     v-if="selectedIds.length === 0"
                     @click="deleteCoupons(c.id)"
-                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-red-600 border border-red-600 text-white hover:bg-red-500"
+                    :disabled="deletingCouponIds.has(c.id)"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-red-600 border border-red-600 text-white hover:bg-red-500 disabled:opacity-70 disabled:cursor-not-allowed"
                   >
-                    <Trash2 class="w-4 h-4" />
+                    <Loader2
+                      v-if="deletingCouponIds.has(c.id)"
+                      class="w-4 h-4 animate-spin"
+                    />
+                    <Trash2 v-else class="w-4 h-4" />
                     <span>Xóa</span>
                   </button>
                 </div>

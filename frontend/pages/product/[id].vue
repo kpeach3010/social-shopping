@@ -204,9 +204,12 @@
                   <button
                     v-if="!auth.isLoggedIn || auth.isCustomer"
                     @click.stop="createInviteLink(c.id)"
-                    class="px-3 py-1 bg-black text-white rounded-full hover:bg-gray-800 text-xs font-semibold shadow-sm active:scale-[0.97] cursor-pointer"
+                    :disabled="creatingInviteLinks[c.id]"
+                    class="px-3 py-1 bg-black text-white rounded-full hover:bg-gray-800 text-xs font-semibold shadow-sm active:scale-[0.97] cursor-pointer disabled:bg-gray-400 flex items-center justify-center min-w-[90px]"
                   >
-                    + Tạo nhóm
+                    <span v-if="creatingInviteLinks[c.id]" class="loader-inline mr-1"></span>
+                    <span v-if="creatingInviteLinks[c.id]">Đang tạo...</span>
+                    <span v-else>+ Tạo nhóm</span>
                   </button>
                   <div
                     v-if="groupInviteLinks[c.id]"
@@ -495,6 +498,7 @@ const selectedSize = ref(null);
 const quantity = ref(1);
 const coupons = ref([]);
 const loadingCoupons = ref(false);
+const creatingInviteLinks = ref({});
 const groupInviteLinks = ref({});
 const reviews = ref([]);
 const loadingReviews = ref(true);
@@ -838,6 +842,7 @@ const createInviteLink = async (couponId) => {
     return;
   }
 
+  creatingInviteLinks.value[couponId] = true;
   try {
     const res = await $fetch("/conversations/invite-links", {
       method: "POST",
@@ -852,7 +857,7 @@ const createInviteLink = async (couponId) => {
 
     if (res.reused) {
       alert(
-        `Bạn đã có nhóm đang hoạt động cho sản phẩm này!\nTên nhóm: ${res.conversationName}`
+        `Bạn đã có nhóm đang hoạt động cho sản phẩm này!\nTên nhóm: ${res.conversationName}`,
       );
     }
 
@@ -864,6 +869,8 @@ const createInviteLink = async (couponId) => {
     const errorMsg =
       e?.data?.error || e?.data?.message || e.message || "Có lỗi xảy ra";
     alert(`Không thể tạo nhóm: ${errorMsg}`);
+  } finally {
+    creatingInviteLinks.value[couponId] = false;
   }
 };
 
@@ -911,5 +918,21 @@ const formatPrice = (v) =>
 
 .product-description :deep(u) {
   text-decoration: underline;
+}
+
+.loader-inline {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin-inline 0.8s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin-inline {
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

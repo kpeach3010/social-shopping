@@ -5,6 +5,7 @@ import {
   productVariants,
   orders,
   products,
+  groupOrders,
 } from "../db/schema.js";
 import { eq, lte, gte, isNull, lt, and, or, inArray, sql } from "drizzle-orm";
 import { GroupKind } from "../enums/kind.enum.js";
@@ -421,6 +422,35 @@ export const updateCouponService = async (couponId, data) => {
 export const deleteCouponService = async (ids) => {
   if (!Array.isArray(ids)) ids = [ids];
   if (!ids.length) throw new Error("No coupon id(s) provided");
+
+  // 1) Kiểm tra xem có nhóm mua chung nào đang hoạt động cho các coupon này không
+  const activeGroups = await db
+    .select({
+      couponCode: coupons.code,
+    })
+    .from(groupOrders)
+    .innerJoin(coupons, eq(groupOrders.couponId, coupons.id))
+    .where(
+      and(
+        inArray(groupOrders.couponId, ids),
+        inArray(groupOrders.status, [
+          "pending",
+          "locked",
+          "ordering",
+          "awaiting_payment",
+        ]),
+      ),
+    );
+
+  if (activeGroups.length > 0) {
+    const problematicCoupons = [
+      ...new Set(activeGroups.map((g) => g.couponCode)),
+    ];
+    throw new Error(
+      `Không thể xóa mã giảm giá: "${problematicCoupons.join(", ")}" vì đang có nhóm mua chung đang hoạt động.`,
+    );
+  }
+
   // Xóa mapping trong coupon_products trước
   await db.delete(couponProducts).where(inArray(couponProducts.couponId, ids));
   // Xóa coupon

@@ -36,7 +36,7 @@ export const checkoutController = async (req, res) => {
           userId,
           type: "order_placed",
           title: "Đặt hàng thành công",
-          content: `Đơn hàng cá nhân #${result.order.id.slice(0, 8)} đã được đặt. Cảm ơn bạn đã mua hàng!`,
+          content: `Đơn hàng cá nhân #${result.order.id} đã được đặt. Cảm ơn bạn đã mua hàng!`,
           imageUrl: result.orderItems.length > 0 ? result.orderItems[0].imageUrl : null,
           actionUrl: `/profile?tab=orders&status=${result.initialStatus}`,
         });

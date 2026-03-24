@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, onUnmounted } from "vue";
+import { ref, watch, onUnmounted, computed } from "vue";
 import { ImageUp, X, Loader2 } from "lucide-vue-next";
 import CategoryDropdown from "@/components/category/CategoryDropdown.vue";
 
@@ -150,7 +150,8 @@ const removeColor = async (colorIdx) => {
     emit("refresh");
     alert("Đã xóa màu thành công!");
   } catch (err) {
-    alert("Lỗi xóa màu!");
+    const errorMsg = err?.response?._data?.error || "Lỗi xóa màu!";
+    alert(errorMsg);
     console.error(err);
   } finally {
     // KEY LOGIC: Xóa index khỏi danh sách (để tắt loading nếu lỗi, hoặc cleanup)
@@ -219,7 +220,8 @@ const removeSize = async (colorIdx, sizeIdx) => {
     emit("refresh");
     alert("Đã xóa size thành công!");
   } catch (err) {
-    alert("Lỗi xóa size!");
+    const errorMsg = err?.response?._data?.error || "Lỗi xóa size!";
+    alert(errorMsg);
     console.error(err);
   } finally {
     // KEY LOGIC: Xóa key
@@ -232,6 +234,25 @@ const submitProduct = async () => {
   if (isLoading.value) return;
   try {
     isLoading.value = true;
+
+    // Validate phía frontend
+    if (Number(product.value.price_default || 0) < 50) {
+      alert("Giá mặc định phải lớn hơn 50");
+      isLoading.value = false;
+      return;
+    }
+
+    // Kiểm tra tồn kho của từng biến thể
+    for (const color of product.value.colors) {
+      for (const size of color.sizes) {
+        if (Number(size.stock || 0) < 0) {
+          alert(`Số lượng tồn kho của size "${size.sizeName}" (màu ${color.colorName}) không được âm.`);
+          isLoading.value = false;
+          return;
+        }
+      }
+    }
+
     const formData = new FormData();
 
     // 1. Thông tin cơ bản
@@ -328,6 +349,17 @@ const submitProduct = async () => {
     isLoading.value = false;
   }
 };
+// Computed để định dạng giá hiển thị (dấu phân cách hàng nghìn)
+const displayPrice = computed({
+  get: () => {
+    if (product.value.price_default === "" || product.value.price_default === null || product.value.price_default === undefined) return "";
+    return new Intl.NumberFormat("vi-VN").format(product.value.price_default);
+  },
+  set: (val) => {
+    const raw = val.replace(/\D/g, ""); // chỉ giữ lại số
+    product.value.price_default = raw ? parseInt(raw, 10) : "";
+  },
+});
 </script>
 
 <template>
@@ -351,92 +383,115 @@ const submitProduct = async () => {
         </button>
       </div>
       <div class="p-6 overflow-y-auto max-h-[70vh] pb-24">
-        <div class="space-y-3">
-          <input
-            v-model="product.name"
-            type="text"
-            placeholder="Tên sản phẩm"
-            class="w-full border px-3 py-2 rounded"
-          />
-          <div class="space-y-2">
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Tên sản phẩm</label>
+            <input
+              v-model="product.name"
+              type="text"
+              placeholder="Nhập tên sản phẩm"
+              class="w-full border px-3 py-2 rounded focus:ring-2 focus:ring-black/5 outline-none"
+            />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Danh mục</label>
             <CategoryDropdown
               v-model="product.categoryId"
               :categories="categories"
             />
           </div>
-          <input
-            v-model="product.price_default"
-            type="number"
-            placeholder="Giá mặc định"
-            class="w-full border px-3 py-2 rounded"
-          />
-          <div class="border rounded">
-            <QuillEditor
-              v-model:content="product.description"
-              contentType="html"
-              placeholder="Mô tả sản phẩm..."
-              :toolbar="[
-                ['bold', 'italic', 'underline'],
-                [{ list: 'ordered' }, { list: 'bullet' }],
-                ['clean'],
-              ]"
-              style="min-height: 150px"
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Giá mặc định (VNĐ)</label>
+            <input
+              v-model="displayPrice"
+              type="text"
+              placeholder="Nhập giá mặc định (tối thiểu 50)"
+              class="w-full border px-3 py-2 rounded focus:ring-2 focus:ring-black/5 outline-none font-medium text-gray-900"
             />
           </div>
-          <div class="space-y-2">
-            <div
-              v-if="!product.thumbnailPreview"
-              class="flex items-center gap-2 cursor-pointer text-gray-700 hover:text-black"
-            >
-              <label class="flex items-center gap-2 cursor-pointer">
-                <ImageUp class="w-5 h-5" />
-                <span>Chọn ảnh thumbnail (mặt trước)</span>
-                <input type="file" class="hidden" @change="handleThumbnail" />
-              </label>
-            </div>
-            <div v-else class="relative inline-block">
-              <img
-                :src="product.thumbnailPreview"
-                alt="Preview Thumbnail"
-                class="w-32 h-32 object-cover rounded border"
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Mô tả sản phẩm</label>
+            <div class="border rounded">
+              <QuillEditor
+                v-model:content="product.description"
+                contentType="html"
+                placeholder="Mô tả chi tiết sản phẩm..."
+                :toolbar="[
+                  ['bold', 'italic', 'underline'],
+                  [{ list: 'ordered' }, { list: 'bullet' }],
+                  ['clean'],
+                ]"
+                style="min-height: 150px"
               />
-              <button
-                @click="removeThumbnail"
-                class="absolute -top-2 -right-2 bg-white border rounded-full p-1 shadow hover:bg-gray-100"
+            </div>
+          </div>
+
+          <!-- Upload thumbnail -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Ảnh thumbnail (mặt trước)</label>
+            <div class="space-y-2">
+              <div
+                v-if="!product.thumbnailPreview"
+                class="flex items-center gap-2 cursor-pointer text-gray-700 hover:text-black"
               >
-                <X class="w-4 h-4 text-gray-600" />
-              </button>
+                <label class="flex items-center gap-2 cursor-pointer border-2 border-dashed rounded-lg p-4 w-full justify-center hover:bg-gray-50 transition-colors">
+                  <ImageUp class="w-5 h-5" />
+                  <span>Chọn ảnh thumbnail</span>
+                  <input type="file" class="hidden" @change="handleThumbnail" />
+                </label>
+              </div>
+
+              <div v-else class="relative inline-block">
+                <img
+                  :src="product.thumbnailPreview"
+                  alt="Preview Thumbnail"
+                  class="w-32 h-32 object-cover rounded border"
+                />
+                <button
+                  @click="removeThumbnail"
+                  class="absolute -top-2 -right-2 bg-white border rounded-full p-1 shadow hover:bg-gray-100"
+                >
+                  <X class="w-4 h-4 text-gray-600" />
+                </button>
+              </div>
             </div>
           </div>
 
           <!-- Upload ảnh mặt sau -->
-          <div class="space-y-2">
-            <div
-              v-if="!product.backThumbnailPreview"
-              class="flex items-center gap-2 cursor-pointer text-gray-700 hover:text-black"
-            >
-              <label class="flex items-center gap-2 cursor-pointer">
-                <ImageUp class="w-5 h-5" />
-                <span>Chọn ảnh mặt sau</span>
-                <input
-                  type="file"
-                  class="hidden"
-                  @change="handleBackThumbnail"
-                />
-              </label>
-            </div>
-            <div v-else class="relative inline-block">
-              <img
-                :src="product.backThumbnailPreview"
-                alt="Preview Ảnh mặt sau"
-                class="w-32 h-32 object-cover rounded border"
-              />
-              <button
-                @click="removeBackThumbnail"
-                class="absolute -top-2 -right-2 bg-white border rounded-full p-1 shadow hover:bg-gray-100"
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Ảnh mặt sau</label>
+            <div class="space-y-2">
+              <div
+                v-if="!product.backThumbnailPreview"
+                class="flex items-center gap-2 cursor-pointer text-gray-700 hover:text-black"
               >
-                <X class="w-4 h-4 text-gray-600" />
-              </button>
+                <label class="flex items-center gap-2 cursor-pointer border-2 border-dashed rounded-lg p-4 w-full justify-center hover:bg-gray-50 transition-colors">
+                  <ImageUp class="w-5 h-5" />
+                  <span>Chọn ảnh mặt sau</span>
+                  <input
+                    type="file"
+                    class="hidden"
+                    @change="handleBackThumbnail"
+                  />
+                </label>
+              </div>
+
+              <div v-else class="relative inline-block">
+                <img
+                  :src="product.backThumbnailPreview"
+                  alt="Preview Ảnh mặt sau"
+                  class="w-32 h-32 object-cover rounded border"
+                />
+                <button
+                  @click="removeBackThumbnail"
+                  class="absolute -top-2 -right-2 bg-white border rounded-full p-1 shadow hover:bg-gray-100"
+                >
+                  <X class="w-4 h-4 text-gray-600" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -447,39 +502,47 @@ const submitProduct = async () => {
             :key="colorIdx"
             class="mb-6 border rounded p-3 bg-gray-50"
           >
-            <div class="flex items-center gap-3 mb-2">
-              <input
-                v-model="color.colorName"
-                placeholder="Tên màu"
-                class="border px-2 py-1 rounded flex-1"
-              />
-              <label
-                v-if="!color.preview"
-                class="flex items-center gap-2 cursor-pointer text-gray-700 hover:text-black"
-              >
-                <ImageUp class="w-5 h-5" />
+            <div class="flex items-end gap-3 mb-4">
+              <div class="flex-1">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Tên màu</label>
                 <input
-                  type="file"
-                  class="hidden"
-                  @change="(e) => handleColorFile(e, colorIdx)"
+                  v-model="color.colorName"
+                  placeholder="Ví dụ: Đỏ, Xanh..."
+                  class="w-full border px-3 py-2 rounded focus:ring-2 focus:ring-black/5 outline-none"
                 />
-              </label>
-              <div v-else class="relative inline-block">
-                <img
-                  :src="color.preview"
-                  class="w-16 h-16 object-cover rounded border"
-                />
-                <button
-                  @click="removeColorFile(colorIdx)"
-                  class="absolute -top-2 -right-2 bg-white border rounded-full p-1 shadow hover:bg-gray-100"
-                >
-                  <X class="w-4 h-4 text-gray-600" />
-                </button>
               </div>
+
+              <div class="flex flex-col items-center">
+                <label class="block text-sm font-medium text-gray-700 mb-1 text-center">Ảnh màu</label>
+                <label
+                  v-if="!color.preview"
+                  class="flex items-center justify-center border-2 border-dashed rounded-lg w-[42px] h-[42px] cursor-pointer text-gray-500 hover:text-black hover:bg-gray-50 transition-colors"
+                >
+                  <ImageUp class="w-5 h-5" />
+                  <input
+                    type="file"
+                    class="hidden"
+                    @change="(e) => handleColorFile(e, colorIdx)"
+                  />
+                </label>
+                <div v-else class="relative inline-block">
+                  <img
+                    :src="color.preview"
+                    class="w-[42px] h-[42px] object-cover rounded border"
+                  />
+                  <button
+                    @click="removeColorFile(colorIdx)"
+                    class="absolute -top-2 -right-2 bg-white border rounded-full p-1 shadow hover:bg-gray-100"
+                  >
+                    <X class="w-3 h-3 text-gray-600" />
+                  </button>
+                </div>
+              </div>
+
               <button
                 @click="removeColor(colorIdx)"
                 :disabled="deletingColorIndices.has(colorIdx)"
-                class="ml-2 px-2 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                class="px-3 py-2 bg-red-50 text-red-600 rounded hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 h-[42px]"
               >
                 <Loader2
                   v-if="deletingColorIndices.has(colorIdx)"
@@ -491,52 +554,52 @@ const submitProduct = async () => {
             <div>
               <div
                 v-if="color.sizes.length > 0"
-                class="grid grid-cols-7 gap-2 font-semibold text-gray-700 mb-1"
+                class="grid grid-cols-4 gap-4 font-semibold text-gray-700 mb-2 px-1"
               >
-                <div>Tên size</div>
-                <div>Giá</div>
-                <div>Kho</div>
+                <div class="col-span-2">Kích cỡ</div>
+                <div>Tồn kho</div>
                 <div></div>
               </div>
               <div
                 v-for="(size, sizeIdx) in color.sizes"
                 :key="sizeIdx"
-                class="grid grid-cols-7 gap-2 mb-1 items-center"
+                class="grid grid-cols-4 gap-4 mb-2 items-center"
               >
-                <input
-                  v-model="size.sizeName"
-                  placeholder="Kích cỡ"
-                  class="border px-2 py-1 rounded"
-                />
-                <input
-                  v-model="size.price"
-                  type="number"
-                  placeholder="Giá"
-                  class="border px-2 py-1 rounded"
-                />
-                <input
-                  v-model="size.stock"
-                  type="number"
-                  placeholder="Kho"
-                  class="border px-2 py-1 rounded"
-                />
-                <button
-                  @click="removeSize(colorIdx, sizeIdx)"
-                  :disabled="deletingSizeKeys.has(`${colorIdx}-${sizeIdx}`)"
-                  class="px-2 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[50px]"
-                >
-                  <Loader2
-                    v-if="deletingSizeKeys.has(`${colorIdx}-${sizeIdx}`)"
-                    class="w-4 h-4 animate-spin"
+                <div class="col-span-2">
+                  <input
+                    v-model="size.sizeName"
+                    placeholder="M, L, XL..."
+                    class="w-full border px-3 py-2 rounded focus:ring-2 focus:ring-black/5 outline-none text-sm"
                   />
-                  <span v-else>Xóa</span>
-                </button>
+                </div>
+                <div>
+                  <input
+                    v-model="size.stock"
+                    type="number"
+                    min="0"
+                    placeholder="Số lượng"
+                    class="w-full border px-3 py-2 rounded focus:ring-2 focus:ring-black/5 outline-none text-sm"
+                  />
+                </div>
+                <div class="flex justify-end">
+                  <button
+                    @click="removeSize(colorIdx, sizeIdx)"
+                    :disabled="deletingSizeKeys.has(`${colorIdx}-${sizeIdx}`)"
+                    class="px-3 py-2 bg-red-50 text-red-600 rounded hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[50px] transition-colors"
+                  >
+                    <Loader2
+                      v-if="deletingSizeKeys.has(`${colorIdx}-${sizeIdx}`)"
+                      class="w-4 h-4 animate-spin"
+                    />
+                    <span v-else class="text-sm font-medium">Xóa</span>
+                  </button>
+                </div>
               </div>
               <button
                 @click="addSize(colorIdx)"
-                class="mt-1 px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
+                class="mt-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium flex items-center gap-2"
               >
-                + Thêm size
+                <span>+ Thêm kích cỡ</span>
               </button>
             </div>
           </div>

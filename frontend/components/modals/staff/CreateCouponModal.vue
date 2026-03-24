@@ -189,14 +189,15 @@
 
         <!-- Button -->
         <button
-          class="w-full bg-black text-white py-2 rounded-lg transition"
+          class="w-full bg-black text-white py-2 rounded-lg transition disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           :class="
-            !isFormValid ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-800'
+            !isFormValid || isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-800'
           "
-          :disabled="!isFormValid"
+          :disabled="!isFormValid || isLoading"
           @click="createCoupon"
         >
-          Tạo mã giảm giá
+          <Loader2 v-if="isLoading" class="w-4 h-4 animate-spin" />
+          <span>{{ isLoading ? "Đang xử lý..." : "Tạo mã giảm giá" }}</span>
         </button>
       </div>
     </div>
@@ -205,12 +206,13 @@
 
 <script setup>
 import { ref, onMounted, computed } from "vue";
-import { X } from "lucide-vue-next";
+import { X, Loader2 } from "lucide-vue-next";
 import { useAuthStore } from "@/stores/auth";
 const emit = defineEmits(["close", "refresh"]);
 
 const auth = useAuthStore();
 const config = useRuntimeConfig();
+const isLoading = ref(false);
 
 const coupon = ref({
   code: "",
@@ -284,6 +286,7 @@ const isFormValid = computed(() => {
 });
 
 const createCoupon = async () => {
+  if (isLoading.value) return;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const startsAt = coupon.value.startsAt
@@ -315,6 +318,7 @@ const createCoupon = async () => {
     alert(msg);
     return;
   }
+  isLoading.value = true;
   try {
     await $fetch("/coupons/create-coupon", {
       method: "POST",
@@ -328,6 +332,8 @@ const createCoupon = async () => {
   } catch (err) {
     console.error(err);
     alert(err.data?.message || "Không thể tạo mã giảm giá!");
+  } finally {
+    isLoading.value = false;
   }
 };
 

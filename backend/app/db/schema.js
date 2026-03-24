@@ -338,7 +338,7 @@ export const cartItems = pgTable(
 export const orders = pgTable(
   "orders",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
+    id: varchar("id", { length: 30 }).primaryKey(),
 
     userId: uuid("user_id")
       .notNull()
@@ -394,7 +394,7 @@ export const orderItems = pgTable(
   "order_items",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    orderId: uuid("order_id")
+    orderId: varchar("order_id", { length: 30 })
       .notNull()
       .references(() => orders.id, { onDelete: "cascade" }),
     productId: uuid("product_id").references(() => products.id, {
@@ -938,7 +938,7 @@ export const notifications = pgTable("notifications", {
   }), // Ai gửi kết bạn, ai like, ai comment, etc.
 
   relatedEntityType: varchar("related_entity_type", { length: 50 }), // post, order, friend_request
-  relatedEntityId: uuid("related_entity_id"), // ID của post, order, friendRequest
+  relatedEntityId: varchar("related_entity_id", { length: 255 }), // ID của post, order, friendRequest
 
   // Link để navigate
   actionUrl: varchar("action_url", { length: 500 }),

@@ -187,6 +187,22 @@ async function copyImageToOrderImages(variant, orderId) {
   return { imagePath: newPath, imageUrl: data.publicUrl };
 }
 
+// Hàm tạo ID đơn hàng chỉ gồm số (YYYYMMDDHHMMSS + 4 số ngẫu nhiên)
+export function generateNumericOrderId() {
+  const now = new Date();
+  const datePart =
+    now.getFullYear().toString() +
+    (now.getMonth() + 1).toString().padStart(2, "0") +
+    now.getDate().toString().padStart(2, "0") +
+    now.getHours().toString().padStart(2, "0") +
+    now.getMinutes().toString().padStart(2, "0") +
+    now.getSeconds().toString().padStart(2, "0");
+  const randomPart = Math.floor(Math.random() * 10000)
+    .toString()
+    .padStart(4, "0");
+  return datePart + randomPart;
+}
+
 export const checkoutService = async (
   userId,
   items,
@@ -342,6 +358,7 @@ export const checkoutService = async (
   const [order] = await db
     .insert(orders)
     .values({
+      id: generateNumericOrderId(),
       userId,
       groupOrderId,
       status: initialStatus,
@@ -566,7 +583,7 @@ export const cancelOrderService = async (orderId, userId) => {
   const refundRes = await processOrderRefund(updated);
 
   // 7) Gửi thông báo hủy đơn cho user
-  let customMsg = `Đơn hàng #${orderId.slice(0, 8)} đã được hủy theo yêu cầu của bạn.`;
+  let customMsg = `Đơn hàng #${orderId} đã được hủy theo yêu cầu của bạn.`;
   if (refundRes.isSuccess) {
     customMsg += ` Đã hoàn tiền ${formatVND(updated.total)} vào tài khoản PayPal của bạn.`;
   }
@@ -1078,7 +1095,7 @@ export const updateOrderStatusService = async (orderId, action, staffId) => {
 
     // Hoàn tiền nếu cần
     const refundRes = await processOrderRefund(updated);
-    let customMsg = `Đơn hàng #${orderId.slice(0, 8)} đã bị shop từ chối.`;
+    let customMsg = `Đơn hàng #${orderId} đã bị shop từ chối.`;
     if (refundRes.isSuccess) {
       customMsg += ` Đã hoàn tiền ${formatVND(updated.total)} vào tài khoản PayPal của bạn.`;
     }

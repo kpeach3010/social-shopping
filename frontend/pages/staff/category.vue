@@ -17,6 +17,7 @@ const categories = ref([]); // Dữ liệu phẳng từ API
 const loading = ref(false);
 const auth = useAuthStore();
 const expandedCategories = ref({});
+const deletingCategoryId = ref(null);
 const config = useRuntimeConfig();
 
 definePageMeta({
@@ -98,6 +99,7 @@ const openEditModal = (category) => {
 
 const deleteCategory = async (id, name) => {
   if (!confirm(`Bạn có chắc muốn xóa danh mục: "${name}" không?`)) return;
+  deletingCategoryId.value = id;
   try {
     const res = await $fetch(`/category/delete-category/${id}`, {
       method: "DELETE",
@@ -109,6 +111,8 @@ const deleteCategory = async (id, name) => {
   } catch (err) {
     const errorMsg = err?.response?._data?.error || "Lỗi xóa danh mục!";
     alert(errorMsg);
+  } finally {
+    deletingCategoryId.value = null;
   }
 };
 
@@ -165,6 +169,7 @@ const isExpanded = (categoryId) => {
               :category="cat"
               :level="0"
               :is-expanded="isExpanded(cat.id)"
+              :is-deleting="deletingCategoryId === cat.id"
               @toggle="toggleExpand"
               @edit="openEditModal"
               @delete="deleteCategory"

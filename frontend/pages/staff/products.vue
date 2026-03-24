@@ -7,6 +7,7 @@ import {
   BarChart,
   Trash2,
   PencilLine,
+  Loader2,
 } from "lucide-vue-next";
 
 import AddProductModal from "@/components/modals/staff/AddProductModal.vue";
@@ -21,6 +22,8 @@ const editProductCategories = ref([]);
 const isOpen = ref(true);
 const products = ref([]);
 const loading = ref(false);
+const isBulkDeleting = ref(false);
+const deletingProductIds = ref(new Set());
 const auth = useAuthStore();
 const config = useRuntimeConfig();
 
@@ -162,7 +165,6 @@ const toggleSelectProduct = (id) => {
 
 // Hàm xóa sản phẩm (1 hoặc nhiều)
 const deleteProducts = async (ids) => {
-  // ids: string | string[]
   let idArr = Array.isArray(ids) ? ids : [ids];
   if (!idArr.length) return;
   const confirmMsg =
@@ -170,13 +172,19 @@ const deleteProducts = async (ids) => {
       ? "Bạn có chắc muốn xóa sản phẩm này?"
       : `Bạn có chắc muốn xóa ${idArr.length} sản phẩm đã chọn?`;
   if (!confirm(confirmMsg)) return;
+
+  if (idArr.length === 1) {
+    deletingProductIds.value.add(idArr[0]);
+  } else {
+    isBulkDeleting.value = true;
+  }
+
   try {
     await $fetch(`/product/delete-many/${idArr.join(",")}`, {
       method: "DELETE",
       baseURL: config.public.apiBase,
       headers: { Authorization: `Bearer ${auth.accessToken}` },
     });
-    // Nếu xóa nhiều thì clear hết, xóa 1 thì loại id đó khỏi selectedProductIds
     if (idArr.length === 1) {
       selectedProductIds.value = selectedProductIds.value.filter(
         (pid) => pid !== idArr[0],
@@ -187,8 +195,15 @@ const deleteProducts = async (ids) => {
     await fetchProducts();
     alert("Đã xóa sản phẩm thành công!");
   } catch (err) {
-    alert("Lỗi xóa sản phẩm!");
+    const errorMsg = err?.response?._data?.error || "Lỗi xóa sản phẩm!";
+    alert(errorMsg);
     console.error(err);
+  } finally {
+    if (idArr.length === 1) {
+      deletingProductIds.value.delete(idArr[0]);
+    } else {
+      isBulkDeleting.value = false;
+    }
   }
 };
 </script>
@@ -207,9 +222,11 @@ const deleteProducts = async (ids) => {
             <button
               v-if="selectedProductIds.length > 0"
               @click="deleteProducts(selectedProductIds)"
-              class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-500"
+              :disabled="isBulkDeleting"
+              class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-500 disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2"
             >
-              Xóa đã chọn ({{ selectedProductIds.length }})
+              <Loader2 v-if="isBulkDeleting" class="w-4 h-4 animate-spin" />
+              <span>Xóa đã chọn ({{ selectedProductIds.length }})</span>
             </button>
 
             <!-- Nút thêm sản phẩm -->
@@ -288,10 +305,15 @@ const deleteProducts = async (ids) => {
                     </button>
                     <button
                       v-if="selectedProductIds.length === 0"
-                      class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-red-600 bg-red-600 text-white hover:bg-red-500 active:bg-red-700 transition"
+                      class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-red-600 bg-red-600 text-white hover:bg-red-500 active:bg-red-700 transition disabled:opacity-70 disabled:cursor-not-allowed"
                       @click="deleteProducts(p.id)"
+                      :disabled="deletingProductIds.has(p.id)"
                     >
-                      <Trash2 class="w-4 h-4" />
+                      <Loader2
+                        v-if="deletingProductIds.has(p.id)"
+                        class="w-4 h-4 animate-spin"
+                      />
+                      <Trash2 v-else class="w-4 h-4" />
                       <span class="text-sm">Xóa</span>
                     </button>
                   </div>

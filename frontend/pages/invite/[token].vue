@@ -108,7 +108,7 @@
           <p>Email: {{ inviteDetail?.creator?.email }}</p>
         </div>
 
-        <!-- Nếu là người tạo link -->
+        <!-- 1. Nếu là người tạo link -->
         <div v-if="isCreator" class="text-center space-y-4">
           <div
             class="text-gray-800 font-medium border border-gray-200 bg-gray-50 p-3 rounded-lg"
@@ -125,28 +125,39 @@
             </button>
           </div>
         </div>
-        <!-- Nếu user chưa tham gia, không phải creator, và nhóm chưa khóa -->
-        <div
-          v-else-if="
-            (!auth.isLoggedIn || auth.isCustomer) &&
-            !alreadyJoined &&
-            !isCreator &&
-            (inviteDetail?.groupOrder?.status === 'pending' ||
-              !inviteDetail?.groupOrder)
-          "
-        >
+
+        <!-- 2. Nếu đã join thành công ngay trong session này -->
+        <div v-else-if="success" class="mt-5 text-center">
+          <p class="text-green-600 font-semibold text-lg mb-3">
+            🎉 Tham gia nhóm thành công!
+          </p>
           <button
-            @click="joinGroup"
-            :disabled="joining"
-            class="w-full py-2 bg-black text-white rounded-lg hover:bg-neutral-800 font-medium disabled:bg-neutral-400 transition"
+            @click="openChatBox"
+            class="px-6 py-2 bg-black text-white rounded-lg hover:bg-neutral-800 font-medium"
           >
-            {{ joining ? "Đang tham gia..." : "Tham gia nhóm" }}
+            Mở chat nhóm
           </button>
         </div>
 
-        <!-- Thông báo cho Staff/Admin -->
+        <!-- 3. Nếu user đã là thành viên (đã join từ trước) -->
         <div
-          v-if="auth.isLoggedIn && !auth.isCustomer"
+          v-else-if="alreadyJoined"
+          class="text-center text-green-600 font-medium border border-green-200 bg-green-50 p-3 rounded-lg"
+        >
+          Bạn đã là thành viên của nhóm này 🎉
+          <div class="mt-4">
+            <button
+              @click="openChatBox"
+              class="px-5 py-2 bg-black text-white rounded-lg hover:bg-neutral-800 font-medium"
+            >
+              Mở chat nhóm
+            </button>
+          </div>
+        </div>
+
+        <!-- 4. Thông báo cho Staff/Admin (Không phải Customer) -->
+        <div
+          v-else-if="auth.isLoggedIn && !auth.isCustomer"
           class="p-4 bg-amber-50 border border-amber-200 text-amber-700 rounded-lg text-sm flex items-center gap-2"
         >
           <svg
@@ -166,38 +177,9 @@
           Tài khoản nhân viên/admin không thể tham gia nhóm mua chung.
         </div>
 
-        <!-- Nếu user đã tham gia -->
+        <!-- 5. Nếu nhóm bị khóa/hủy/hết hạn (vào khi không phải member/creator) -->
         <div
-          v-else-if="alreadyJoined && !success"
-          class="text-center text-green-600 font-medium border border-green-200 bg-green-50 p-3 rounded-lg"
-        >
-          Bạn đã là thành viên của nhóm này 🎉
-          <div class="mt-4">
-            <button
-              @click="openChatBox"
-              class="px-5 py-2 bg-black text-white rounded-lg hover:bg-neutral-800 font-medium"
-            >
-              Mở chat nhóm
-            </button>
-          </div>
-        </div>
-
-        <!-- Khi join thành công -->
-        <div v-else-if="success" class="mt-5 text-center">
-          <p class="text-green-600 font-semibold text-lg mb-3">
-            🎉 Tham gia nhóm thành công!
-          </p>
-          <button
-            @click="openChatBox"
-            class="px-6 py-2 bg-black text-white rounded-lg hover:bg-neutral-800 font-medium"
-          >
-            Mở chat nhóm
-          </button>
-        </div>
-
-        <!-- Nếu nhóm bị khóa -->
-        <div
-          v-else-if="inviteDetail?.groupOrder?.status !== 'pending'"
+          v-else-if="inviteDetail?.groupOrder && inviteDetail?.groupOrder?.status !== 'pending'"
           class="text-center text-red-500 font-medium border border-red-200 bg-red-50 p-3 rounded-lg"
         >
           {{ lockedMessage(inviteDetail?.groupOrder?.status) }}
@@ -209,6 +191,17 @@
               Về trang chủ
             </button>
           </div>
+        </div>
+
+        <!-- 6. Nút Tham gia (Mặc định cho khách hoặc user chưa join và nhóm còn mở) -->
+        <div v-else>
+          <button
+            @click="joinGroup"
+            :disabled="joining"
+            class="w-full py-2 bg-black text-white rounded-lg hover:bg-neutral-800 font-medium disabled:bg-neutral-400 transition"
+          >
+            {{ joining ? "Đang tham gia..." : "Tham gia nhóm" }}
+          </button>
         </div>
       </div>
     </div>

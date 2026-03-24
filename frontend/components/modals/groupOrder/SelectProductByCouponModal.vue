@@ -38,7 +38,7 @@
         </div>
         <div v-else>
           <div
-            v-for="p in products"
+            v-for="p in filteredProducts"
             :key="p.id"
             class="flex items-center gap-4 p-3 border border-gray-100 rounded-lg hover:bg-gray-50 transition"
           >
@@ -59,9 +59,11 @@
             </div>
             <button
               @click="selectProduct(p)"
-              class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded shadow"
+              :disabled="selecting"
+              class="px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-xs rounded shadow flex items-center gap-1 min-w-[50px] justify-center"
             >
-              Chọn
+              <span v-if="selecting && selectedId === p.id" class="loader-white"></span>
+              <span v-else>Chọn</span>
             </button>
           </div>
         </div>
@@ -70,29 +72,30 @@
       <!-- Footer -->
       <div
         class="px-5 py-3 border-t border-gray-200 flex justify-end gap-2 bg-white"
-      >
-        <button
-          @click="$emit('close')"
-          class="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium"
-        >
-          Đóng
-        </button>
-      </div>
+      ></div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from "vue";
+import { ref, watch, onMounted, computed } from "vue";
 
 const props = defineProps({
   open: Boolean,
   couponId: String,
+  selecting: Boolean,
+  currentProductId: String,
 });
 const emit = defineEmits(["close", "select"]);
 
 const products = ref([]);
 const loading = ref(false);
+const selectedId = ref(null);
+
+const filteredProducts = computed(() => {
+  if (!props.currentProductId) return products.value;
+  return products.value.filter((p) => p.id !== props.currentProductId);
+});
 
 function formatPrice(v) {
   return new Intl.NumberFormat("vi-VN", {
@@ -117,6 +120,7 @@ async function fetchProducts() {
 }
 
 function selectProduct(product) {
+  selectedId.value = product.id;
   emit("select", product);
 }
 
@@ -144,6 +148,21 @@ onMounted(() => {
   to {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+.loader-white {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 </style>

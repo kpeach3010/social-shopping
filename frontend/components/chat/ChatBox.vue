@@ -380,6 +380,8 @@
     <SelectProductByCouponModal
       v-if="showSelectProduct && groupDetail"
       :open="showSelectProduct"
+      :selecting="selectProductLoading"
+      :current-product-id="groupDetail?.groupOrder?.productId"
       :coupon-id="groupDetail?.coupon?.id || groupDetail?.groupOrder?.couponId"
       @close="showSelectProduct = false"
       @select="onSelectNewProduct"
@@ -446,6 +448,7 @@ const showGroupDetail = ref(false);
 const groupDetail = ref(null);
 const showChooseModal = ref(false);
 const showSelectProduct = ref(false);
+const selectProductLoading = ref(false);
 const showMediaModal = ref(false);
 const selectedMediaIndex = ref(0);
 const showPaymentMethodModal = ref(false);
@@ -1661,9 +1664,10 @@ async function onSelectNewProduct(product) {
     "Xác nhận thay đổi sản phẩm mua chung cho nhóm này?\nTất cả lựa chọn hiện tại của thành viên sẽ bị reset.",
   );
   if (!confirmChange) {
-    // Người dùng hủy (Cancel) -> giữ modal chọn mở, không làm gì
     return;
   }
+
+  selectProductLoading.value = true;
   let changed = false;
   try {
     // Gọi API thay đổi sản phẩm
@@ -1687,8 +1691,8 @@ async function onSelectNewProduct(product) {
     console.error("Lỗi khi thay đổi sản phẩm:", err);
     alert(err?.data?.error || "Thay đổi sản phẩm thất bại.");
   } finally {
+    selectProductLoading.value = false;
     showSelectProduct.value = false;
-    // Nếu thay đổi thành công thì không mở lại modal chi tiết
     if (!changed) showGroupDetail.value = true;
   }
 }

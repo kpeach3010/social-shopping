@@ -1156,7 +1156,44 @@ export const changeGroupOrderProductService = async ({
     .where(eq(products.id, newProductId))
     .limit(1);
   if (!newProduct) throw new Error("Sản phẩm mới không tồn tại");
-  // Nếu có trường status, kiểm tra active ở đây
+  // 5.5 Kiểm tra xem có thành viên nào đã tham gia nhóm mua chung đang hoạt động với sản phẩm mới chưa
+  const currentMembers = await db
+    .select({ userId: groupOrderMembers.userId, fullName: users.fullName })
+    .from(groupOrderMembers)
+    .innerJoin(users, eq(groupOrderMembers.userId, users.id))
+    .where(eq(groupOrderMembers.groupOrderId, groupOrderId));
+
+  const currentUserIds = currentMembers.map((m) => m.userId);
+
+  if (currentUserIds.length > 0) {
+    const activeGroupsWithProduct = await db
+      .select({ fullName: users.fullName })
+      .from(groupOrderMembers)
+      .innerJoin(groupOrders, eq(groupOrderMembers.groupOrderId, groupOrders.id))
+      .innerJoin(users, eq(groupOrderMembers.userId, users.id))
+      .where(
+        and(
+          inArray(groupOrderMembers.userId, currentUserIds),
+          eq(groupOrders.productId, newProductId),
+          ne(groupOrders.id, groupOrderId),
+          inArray(groupOrders.status, [
+            groupOrderStatusEnum.PENDING,
+            groupOrderStatusEnum.LOCKED,
+            groupOrderStatusEnum.ORDERING,
+            groupOrderStatusEnum.AWAITING_PAYMENT,
+          ]),
+        ),
+      );
+
+    if (activeGroupsWithProduct.length > 0) {
+      const busyNames = [
+        ...new Set(activeGroupsWithProduct.map((m) => m.fullName)),
+      ].join(", ");
+      throw new Error(
+        `Không thể đổi sản phẩm vì các thành viên sau đang có nhóm mua chung khác hoạt động với sản phẩm này: ${busyNames}`,
+      );
+    }
+  }
 
   // 6. Nếu nhóm đã có order (status >= ordering) thì chặn đổi
   if (

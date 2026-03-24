@@ -600,38 +600,14 @@ const fetchReviews = async () => {
   }
 };
 
-const COUPON_CACHE_TTL = 10 * 60 * 1000; // 10 phút
-
-function getCouponCacheKey(variantIds) {
-  return `coupons_${variantIds}`;
-}
-
-async function fetchCouponsWithCache(variantIds) {
-  // Sử dụng productId thay vì variantIds
+async function fetchCoupons() {
   const productId = product.value?.id;
   if (!productId) return [];
-  const cacheKey = `coupons_product_${productId}`;
-  const cached = localStorage.getItem(cacheKey);
-  if (cached) {
-    try {
-      const { data, expires } = JSON.parse(cached);
-      if (Date.now() < expires) {
-        return data;
-      } else {
-        localStorage.removeItem(cacheKey);
-      }
-    } catch {}
-  }
-  // Nếu không có cache hoặc cache hết hạn, fetch mới
-  const couponRes = await $fetch(`/coupons/available?productIds=${productId}`, {
+  
+  return await $fetch(`/coupons/available?productIds=${productId}`, {
     baseURL: config.public.apiBase,
     headers: { Authorization: `Bearer ${auth.accessToken}` },
   });
-  localStorage.setItem(
-    cacheKey,
-    JSON.stringify({ data: couponRes, expires: Date.now() + COUPON_CACHE_TTL }),
-  );
-  return couponRes;
 }
 
 onMounted(async () => {
@@ -649,7 +625,7 @@ onMounted(async () => {
     // Sau khi product đã có, bắt đầu load coupon (không block sản phẩm)
     if (auth.isLoggedIn && product.value?.id) {
       loadingCoupons.value = true;
-      fetchCouponsWithCache()
+      fetchCoupons()
         .then((data) => {
           coupons.value = data;
         })

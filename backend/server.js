@@ -64,6 +64,17 @@ async function startServer() {
         );
       });
 
+      // Join room theo postId để nhận comment realtime
+      socket.on("join-post", (postId) => {
+        socket.join(`post:${postId}`);
+        console.log(`Socket ${socket.id} joined post room post:${postId}`);
+      });
+
+      socket.on("leave-post", (postId) => {
+        socket.leave(`post:${postId}`);
+        console.log(`Socket ${socket.id} left post room post:${postId}`);
+      });
+
       // khi user doc tin nhan
       socket.on("mark-as-read", async ({ conversationId, userId }) => {
         try {

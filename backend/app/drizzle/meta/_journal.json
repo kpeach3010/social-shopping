@@ -36,6 +36,20 @@
       "when": 1774337633959,
       "tag": "0004_loud_bloodaxe",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1774338501261,
+      "tag": "0005_loud_charles_xavier",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1774338556232,
+      "tag": "0006_blushing_grim_reaper",
+      "breakpoints": true
     }
   ]
 }

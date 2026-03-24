@@ -73,18 +73,28 @@ const notifyCommentAuthor = async ({
   content,
 }) => {
   if (!commentAuthorId || String(commentAuthorId) === String(actorId)) return;
-  // Tránh gửi trùng nếu đã là tác giả bài viết
-  if (postAuthorId && String(commentAuthorId) === String(postAuthorId)) return;
+  // Tránh gửi trùng: logic gửi thông báo cho chủ bài viết sẽ được xử lý linh hoạt hơn ở Controller
+  // if (postAuthorId && String(commentAuthorId) === String(postAuthorId)) return;
 
   try {
     const actorName = await findUserName(actorId);
-    const snippet = content ? String(content).slice(0, 140) : null;
+
+    // Lấy nội dung bài viết để làm ngữ cảnh
+    const [postRow] = await db
+      .select({ content: posts.content })
+      .from(posts)
+      .where(eq(posts.id, postId));
+    const postSnippet = postRow?.content
+      ? String(postRow.content).slice(0, 60) + "..."
+      : "bài viết";
+
+    const replySnippet = content ? String(content).slice(0, 80) : "";
 
     const notification = await createNotificationService({
       userId: commentAuthorId,
       type: "comment_reply",
       title: `${actorName} đã trả lời bình luận của bạn`,
-      content: snippet,
+      content: `"${replySnippet}" tại bài viết: "${postSnippet}"`,
       relatedUserId: actorId,
       relatedEntityType: "post",
       relatedEntityId: postId,
@@ -338,16 +348,9 @@ export const createCommentController = async (req, res) => {
       parentCommentId,
     });
 
-    await notifyPostOwner({
-      postAuthorId: result?.postAuthorId,
-      actorId: userId,
-      type: "post_comment",
-      postId,
-      title: `${await findUserName(userId)} đã bình luận bài viết của bạn`,
-    });
-
-    // Nếu là trả lời bình luận, báo cho tác giả bình luận đó (kể cả khi họ không phải chủ bài viết)
-    if (result?.parentAuthorId) {
+    // Gửi thông báo:
+    // 1. Nếu là trả lời bình luận của chính chủ bài viết
+    if (result?.parentAuthorId && String(result.parentAuthorId) === String(result.postAuthorId)) {
       await notifyCommentAuthor({
         commentAuthorId: result.parentAuthorId,
         actorId: userId,
@@ -355,6 +358,44 @@ export const createCommentController = async (req, res) => {
         postId,
         content,
       });
+    } else {
+      // 2. Các trường hợp còn lại: gửi post_comment cho chủ bài viết
+      await notifyPostOwner({
+        postAuthorId: result?.postAuthorId,
+        actorId: userId,
+        type: "post_comment",
+        postId,
+        title: `${await findUserName(userId)} đã bình luận bài viết của bạn`,
+      });
+
+      // 3. Nếu là trả lời bình luận của người khác (không phải chủ bài viết)
+      if (result?.parentAuthorId) {
+        await notifyCommentAuthor({
+          commentAuthorId: result.parentAuthorId,
+          actorId: userId,
+          postAuthorId: result.postAuthorId,
+          postId,
+          content,
+        });
+      }
+    }
+
+    // Phát socket cho realtime comments
+    if (global.io) {
+      try {
+        const authorName = await findUserName(userId);
+        global.io.to(`post:${postId}`).emit("comment:new", {
+          postId,
+          comment: {
+            ...result.data,
+            authorName,
+            likeCount: 0,
+            userHasLiked: false,
+          },
+        });
+      } catch (e) {
+        console.warn("Socket comment:new emit failed:", e.message);
+      }
     }
 
     res.status(201).json(result);

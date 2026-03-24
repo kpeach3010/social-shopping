@@ -197,12 +197,29 @@
                           'border-l-2 border-blue-200': item.depth > 0,
                         }"
                       >
-                        <p
-                          class="text-[11px] font-semibold text-gray-900 leading-tight cursor-pointer hover:underline"
-                          @click="goToUserProfile(item.comment.authorId)"
-                        >
-                          {{ item.comment.authorName || "Người dùng" }}
-                        </p>
+                        <div class="flex items-center justify-between">
+                          <p
+                            class="text-[11px] font-semibold text-gray-900 leading-tight cursor-pointer hover:underline"
+                            @click="goToUserProfile(item.comment.authorId)"
+                          >
+                            {{ item.comment.authorName || "Người dùng" }}
+                          </p>
+                          <button
+                            v-if="item.hasChildren"
+                            @click.stop="toggleCollapse(item.comment.id)"
+                            class="transition-all duration-200"
+                            :class="item.isCollapsed ? 'bg-blue-50 px-2 py-0.5 rounded-full flex items-center gap-1.5' : 'text-gray-400 hover:text-blue-500 hover:bg-blue-50 p-1 rounded-full'"
+                            title="Thu gọn/Mở rộng"
+                          >
+                            <template v-if="item.isCollapsed">
+                              <ChevronRightIcon class="w-3 h-3 text-blue-600" />
+                              <span class="text-[9px] font-bold text-blue-700">{{ item.childCount }}</span>
+                            </template>
+                            <template v-else>
+                              <ChevronDownIcon class="w-3.5 h-3.5" />
+                            </template>
+                          </button>
+                        </div>
                         <p
                           class="text-[10px] uppercase text-gray-500"
                           v-if="item.depth > 0"
@@ -243,62 +260,90 @@
               </div>
             </div>
 
-            <!-- Composer -->
-            <div v-if="auth.isLoggedIn" class="border-t border-gray-200 pt-3">
-              <div
-                v-if="replyTargetName"
-                class="flex items-center justify-between text-[11px] text-gray-700 mb-1"
+          </template>
+        </div>
+
+        <!-- Sticky Composer -->
+        <div v-if="!loadingPost && !loadingComments" class="border-t border-gray-200 bg-white p-4">
+          <div v-if="auth.isLoggedIn">
+            <div
+              v-if="replyTargetName"
+              class="flex items-center justify-between text-[11px] text-gray-700 mb-1"
+            >
+              <span>Đang trả lời {{ replyTargetName }}</span>
+              <button
+                class="px-2 py-0.5 rounded border border-gray-200 hover:bg-gray-100"
+                @click="replyTargetId = null"
               >
-                <span>Đang trả lời {{ replyTargetName }}</span>
+                Hủy
+              </button>
+            </div>
+            <div class="relative">
+              <div class="flex items-center gap-2">
+                <div class="flex-1 flex items-end gap-1">
+                  <button
+                    type="button"
+                    @click="showCommentEmoji = !showCommentEmoji"
+                    class="text-gray-400 hover:text-yellow-500 transition shrink-0 mb-1"
+                    title="Chọn emoji"
+                  >
+                    <FaceSmileIcon class="w-5 h-5" />
+                  </button>
+                  <textarea
+                    v-model="newContent"
+                    rows="2"
+                    placeholder="Viết bình luận..."
+                    class="flex-1 text-xs rounded border border-gray-300 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-black"
+                  ></textarea>
+                </div>
                 <button
-                  class="px-2 py-0.5 rounded border border-gray-200 hover:bg-gray-100"
-                  @click="replyTargetId = null"
+                  @click="submitComment"
+                  :disabled="submitting || !newContent.trim()"
+                  class="px-3 py-2 rounded bg-black text-white text-xs font-semibold disabled:opacity-60 flex items-center justify-center min-w-[60px]"
                 >
-                  Hủy
+                  <template v-if="submitting">
+                    <svg
+                      class="animate-spin h-3 w-3 text-white mr-1.5"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        class="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        stroke-width="4"
+                      ></circle>
+                      <path
+                        class="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    <span>Đang gửi...</span>
+                  </template>
+                  <template v-else>
+                    Gửi
+                  </template>
                 </button>
               </div>
-              <div class="relative">
-                <div class="flex items-center gap-2">
-                  <div class="flex-1 flex items-end gap-1">
-                    <button
-                      type="button"
-                      @click="showCommentEmoji = !showCommentEmoji"
-                      class="text-gray-400 hover:text-yellow-500 transition shrink-0 mb-1"
-                      title="Chọn emoji"
-                    >
-                      <FaceSmileIcon class="w-5 h-5" />
-                    </button>
-                    <textarea
-                      v-model="newContent"
-                      rows="2"
-                      placeholder="Viết bình luận..."
-                      class="flex-1 text-xs rounded border border-gray-300 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-black"
-                    ></textarea>
-                  </div>
-                  <button
-                    @click="submitComment"
-                    :disabled="submitting || !newContent.trim()"
-                    class="px-3 py-2 rounded bg-black text-white text-xs font-semibold disabled:opacity-60"
-                  >
-                    {{ submitting ? "Đang gửi..." : "Gửi" }}
-                  </button>
-                </div>
-                <div
-                  v-if="showCommentEmoji"
-                  ref="commentEmojiRef"
-                  class="absolute bottom-12 left-0 z-50"
-                >
-                  <EmojiPicker @select="onCommentEmoji" />
-                </div>
+              <div
+                v-if="showCommentEmoji"
+                ref="commentEmojiRef"
+                class="absolute bottom-12 left-0 z-50"
+              >
+                <EmojiPicker @select="onCommentEmoji" />
               </div>
-              <p v-if="errorMsg" class="text-[11px] text-red-600 mt-1">
-                {{ errorMsg }}
-              </p>
             </div>
-            <div v-else class="text-[11px] text-gray-500">
-              Đăng nhập để bình luận.
-            </div>
-          </template>
+            <p v-if="errorMsg" class="text-[11px] text-red-600 mt-1">
+              {{ errorMsg }}
+            </p>
+          </div>
+          <div v-else class="text-[11px] text-gray-500">
+            Đăng nhập để bình luận.
+          </div>
         </div>
       </div>
       <MediaGalleryModal
@@ -321,8 +366,11 @@ import EmojiPicker from "@/components/chat/EmojiPicker.vue";
 import {
   HandThumbUpIcon,
   ChatBubbleLeftEllipsisIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
 } from "@heroicons/vue/24/solid";
 import { FaceSmileIcon } from "@heroicons/vue/24/outline";
+const { $socket } = useNuxtApp();
 
 const props = defineProps({
   isOpen: { type: Boolean, default: false },
@@ -352,6 +400,7 @@ const replyTargetId = ref(null);
 const showFullPost = ref(false);
 const galleryOpen = ref(false);
 const galleryStart = ref(0);
+const collapsedIds = ref(new Set());
 const postLikes = ref(0);
 const likingPost = ref(false);
 const postCommentCount = ref(0);
@@ -380,7 +429,26 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   document.removeEventListener("click", handleClickOutsideCommentEmoji);
+  if (props.postId) {
+    $socket?.emit("leave-post", props.postId);
+  }
+  $socket?.off("comment:new", handleNewComment);
 });
+
+// Xử lý comment mới từ socket
+const handleNewComment = (data) => {
+  if (data.postId === props.postId && data.comment) {
+    // Tránh trùng lặp nếu là comment của chính mình (vì đã gọi fetchComments(true))
+    const exists = (comments.value || []).find((c) => c.id === data.comment.id);
+    if (!exists) {
+      comments.value = [...(comments.value || []), data.comment];
+      postCommentCount.value = comments.value.length;
+    }
+  }
+};
+
+// Listen socket
+$socket?.on("comment:new", handleNewComment);
 
 const replyTargetName = computed(() => {
   const targetId = replyTargetId.value;
@@ -418,6 +486,16 @@ const syncPostComments = (data) => {
   postCommentCount.value = Number(raw || 0);
 };
 
+const toggleCollapse = (id) => {
+  if (collapsedIds.value.has(id)) {
+    collapsedIds.value.delete(id);
+  } else {
+    collapsedIds.value.add(id);
+  }
+  // Force update reactive Set
+  collapsedIds.value = new Set(collapsedIds.value);
+};
+
 const threadedComments = computed(() => {
   const nodes = new Map();
   const roots = [];
@@ -432,11 +510,31 @@ const threadedComments = computed(() => {
       roots.push(node);
     }
   }
+
+  const countAllChildren = (node) => {
+    let count = node.children.length;
+    for (const child of node.children) {
+      count += countAllChildren(child);
+    }
+    return count;
+  };
+
   const ordered = [];
   const walk = (list, depth = 0) => {
     for (const n of list) {
-      ordered.push({ comment: n.comment, depth });
-      if (n.children?.length) walk(n.children, depth + 1);
+      const isCollapsed = collapsedIds.value.has(n.comment.id);
+      const childCount = countAllChildren(n);
+      ordered.push({
+        comment: n.comment,
+        depth,
+        isCollapsed,
+        hasChildren: n.children.length > 0,
+        childCount,
+      });
+      // Chỉ walk children nếu không bị collapsed
+      if (!isCollapsed && n.children?.length) {
+        walk(n.children, depth + 1);
+      }
     }
   };
   walk(roots);
@@ -457,14 +555,27 @@ const fetchAll = async () => {
 watch(
   () => props.isOpen,
   (open) => {
-    if (open && props.postId) fetchAll();
+    if (open && props.postId) {
+      collapsedIds.value = new Set();
+      fetchAll();
+      $socket?.emit("join-post", props.postId);
+    } else if (!open && props.postId) {
+      $socket?.emit("leave-post", props.postId);
+    }
   },
 );
 
 watch(
   () => props.postId,
-  (id) => {
-    if (props.isOpen && id) fetchAll();
+  (newId, oldId) => {
+    if (props.isOpen) {
+      collapsedIds.value = new Set();
+      if (oldId) $socket?.emit("leave-post", oldId);
+      if (newId) {
+        fetchAll();
+        $socket?.emit("join-post", newId);
+      }
+    }
   },
 );
 
@@ -488,9 +599,9 @@ const fetchPost = async () => {
   }
 };
 
-const fetchComments = async () => {
+const fetchComments = async (silent = false) => {
   try {
-    loadingComments.value = true;
+    if (!silent) loadingComments.value = true;
     const res = await api(`/posts/${props.postId}/comments`, {
       headers: auth.accessToken
         ? { Authorization: `Bearer ${auth.accessToken}` }
@@ -498,10 +609,25 @@ const fetchComments = async () => {
     });
     comments.value = res?.data || res || [];
     postCommentCount.value = comments.value.length;
+
+    // Mặc định thu gọn các comment có con khi vừa mở modal (không phải silent refresh)
+    if (!silent && comments.value.length > 0) {
+      const parentIds = new Set(
+        comments.value
+          .map((c) => c.parentCommentId)
+          .filter((id) => id !== null && id !== undefined),
+      );
+      if (parentIds.size > 0) {
+        collapsedIds.value = new Set([
+          ...Array.from(collapsedIds.value),
+          ...Array.from(parentIds),
+        ]);
+      }
+    }
   } catch (err) {
     comments.value = [];
   } finally {
-    loadingComments.value = false;
+    if (!silent) loadingComments.value = false;
   }
 };
 
@@ -525,7 +651,7 @@ const submitComment = async () => {
     // Refresh list
     newContent.value = "";
     replyTargetId.value = null;
-    await fetchComments();
+    await fetchComments(true); // Silent refresh
   } catch (err) {
     errorMsg.value =
       err?.data?.message || err?.message || "Không gửi được bình luận";

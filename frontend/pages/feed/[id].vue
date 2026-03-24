@@ -1080,6 +1080,7 @@ const formatDate = (iso) => {
 };
 
 const handleEditPost = (post) => {
+  fetchProducts();
   editingPost.value = post;
   editMode.value = "edit";
   showModal.value = true;

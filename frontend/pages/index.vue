@@ -162,43 +162,21 @@
         </div>
       </div>
     </section>
-    <!-- Phân trang FE -->
-    <!-- Pagination -->
-    <div
-      v-if="!loading"
-      class="flex justify-center items-center gap-2 mt-12 pb-8 select-none"
-    >
-      <!-- Prev -->
-      <button
-        @click="page > 1 && page--"
-        :disabled="page === 1"
-        class="px-4 py-2 border rounded-lg text-sm transition hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent"
-      >
-        ← Trước
-      </button>
-
-      <!-- Page number -->
-      <div
-        class="px-4 py-2 font-medium text-gray-700 bg-gray-50 border rounded-lg"
-      >
-        Trang {{ page }} / {{ totalPages }}
-      </div>
-
-      <!-- Next -->
-      <button
-        @click="page < totalPages && page++"
-        :disabled="page === totalPages"
-        class="px-4 py-2 border rounded-lg text-sm transition hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent"
-      >
-        Sau →
-      </button>
-    </div>
+    <Pagination
+      v-if="!loading && totalPages > 1"
+      :totalPages="totalPages"
+      :currentPage="page"
+      :perPage="limit"
+      :total="products.length"
+      @update:currentPage="(p) => (page = p)"
+    />
   </div>
 </template>
 
 <script setup>
 import { FunnelIcon } from "@heroicons/vue/24/outline";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/vue/24/outline";
+import Pagination from "@/components/Pagination.vue";
 
 // Slider Images from public/slider
 const glob = import.meta.glob("/public/slider/*.{png,jpg,jpeg,webp,svg}", { eager: true });

@@ -1,15 +1,15 @@
 <template>
   <div>
-    <main class="container mx-auto px-6 py-12 flex gap-8">
+    <main class="container mx-auto px-4 sm:px-6 py-8 sm:py-12 flex flex-col lg:flex-row gap-6 lg:gap-8">
       <!-- Sidebar -->
-      <aside class="w-1/4">
+      <aside class="w-full lg:w-1/4 shrink-0">
         <div class="bg-white rounded-2xl shadow-md p-4">
           <h3 class="text-lg font-semibold mb-4 text-gray-700">
             Tài khoản của tôi
           </h3>
           <nav class="space-y-2">
             <button
-              class="w-full flex items-center gap-2 px-4 py-3 rounded-lg transition"
+              class="w-full flex items-center gap-2 px-4 py-3 rounded-xl transition"
               :class="
                 currentTab === 'profile'
                   ? 'bg-black text-white shadow-md'
@@ -21,8 +21,8 @@
               <span>Thông tin cá nhân</span>
             </button>
             <button
-              v-if="auth.user?.role !== 'staff'"
-              class="w-full flex items-center gap-2 px-4 py-3 rounded-lg transition"
+              v-if="auth.user?.role === 'customer'"
+              class="w-full flex items-center gap-2 px-4 py-3 rounded-xl transition"
               :class="
                 currentTab === 'orders'
                   ? 'bg-black text-white shadow-md'
@@ -42,7 +42,7 @@
         <!-- Tab Thông tin cá nhân -->
         <div
           v-if="currentTab === 'profile'"
-          class="bg-white rounded-2xl shadow-xl p-8"
+          class="bg-white rounded-2xl shadow-xl p-4 sm:p-8 border border-gray-100"
         >
           <h2
             class="text-2xl font-bold mb-8 text-gray-800 flex items-center gap-2"
@@ -123,17 +123,17 @@
         </div>
 
         <!-- Tab Lịch sử đơn hàng -->
-        <div v-else class="bg-white rounded-2xl shadow-md p-6">
+        <div v-else class="bg-white rounded-2xl shadow-md p-4 sm:p-6 border border-gray-100">
           <h2 class="text-xl font-semibold mb-6 text-gray-800">
             Lịch sử đơn hàng
           </h2>
 
           <!-- Tabs trạng thái -->
-          <div class="flex gap-3 border-b mb-6">
+          <div class="flex gap-2 sm:gap-3 border-b mb-6 overflow-x-auto pb-1 scrollbar-hide whitespace-nowrap">
             <button
               v-for="st in statuses"
               :key="st.value"
-              class="px-4 py-2 text-sm font-medium transition"
+              class="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium transition whitespace-nowrap"
               :class="
                 selectedStatus === st.value
                   ? 'border-b-2 border-black text-black font-semibold'
@@ -178,7 +178,7 @@
               class="border rounded-xl p-4 shadow-sm hover:shadow-md transition"
             >
               <!-- Header đơn hàng -->
-              <div class="flex justify-between items-center mb-3">
+              <div class="flex flex-wrap justify-between items-start sm:items-center gap-2 mb-3">
                 <h3 class="font-semibold">Mã đơn: {{ o.id }}</h3>
                 <span
                   class="px-3 py-1 rounded-full text-sm"
@@ -220,12 +220,12 @@
                 <div
                   v-for="item in o.items"
                   :key="item.id"
-                  class="flex items-center gap-4 py-4 px-4 group cursor-pointer"
+                  class="flex items-center gap-3 sm:gap-4 py-3 sm:py-4 px-2 sm:px-4 group cursor-pointer"
                   @click="navigateToProduct(item.productId)"
                 >
                   <img
                     :src="item.imageUrl"
-                    class="w-16 h-16 rounded object-cover border group-hover:opacity-80 transition"
+                    class="w-12 h-12 sm:w-16 sm:h-16 rounded-lg object-cover border group-hover:opacity-80 transition"
                   />
                   <div class="flex-1">
                     <p class="font-medium group-hover:text-gray-500 transition">
@@ -249,12 +249,12 @@
               </div>
 
               <!-- Tổng tiền + nút -->
-              <div class="mt-4 flex justify-between items-center">
+              <div class="mt-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <p class="text-gray-600">
                   Tổng cộng:
                   <span class="font-bold">{{ formatPrice(o.total) }}</span>
                 </p>
-                <div class="flex gap-3">
+                <div class="flex flex-wrap gap-2 sm:gap-3 w-full sm:w-auto">
                   <button
                     class="px-4 py-2 bg-white border border-black text-black rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition text-sm font-medium"
                     :disabled="loadingDetailId === o.id"
@@ -300,8 +300,8 @@
               </div>
             </div>
 
-            <!-- Phân trang -->
-            <div v-if="totalPages > 1" class="flex justify-center mt-6 gap-2">
+              <!-- Phân trang -->
+            <div v-if="totalPages > 1" class="flex flex-wrap justify-center mt-8 gap-1.5 sm:gap-2">
               <button
                 class="px-3 py-1 bg-white rounded-lg border hover:bg-gray-100 disabled:opacity-40 transition font-medium"
                 :disabled="currentPage === 1"
@@ -312,7 +312,7 @@
               <button
                 v-for="p in pages"
                 :key="p"
-                class="px-3 py-1 rounded-lg border transition font-medium"
+                class="px-3 py-1.5 rounded-lg border transition font-medium text-sm"
                 :class="
                   currentPage === p
                     ? 'bg-black text-white border-black'

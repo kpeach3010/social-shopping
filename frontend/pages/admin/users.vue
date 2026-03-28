@@ -1,7 +1,7 @@
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import { useAuthStore } from "@/stores/auth";
-import { UserPlus } from "lucide-vue-next";
+import { UserPlus, Search, X as CloseIcon } from "lucide-vue-next";
 import Pagination from "@/components/Pagination.vue";
 import CreateStaffModal from "@/components/modals/admin/CreateStaffModal.vue";
 
@@ -10,17 +10,15 @@ const users = ref([]);
 const loading = ref(false);
 
 const showCreateModal = ref(false);
-
+const searchQuery = ref("");
 const currentPage = ref(1);
 const perPage = 12;
 
-// Đảm bảo dòng này đã có trong script setup của bạn
 const config = useRuntimeConfig();
 
 const fetchUsers = async () => {
   loading.value = true;
   try {
-    // Sửa: Dùng đường dẫn tương đối và baseURL từ config
     users.value = await $fetch("/users", {
       baseURL: config.public.apiBase,
       headers: { Authorization: `Bearer ${auth.accessToken}` },
@@ -35,11 +33,27 @@ const fetchUsers = async () => {
 
 onMounted(fetchUsers);
 
+// Filter
+const filteredUsers = computed(() => {
+  if (!searchQuery.value) return users.value;
+  const q = searchQuery.value.toLowerCase();
+  return users.value.filter(
+    (u) =>
+      u.fullName?.toLowerCase().includes(q) ||
+      u.email?.toLowerCase().includes(q),
+  );
+});
+
 // Pagination
-const totalPages = computed(() => Math.ceil(users.value.length / perPage));
+const totalPages = computed(() => Math.ceil(filteredUsers.value.length / perPage));
 const paginated = computed(() => {
   const start = (currentPage.value - 1) * perPage;
-  return users.value.slice(start, start + perPage);
+  return filteredUsers.value.slice(start, start + perPage);
+});
+
+// Reset page on search
+watch(searchQuery, () => {
+  currentPage.value = 1;
 });
 
 // Formatting
@@ -60,11 +74,9 @@ const statusClass = (status) =>
     disabled: "bg-red-100 text-red-600 px-2 py-1 rounded-full font-medium",
   }[status] || "");
 
-// Disable user
 const disableUser = async (id) => {
   if (!confirm("Vô hiệu hóa tài khoản này?")) return;
   try {
-    // Sửa: Dùng đường dẫn tương đối và baseURL từ config
     await $fetch(`/users/disable/${id}`, {
       method: "PATCH",
       baseURL: config.public.apiBase,
@@ -77,11 +89,9 @@ const disableUser = async (id) => {
   }
 };
 
-// Enable user
 const enableUser = async (id) => {
   if (!confirm("Khôi phục tài khoản?")) return;
   try {
-    // Sửa: Dùng đường dẫn tương đối và baseURL từ config
     await $fetch(`/users/enable/${id}`, {
       method: "PATCH",
       baseURL: config.public.apiBase,
@@ -96,17 +106,47 @@ const enableUser = async (id) => {
 </script>
 
 <template>
-  <div class="p-8 min-h-screen bg-gray-50">
-    <!-- Header -->
-    <div class="flex justify-between items-center mb-6">
-      <h1 class="text-3xl font-bold text-gray-800">Quản lý người dùng</h1>
+  <div class="p-4 md:p-8 min-h-screen bg-gray-50 flex flex-col min-w-0">
+    <!-- Header: Pure Block structure to ensure stacking on mobile -->
+    <div class="mb-8 md:flex md:items-center md:justify-between">
+      <!-- Title Block -->
+      <div class="mb-4 md:mb-0">
+        <h1 class="text-xl md:text-2xl font-bold text-gray-800 whitespace-nowrap">
+          Quản lý người dùng
+        </h1>
+      </div>
 
+      <!-- Button Block -->
+      <div class="w-full md:w-auto">
+        <button
+          @click="showCreateModal = true"
+          class="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-black text-white rounded-lg shadow hover:bg-neutral-800 transition text-sm md:text-base whitespace-nowrap"
+        >
+          <UserPlus class="w-5 h-5" />
+          <!-- xuống dòng -->
+          <br>
+          <span>Tạo nhân viên</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Search Bar -->
+    <div class="mb-6 relative max-w-md group">
+      <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+        <Search class="h-5 w-5 text-gray-400 group-focus-within:text-black transition-colors" />
+      </div>
+      <input
+        v-model="searchQuery"
+        type="text"
+        placeholder="Tìm kiếm theo tên hoặc email..."
+        class="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-black transition-all text-sm"
+      />
       <button
-        @click="showCreateModal = true"
-        class="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg shadow hover:bg-neutral-800 transition"
+        v-if="searchQuery"
+        @click="searchQuery = ''"
+        class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-red-500 transition-colors"
       >
-        <UserPlus class="w-5 h-5" />
-        Tạo nhân viên
+        <CloseIcon class="h-5 w-5" />
       </button>
     </div>
 
@@ -118,7 +158,6 @@ const enableUser = async (id) => {
       <table class="min-w-full text-sm text-left text-gray-700">
         <thead class="bg-gray-200 text-gray-800 font-semibold">
           <tr>
-            <!-- <th class="px-4 py-3 w-16">Avatar</th> -->
             <th class="px-4 py-3">Tên</th>
             <th class="px-4 py-3">Email</th>
             <th class="px-4 py-3">SĐT</th>
@@ -135,31 +174,18 @@ const enableUser = async (id) => {
             :key="u.id"
             class="border-b odd:bg-gray-100 hover:bg-gray-200 transition"
           >
-            <!-- Avatar -->
-            <!-- <td class="px-4 py-3">
-              <div
-                class="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-lg font-bold text-gray-700"
-              >
-                {{ u.fullName?.charAt(0) || "?" }}
-              </div>
-            </td> -->
-
             <td class="px-4 py-3 font-semibold">{{ u.fullName }}</td>
             <td class="px-4 py-3">{{ u.email }}</td>
             <td class="px-4 py-3">{{ u.phone || "—" }}</td>
-
             <td class="px-4 py-3 font-medium">{{ roleLabel(u.role) }}</td>
-
             <td class="px-4 py-3">
               <span :class="statusClass(u.status)">
                 {{ u.status === "active" ? "Hoạt động" : "Vô hiệu hóa" }}
               </span>
             </td>
-
             <td class="px-4 py-3">
               {{ new Date(u.createdAt).toLocaleString("vi-VN") }}
             </td>
-
             <td class="px-4 py-3 text-right">
               <button
                 v-if="u.status === 'active'"
@@ -180,18 +206,19 @@ const enableUser = async (id) => {
           </tr>
 
           <tr v-if="paginated.length === 0">
-            <td colspan="8" class="text-center py-6 text-gray-500">
-              Không có người dùng
+            <td colspan="7" class="text-center py-6 text-gray-500">
+              Không tìm thấy người dùng phù hợp
             </td>
           </tr>
         </tbody>
       </table>
 
+      <!-- Pagination -->
       <Pagination
         v-if="totalPages > 1"
         :totalPages="totalPages"
         :currentPage="currentPage"
-        :total="users.length"
+        :total="filteredUsers.length"
         :perPage="perPage"
         @update:currentPage="(p) => (currentPage = p)"
       />

@@ -1,4 +1,5 @@
 <script setup>
+import { ref, onMounted, onBeforeUnmount } from "vue";
 import {
   Shirt,
   BadgePercent,
@@ -10,6 +11,27 @@ const props = defineProps({
   isOpen: { type: Boolean, default: true },
   showToggle: { type: Boolean, default: true },
 });
+const emit = defineEmits(["toggle"]);
+
+const isMobile = ref(false);
+const checkMobile = () => {
+  isMobile.value = window.innerWidth < 1024;
+};
+
+onMounted(() => {
+  checkMobile();
+  window.addEventListener("resize", checkMobile);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("resize", checkMobile);
+});
+
+const handleMenuClick = () => {
+  if (isMobile.value) {
+    emit("toggle");
+  }
+};
 
 const menu = [
   { to: "/staff/dashboard", label: "Thống kê", icon: BarChart },
@@ -20,10 +42,18 @@ const menu = [
 ];
 </script>
 <template>
+  <!-- Backdrop cho Mobile -->
+  <div
+    v-if="isMobile && isOpen"
+    class="fixed inset-0 bg-black/50 z-[60] transition-opacity duration-300"
+    @click="$emit('toggle')"
+  ></div>
+
   <aside
     :class="[
-      'bg-white border-r border-gray-200 shadow-sm flex flex-col transition-all duration-300',
-      isOpen ? 'w-60' : 'w-16',
+      'bg-white border-r border-gray-200 shadow-sm flex flex-col transition-all duration-300 h-full',
+      isMobile ? 'fixed inset-y-0 left-0 z-[70]' : 'relative',
+      isOpen ? 'w-60 translate-x-0' : (isMobile ? 'w-60 -translate-x-full' : 'w-16 translate-x-0'),
     ]"
   >
     <div class="flex items-center justify-between p-4">
@@ -56,8 +86,9 @@ const menu = [
         :to="item.to"
         class="flex items-center gap-2 px-3 py-2 rounded font-medium transition"
         active-class="bg-gray-100 text-black"
+        @click="handleMenuClick"
       >
-        <component :is="item.icon" class="w-5 h-5" />
+        <component :is="item.icon" class="w-5 h-5 flex-shrink-0" />
         <span v-if="isOpen">{{ item.label }}</span>
       </NuxtLink>
     </nav>

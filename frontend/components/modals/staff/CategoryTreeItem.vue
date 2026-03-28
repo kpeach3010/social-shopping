@@ -6,9 +6,9 @@
         'bg-gray-50': level % 2 !== 0,
         'hover:bg-gray-100': true,
       }"
-      class="flex items-center py-3 transition-colors text-sm border-b border-gray-100 group"
+      class="flex items-center py-3 transition-colors text-sm border-b border-gray-100 group min-w-[550px]"
     >
-      <div class="w-1/2 flex items-center gap-2">
+      <div class="flex-1 flex items-center min-w-0 pr-2">
         <button
           v-if="category.children && category.children.length"
           @click="$emit('toggle', category.id)"
@@ -24,7 +24,7 @@
           :class="level === 0 ? 'text-blue-600 fill-blue-100' : 'text-gray-400'"
         />
 
-        <span class="font-medium text-gray-800">{{ category.name }}</span>
+        <span class="font-medium text-gray-800 truncate">{{ category.name }}</span>
 
         <span
           v-if="level === 0"
@@ -49,21 +49,21 @@
 
       <div class="w-1/4 flex justify-end gap-2 pr-4">
         <button
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-blue-500 text-blue-600 hover:bg-blue-50 active:bg-blue-100 transition"
+          class="inline-flex items-center gap-1 px-2 py-1.5 md:px-3 rounded-md border border-blue-500 text-blue-600 hover:bg-blue-50 active:bg-blue-100 transition"
           @click="$emit('edit', category)"
         >
-          <PencilLine class="w-4 h-4" />
-          <span class="text-sm">Sửa</span>
+          <PencilLine class="w-4 h-4 flex-shrink-0" />
+          <span class="text-xs md:text-sm">Sửa</span>
         </button>
 
         <button
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-red-600 bg-red-600 text-white hover:bg-red-500 active:bg-red-700 transition disabled:opacity-70 disabled:cursor-not-allowed"
+          class="inline-flex items-center gap-1 px-2 py-1.5 md:px-3 rounded-md border border-red-600 bg-red-600 text-white hover:bg-red-500 active:bg-red-700 transition disabled:opacity-70 disabled:cursor-not-allowed"
           @click="$emit('delete', category.id, category.name)"
           :disabled="isDeleting"
         >
-          <Loader2 v-if="isDeleting" class="w-4 h-4 animate-spin" />
-          <Trash2 v-else class="w-4 h-4" />
-          <span class="text-sm">Xóa</span>
+          <Loader2 v-if="isDeleting" class="w-4 h-4 animate-spin flex-shrink-0" />
+          <Trash2 v-else class="w-4 h-4 flex-shrink-0" />
+          <span class="text-xs md:text-sm">Xóa</span>
         </button>
       </div>
     </div>

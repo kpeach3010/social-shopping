@@ -95,9 +95,11 @@ function onInput() {
 }
 
 function goToSearchPage() {
+  clearTimeout(debounceTimeout);
   if (query.value.trim()) {
     router.push(`/search?name=${encodeURIComponent(query.value)}`);
     showDropdown.value = false;
+    results.value = [];
   }
 }
 

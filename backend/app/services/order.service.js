@@ -1146,6 +1146,7 @@ export const getOrderWithUserInfoByIdService = async (orderId) => {
     .select({
       id: orders.id,
       userId: orders.userId,
+      groupOrderId: orders.groupOrderId,
       status: orders.status,
       paymentMethod: orders.paymentMethod,
       isPaid: orders.isPaid,
@@ -1167,11 +1168,17 @@ export const getOrderWithUserInfoByIdService = async (orderId) => {
         id: users.id,
         name: users.fullName,
         phone: users.phone,
-        address: sql`${users.addressDetail}, ${users.ward}, ${users.district}, ${users.province}`,
+        addressDetail: users.addressDetail,
+        ward: users.ward,
+        district: users.district,
+        province: users.province,
       },
+      groupName: conversations.name,
+      couponDescription: coupons.description,
     })
     .from(orders)
     .leftJoin(users, eq(orders.userId, users.id))
+    .leftJoin(conversations, eq(conversations.groupOrderId, orders.groupOrderId))
     .leftJoin(coupons, eq(orders.couponCode, coupons.code))
     .where(eq(orders.id, orderId))
     .limit(1);

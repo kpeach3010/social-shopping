@@ -51,7 +51,12 @@ const fetchStats = async () => {
   }
 };
 
-onMounted(fetchStats);
+onMounted(() => {
+  fetchStats();
+  if (window.innerWidth < 1024) {
+    isOpen.value = false;
+  }
+});
 
 const changeRange = async (newRange) => {
   if (range.value === newRange) return;
@@ -93,16 +98,27 @@ const maxDailyRevenue = computed(() => {
     <Sidebar :isOpen="isOpen" @toggle="toggleSidebar" />
 
     <main class="flex-1 p-6 space-y-6">
-      <header class="flex items-center justify-between">
-        <div>
-          <h1 class="text-2xl font-bold text-gray-800">Thống kê bán hàng</h1>
-          <p class="text-sm text-gray-500 mt-1">
-            Tổng quan hiệu quả kinh doanh theo {{ formatRangeLabel }}
-          </p>
-        </div>
-        <div class="flex items-center gap-2">
+      <header class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <!-- Nút toggle cho mobile -->
           <button
-            class="px-3 py-1.5 rounded-full text-xs border"
+            @click="toggleSidebar"
+            class="lg:hidden p-2 -ml-2 rounded-md hover:bg-gray-200 text-gray-600"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <div>
+            <h1 class="text-xl md:text-2xl font-bold text-gray-800">Thống kê bán hàng</h1>
+            <p class="text-xs md:text-sm text-gray-500 mt-1">
+              Tổng quan hiệu quả kinh doanh theo {{ formatRangeLabel }}
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center gap-1.5 overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
+          <button
+            class="whitespace-nowrap px-3 py-1.5 rounded-full text-[11px] md:text-xs border transition-colors"
             :class="
               range === '7d'
                 ? 'bg-black text-white border-black'
@@ -113,7 +129,7 @@ const maxDailyRevenue = computed(() => {
             7 ngày
           </button>
           <button
-            class="px-3 py-1.5 rounded-full text-xs border"
+            class="whitespace-nowrap px-3 py-1.5 rounded-full text-[11px] md:text-xs border transition-colors"
             :class="
               range === '30d'
                 ? 'bg-black text-white border-black'
@@ -124,7 +140,7 @@ const maxDailyRevenue = computed(() => {
             30 ngày
           </button>
           <button
-            class="px-3 py-1.5 rounded-full text-xs border"
+            class="whitespace-nowrap px-3 py-1.5 rounded-full text-[11px] md:text-xs border transition-colors"
             :class="
               range === 'all'
                 ? 'bg-black text-white border-black'

@@ -11,9 +11,13 @@
       <button
         v-for="p in pages"
         :key="p"
-        class="px-3 py-1 rounded border"
-        :class="currentPage === p ? 'bg-black text-white' : 'hover:bg-gray-100'"
-        @click="$emit('update:currentPage', p)"
+        class="px-3 py-1 rounded border transition-colors"
+        :class="[
+          currentPage === p ? 'bg-black text-white' : 'hover:bg-gray-100',
+          p === '...' ? 'cursor-default border-transparent text-gray-400 hover:bg-transparent' : ''
+        ]"
+        :disabled="p === '...'"
+        @click="p !== '...' && $emit('update:currentPage', p)"
       >
         {{ p }}
       </button>
@@ -25,9 +29,8 @@
         ›
       </button>
     </div>
-    <div v-if="total > 0" class="text-sm text-gray-500 mt-1">
-      Hiển thị {{ startIdx + 1 }}-{{ endIdx }} trên tổng {{ total }} mục
-      <span v-if="perPage"> ({{ perPage }} / trang)</span>
+    <div v-if="total > 0" class="text-sm text-gray-500 mt-2 font-medium">
+      {{ startIdx + 1 }} - {{ endIdx }} / {{ total }}
     </div>
   </div>
 </template>
@@ -39,9 +42,36 @@ const props = defineProps({
   perPage: { type: Number, default: 10 },
   total: { type: Number, default: 0 },
 });
-const pages = computed(() =>
-  Array.from({ length: props.totalPages }, (_, i) => i + 1)
-);
+
+const pages = computed(() => {
+  const current = props.currentPage;
+  const total = props.totalPages;
+  const delta = 2; // Số trang hiển thị xung quanh trang hiện tại
+  const range = [];
+  const rangeWithDots = [];
+  let l;
+
+  for (let i = 1; i <= total; i++) {
+    if (i == 1 || i == total || (i >= current - delta && i <= current + delta)) {
+      range.push(i);
+    }
+  }
+
+  for (let i of range) {
+    if (l) {
+      if (i - l === 2) {
+        rangeWithDots.push(l + 1);
+      } else if (i - l !== 1) {
+        rangeWithDots.push("...");
+      }
+    }
+    rangeWithDots.push(i);
+    l = i;
+  }
+
+  return rangeWithDots;
+});
+
 const startIdx = computed(() => (props.currentPage - 1) * props.perPage);
 const endIdx = computed(() =>
   Math.min(props.currentPage * props.perPage, props.total)

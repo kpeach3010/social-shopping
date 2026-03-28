@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, computed, watch } from "vue";
 import {
   Shirt,
   BadgePercent,
@@ -8,11 +8,15 @@ import {
   Trash2,
   PencilLine,
   Loader2,
+  Search,
+  X as CloseIcon,
 } from "lucide-vue-next";
+import { useAuthStore } from "@/stores/auth";
 
 import AddProductModal from "@/components/modals/staff/AddProductModal.vue";
 import EditProductModal from "@/components/modals/staff/EditProductModal.vue";
 import Sidebar from "@/components/modals/staff/Sidebar.vue";
+import Pagination from "@/components/Pagination.vue";
 
 const showModal = ref(false);
 const showEditModal = ref(false);
@@ -26,8 +30,9 @@ const isBulkDeleting = ref(false);
 const deletingProductIds = ref(new Set());
 const auth = useAuthStore();
 const config = useRuntimeConfig();
+const searchKeyword = ref("");
 
-// Hàm fetch chi tiết sản phẩm (bao gồm màu, size, tồn kho...) và danh mục
+// Hàm fetch chi tiết sản phẩm
 const openEditModal = async (product) => {
   editProductLoading.value = true;
   try {
@@ -39,13 +44,12 @@ const openEditModal = async (product) => {
         baseURL: config.public.apiBase,
       }),
     ]);
-    // Chuyển variants về cấu trúc colors -> sizes
     const colorMap = {};
     detail.variants.forEach((v) => {
       const colorKey = v.color || "__NO_COLOR__";
       if (!colorMap[colorKey]) {
         colorMap[colorKey] = {
-          id: v.colorId, // ← lấy trực tiếp từ variant (backend đã trả về)
+          id: v.colorId,
           colorName: v.color || "",
           imageUrl: v.imageUrl || null,
           preview: v.imageUrl || null,
@@ -57,7 +61,7 @@ const openEditModal = async (product) => {
         price: v.price,
         stock: v.stock,
         variantId: v.id,
-        id: v.id, // ← thêm id để backend nhận dạng variant cần UPDATE
+        id: v.id,
         sku: v.sku,
       });
     });
@@ -82,8 +86,6 @@ const openEditModal = async (product) => {
   }
 };
 
-
-
 const toggleSidebar = () => {
   isOpen.value = !isOpen.value;
 };
@@ -95,7 +97,6 @@ const formatPrice = (v) => {
   }).format(Number(v) || 0);
 };
 
-// Hàm fetch chung
 const fetchProducts = async () => {
   loading.value = true;
   try {
@@ -110,28 +111,37 @@ const fetchProducts = async () => {
   }
 };
 
-onMounted(fetchProducts);
+onMounted(() => {
+  fetchProducts();
+  if (window.innerWidth < 1024) {
+    isOpen.value = false;
+  }
+});
+
 const currentPage = ref(1);
-const perPage = ref(8); // số sp / trang
+const perPage = ref(8);
+
+const filteredProducts = computed(() => {
+  if (!searchKeyword.value.trim()) return products.value;
+  const q = searchKeyword.value.toLowerCase();
+  return products.value.filter((p) => p.name.toLowerCase().includes(q));
+});
 
 const totalPages = computed(() =>
-  Math.ceil(products.value.length / perPage.value),
+  Math.ceil(filteredProducts.value.length / perPage.value),
 );
 
 const paginatedProducts = computed(() => {
   const start = (currentPage.value - 1) * perPage.value;
-  return products.value.slice(start, start + perPage.value);
+  return filteredProducts.value.slice(start, start + perPage.value);
 });
 
-const changePage = (page) => {
-  if (page >= 1 && page <= totalPages.value) {
-    currentPage.value = page;
-  }
-};
+watch(searchKeyword, () => {
+  currentPage.value = 1;
+});
 
 const selectedProductIds = ref([]);
 
-// Chọn tất cả sản phẩm trên trang hiện tại
 const isAllCurrentPageSelected = computed(() => {
   const ids = paginatedProducts.value.map((p) => p.id);
   return (
@@ -142,12 +152,10 @@ const isAllCurrentPageSelected = computed(() => {
 const toggleSelectAllCurrentPage = () => {
   const ids = paginatedProducts.value.map((p) => p.id);
   if (isAllCurrentPageSelected.value) {
-    // Bỏ chọn tất cả trên trang hiện tại
     selectedProductIds.value = selectedProductIds.value.filter(
       (id) => !ids.includes(id),
     );
   } else {
-    // Chọn tất cả trên trang hiện tại
     selectedProductIds.value = Array.from(
       new Set([...selectedProductIds.value, ...ids]),
     );
@@ -163,7 +171,6 @@ const toggleSelectProduct = (id) => {
   }
 };
 
-// Hàm xóa sản phẩm (1 hoặc nhiều)
 const deleteProducts = async (ids) => {
   let idArr = Array.isArray(ids) ? ids : [ids];
   if (!idArr.length) return;
@@ -210,33 +217,61 @@ const deleteProducts = async (ids) => {
 
 <template>
   <div class="flex min-h-screen bg-gray-50">
-    <!-- Sidebar -->
     <Sidebar :isOpen="isOpen" @toggle="toggleSidebar" />
 
-    <!-- Main -->
-    <div class="flex-1 flex flex-col">
-      <main class="flex-1 p-6">
-        <div class="flex justify-between items-center mb-6">
-          <h1 class="text-2xl font-bold">Quản lý sản phẩm</h1>
+    <div class="flex-1 flex flex-col min-w-0">
+      <main class="flex-1 p-4 md:p-6 overflow-hidden">
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          <div class="flex items-center gap-3">
+            <button
+              @click="toggleSidebar"
+              class="lg:hidden p-2 -ml-2 rounded-md hover:bg-gray-200 text-gray-600"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <h1 class="text-xl md:text-2xl font-bold">Quản lý sản phẩm</h1>
+          </div>
           <div class="flex gap-2">
             <button
               v-if="selectedProductIds.length > 0"
               @click="deleteProducts(selectedProductIds)"
               :disabled="isBulkDeleting"
-              class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-500 disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2"
+              class="px-3 py-1.5 md:px-4 md:py-2 bg-red-600 text-white rounded hover:bg-red-500 disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2 text-sm md:text-base"
             >
               <Loader2 v-if="isBulkDeleting" class="w-4 h-4 animate-spin" />
-              <span>Xóa đã chọn ({{ selectedProductIds.length }})</span>
+              <span>Xóa ({{ selectedProductIds.length }})</span>
             </button>
 
-            <!-- Nút thêm sản phẩm -->
             <button
               @click="showModal = true"
-              class="px-4 py-2 bg-black text-white rounded hover:bg-gray-800"
+              class="w-full md:w-auto px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition text-sm md:text-base"
             >
               + Thêm sản phẩm
             </button>
           </div>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="mb-6 relative max-w-md group">
+          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search class="h-5 w-5 text-gray-400 group-focus-within:text-black transition-colors" />
+          </div>
+          <input
+            v-model="searchKeyword"
+            type="text"
+            placeholder="Tìm kiếm sản phẩm theo tên..."
+            class="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-black transition-all text-sm"
+          />
+          <button
+            v-if="searchKeyword"
+            @click="searchKeyword = ''"
+            class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-red-500 transition-colors"
+          >
+            <CloseIcon class="h-5 w-5" />
+          </button>
         </div>
 
         <!-- Loading -->
@@ -297,7 +332,7 @@ const deleteProducts = async (ids) => {
                 <td class="px-4 py-3">
                   <div class="flex justify-end gap-2">
                     <button
-                      class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-blue-500 text-blue-600 hover:bg-blue-50 active:bg-blue-100 transition"
+                      class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-blue-500 text-blue-600 hover:bg-blue-50 transition"
                       @click="openEditModal(p)"
                     >
                       <PencilLine class="w-4 h-4" />
@@ -305,7 +340,7 @@ const deleteProducts = async (ids) => {
                     </button>
                     <button
                       v-if="selectedProductIds.length === 0"
-                      class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-red-600 bg-red-600 text-white hover:bg-red-500 active:bg-red-700 transition disabled:opacity-70 disabled:cursor-not-allowed"
+                      class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-red-600 bg-red-600 text-white hover:bg-red-500 transition disabled:opacity-70 disabled:cursor-not-allowed"
                       @click="deleteProducts(p.id)"
                       :disabled="deletingProductIds.has(p.id)"
                     >
@@ -319,44 +354,30 @@ const deleteProducts = async (ids) => {
                   </div>
                 </td>
               </tr>
+              <tr v-if="filteredProducts.length === 0">
+                <td colspan="6" class="text-center py-6 text-gray-500">
+                  Không tìm thấy sản phẩm phù hợp
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>
+
         <!-- Pagination -->
-        <div v-if="totalPages > 1" class="flex justify-center mt-6 gap-2">
-          <button
-            @click="changePage(currentPage - 1)"
-            :disabled="currentPage === 1"
-            class="px-3 py-1 border rounded disabled:opacity-50"
-          >
-            ‹
-          </button>
-          <button
-            v-for="page in totalPages"
-            :key="page"
-            @click="changePage(page)"
-            class="px-3 py-1 border rounded"
-            :class="
-              currentPage === page ? 'bg-black text-white' : 'hover:bg-gray-100'
-            "
-          >
-            {{ page }}
-          </button>
-          <button
-            @click="changePage(currentPage + 1)"
-            :disabled="currentPage === totalPages"
-            class="px-3 py-1 border rounded disabled:opacity-50"
-          >
-            ›
-          </button>
-        </div>
-        <!-- Modal thêm sản phẩm -->
+        <Pagination
+          v-if="totalPages > 1"
+          :totalPages="totalPages"
+          :currentPage="currentPage"
+          :total="filteredProducts.length"
+          :perPage="perPage"
+          @update:currentPage="(p) => (currentPage = p)"
+        />
+
         <AddProductModal
           v-if="showModal"
           @close="showModal = false"
           @refresh="fetchProducts"
         />
-        <!-- Modal sửa sản phẩm -->
         <EditProductModal
           v-if="showEditModal"
           :show="showEditModal"

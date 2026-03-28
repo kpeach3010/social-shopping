@@ -1,6 +1,7 @@
 <script setup>
-import { ref, onMounted, computed } from "vue";
-import { BadgePercent, PencilLine, Trash2, Loader2 } from "lucide-vue-next";
+import { ref, onMounted, computed, watch } from "vue";
+import { BadgePercent, PencilLine, Trash2, Loader2, Search, X as CloseIcon } from "lucide-vue-next";
+import { useAuthStore } from "@/stores/auth";
 
 import Sidebar from "@/components/modals/staff/Sidebar.vue";
 import CreateCouponModal from "@/components/modals/staff/CreateCouponModal.vue";
@@ -16,6 +17,7 @@ const config = useRuntimeConfig();
 const showCreateModal = ref(false);
 const showEditModal = ref(false);
 const editCouponData = ref(null);
+const searchKeyword = ref("");
 
 // toggle sidebar
 const toggleSidebar = () => {
@@ -35,7 +37,12 @@ const fetchCoupons = async () => {
     loading.value = false;
   }
 };
-onMounted(fetchCoupons);
+onMounted(() => {
+  fetchCoupons();
+  if (window.innerWidth < 1024) {
+    isOpen.value = false;
+  }
+});
 
 // format helper
 const formatPrice = (v) =>
@@ -60,8 +67,8 @@ const selectedIds = ref([]);
 // Có tick hết ở trang hiện tại không
 const isAllSelected = computed(
   () =>
-    coupons.value.length > 0 &&
-    coupons.value.every((c) => selectedIds.value.includes(c.id))
+    filteredCoupons.value.length > 0 &&
+    filteredCoupons.value.every((c) => selectedIds.value.includes(c.id))
 );
 
 // Toggle tick hết
@@ -69,7 +76,7 @@ const toggleSelectAll = () => {
   if (isAllSelected.value) {
     selectedIds.value = [];
   } else {
-    selectedIds.value = coupons.value.map((c) => c.id);
+    selectedIds.value = filteredCoupons.value.map((c) => c.id);
   }
 };
 
@@ -117,6 +124,21 @@ const deleteCoupons = async (ids) => {
     }
   }
 };
+
+const filteredCoupons = computed(() => {
+  if (!searchKeyword.value.trim()) return coupons.value;
+  const q = searchKeyword.value.toLowerCase();
+  return coupons.value.filter(
+    (c) =>
+      c.code.toLowerCase().includes(q) ||
+      (c.description && c.description.toLowerCase().includes(q))
+  );
+});
+
+// Reset selection on search
+watch(searchKeyword, () => {
+  selectedIds.value = [];
+});
 </script>
 
 <template>
@@ -125,29 +147,59 @@ const deleteCoupons = async (ids) => {
     <Sidebar :isOpen="isOpen" @toggle="toggleSidebar" />
 
     <!-- Main -->
-    <div class="flex-1 p-6">
+    <div class="flex-1 p-4 md:p-6 overflow-hidden flex flex-col min-w-0">
       <!-- Header -->
-      <div class="flex justify-between items-center mb-6">
-        <h1 class="text-2xl font-bold">Quản lý mã giảm giá</h1>
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div class="flex items-center gap-3">
+          <button
+            @click="toggleSidebar"
+            class="lg:hidden p-2 -ml-2 rounded-md hover:bg-gray-200 text-gray-600"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <h1 class="text-xl md:text-2xl font-bold">Quản lý mã giảm giá</h1>
+        </div>
 
         <div class="flex gap-2">
           <button
             v-if="selectedIds.length"
             @click="deleteCoupons(selectedIds)"
             :disabled="isBulkDeleting"
-            class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-500 disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2"
+            class="px-3 py-1.5 md:px-4 md:py-2 bg-red-600 text-white rounded hover:bg-red-500 disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2 text-sm md:text-base"
           >
             <Loader2 v-if="isBulkDeleting" class="w-4 h-4 animate-spin" />
-            <span>Xóa đã chọn ({{ selectedIds.length }})</span>
+            <span>Xóa ({{ selectedIds.length }})</span>
           </button>
 
           <button
-            class="px-4 py-2 bg-black text-white rounded hover:bg-gray-800"
+            class="w-full md:w-auto px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition text-sm md:text-base"
             @click="showCreateModal = true"
           >
             + Thêm mã giảm giá
           </button>
         </div>
+      </div>
+
+      <!-- Search Bar -->
+      <div class="mb-6 relative max-w-md group">
+        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <Search class="h-5 w-5 text-gray-400 group-focus-within:text-black transition-colors" />
+        </div>
+        <input
+          v-model="searchKeyword"
+          type="text"
+          placeholder="Tìm kiếm theo mã hoặc mô tả..."
+          class="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-black transition-all text-sm"
+        />
+        <button
+          v-if="searchKeyword"
+          @click="searchKeyword = ''"
+          class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-red-500 transition-colors"
+        >
+          <CloseIcon class="h-5 w-5" />
+        </button>
       </div>
 
       <!-- Loading -->
@@ -181,7 +233,7 @@ const deleteCoupons = async (ids) => {
 
           <tbody>
             <tr
-              v-for="c in coupons"
+              v-for="c in filteredCoupons"
               :key="c.id"
               class="odd:bg-gray-100 even:bg-white hover:bg-gray-200 border-b"
             >
@@ -241,6 +293,11 @@ const deleteCoupons = async (ids) => {
                     <span>Xóa</span>
                   </button>
                 </div>
+              </td>
+            </tr>
+            <tr v-if="filteredCoupons.length === 0">
+              <td colspan="10" class="text-center py-6 text-gray-500">
+                Không tìm thấy mã giảm giá phù hợp
               </td>
             </tr>
           </tbody>

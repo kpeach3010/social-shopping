@@ -5,7 +5,7 @@
   >
     <!-- Modal -->
     <div
-      class="bg-white rounded-2xl w-full max-w-3xl p-5 shadow-xl relative animate-fadeIn"
+      class="bg-white rounded-2xl w-full max-w-3xl p-4 sm:p-6 shadow-xl relative animate-fadeIn max-h-[95vh] sm:max-h-[90vh] flex flex-col mx-2"
     >
       <!-- Nút đóng -->
       <button
@@ -22,30 +22,31 @@
         Chọn màu & kích thước
       </h2>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="flex-1 overflow-y-auto custom-scrollbar pr-1">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 p-1">
         <!-- Cột trái: ảnh + chọn biến thể hiện tại -->
         <div>
           <!-- Ảnh -->
-          <div v-if="productDetail" class="flex gap-3">
+          <div v-if="productDetail" class="flex flex-col sm:flex-row gap-4">
             <!-- Danh sách ảnh nhỏ -->
-            <div class="flex flex-col gap-2 w-16">
+            <div class="flex flex-row sm:flex-col gap-2 overflow-x-auto sm:overflow-y-auto w-full sm:w-16 pb-2 sm:pb-0 scrollbar-hide">
               <img
                 v-for="(img, idx) in allImages"
                 :key="idx"
                 :src="img"
-                class="w-16 h-16 object-cover border cursor-pointer hover:opacity-80 transition rounded-md"
+                class="w-14 h-14 sm:w-16 sm:h-16 flex-shrink-0 object-cover border cursor-pointer hover:opacity-80 transition rounded-md"
                 :class="{ 'border-2 border-black': selectedImage === img }"
                 @click="selectedImage = img"
               />
             </div>
 
             <!-- Ảnh chính -->
-            <div class="flex-1 flex items-center justify-center">
+            <div class="flex-1 flex items-center justify-center bg-gray-50 rounded-lg p-2 min-h-[200px]">
               <img
                 :src="selectedImage"
                 @error="onImageError"
                 alt="Ảnh sản phẩm"
-                class="w-64 h-64 object-cover border rounded-lg"
+                class="w-full max-w-[240px] sm:w-64 h-auto aspect-square object-cover border rounded-lg shadow-sm"
               />
             </div>
           </div>
@@ -124,7 +125,7 @@
           </div>
 
           <!-- Số lượng + info variant hiện tại -->
-          <div v-if="productDetail" class="mt-4 flex items-center gap-4">
+          <div v-if="productDetail" class="mt-4 flex flex-wrap items-center gap-4">
             <div class="flex items-center gap-2">
               <span class="text-sm text-gray-700">Số lượng</span>
               <button
@@ -193,7 +194,7 @@
 
             <div
               v-else
-              class="border border-gray-200 rounded-md max-h-60 overflow-y-auto"
+              class="border border-gray-200 rounded-md max-h-40 sm:max-h-60 overflow-y-auto custom-scrollbar"
             >
               <table class="w-full text-xs">
                 <thead class="bg-gray-50 sticky top-0">
@@ -265,18 +266,19 @@
           </div>
         </div>
       </div>
+    </div>
 
       <!-- Footer -->
-      <div class="mt-6 flex justify-end gap-3">
+      <div class="mt-4 sm:mt-6 flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 p-1">
         <button
           @click="$emit('close')"
-          class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-100 text-sm"
+          class="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-100 text-sm"
         >
           Hủy
         </button>
         <button
           @click="confirmChoose"
-          class="px-5 py-2 bg-black text-white hover:bg-gray-800 disabled:bg-gray-400 rounded-md text-sm font-medium flex items-center justify-center gap-2"
+          class="w-full sm:w-auto px-5 py-2 bg-black text-white hover:bg-gray-800 disabled:bg-gray-400 rounded-md text-sm font-medium flex items-center justify-center gap-2"
           :disabled="selectedItems.length === 0 || isLoading"
           :style="isLoading ? 'opacity:0.7;pointer-events:none;' : ''"
         >

@@ -54,7 +54,7 @@
         class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6"
       >
         <div
-          v-for="p in products"
+          v-for="p in paginatedProducts"
           :key="p.id"
           class="border rounded-lg shadow-sm hover:shadow-lg transition"
         >
@@ -97,6 +97,16 @@
         </div>
       </div>
 
+      <!-- Pagination -->
+      <Pagination
+        v-if="!loading && totalPages > 1"
+        :totalPages="totalPages"
+        :currentPage="currentPage"
+        :perPage="perPage"
+        :total="products.length"
+        @update:currentPage="(p) => (currentPage = p)"
+      />
+
       <!-- Không có sản phẩm -->
       <div v-else-if="!loading" class="text-center text-gray-500">
         Không có sản phẩm nào trong danh mục này.
@@ -107,6 +117,7 @@
 
 <script setup>
 import { FunnelIcon } from "@heroicons/vue/24/outline";
+import Pagination from "@/components/Pagination.vue";
 
 const route = useRoute();
 const config = useRuntimeConfig();
@@ -117,6 +128,16 @@ const category = ref(null);
 const parentCategory = ref(null);
 const products = ref([]);
 const loading = ref(true);
+
+const currentPage = ref(1);
+const perPage = 12;
+
+const totalPages = computed(() => Math.ceil(products.value.length / perPage));
+
+const paginatedProducts = computed(() => {
+  const start = (currentPage.value - 1) * perPage;
+  return products.value.slice(start, start + perPage);
+});
 
 // Format giá
 const formatPrice = (v) =>
@@ -141,12 +162,13 @@ const filterByPrice = (sort) => {
     return sort === "asc" ? pa - pb : pb - pa;
   });
   products.value = sorted;
+  currentPage.value = 1;
 };
 
 // Load category & sản phẩm ban đầu
-onMounted(async () => {
-  document.addEventListener("click", handleClickOutside);
-
+watch(() => route.params.id, async () => {
+  loading.value = true;
+  currentPage.value = 1;
   try {
     const res = await $fetch(`/category/category/${route.params.id}`, {
       baseURL: config.public.apiBase,
@@ -170,6 +192,10 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
+}, { immediate: true });
+
+onMounted(() => {
+  document.addEventListener("click", handleClickOutside);
 });
 
 onUnmounted(() => {

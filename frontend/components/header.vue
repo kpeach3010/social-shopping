@@ -146,9 +146,9 @@
                   8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
                 />
               </svg>
-              <span class="text-sm font-medium">{{ userDisplayName }}</span>
+              <span class="text-sm font-medium hidden md:block">{{ userDisplayName }}</span>
               <svg
-                xmlns="http://www.w3.org/2000/svg"
+                  xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke-width="1.5"
@@ -165,7 +165,7 @@
 
             <div
               :class="[
-                'absolute right-0 top-full mt-0 w-40 bg-white border rounded-md shadow-lg transition duration-200 z-50',
+                'absolute right-0 top-full mt-0 w-50 bg-white border rounded-md shadow-lg transition duration-200 z-50',
                 activeDropdown === 'user' ? 'opacity-100 visible translate-y-1' : 'opacity-0 invisible group-hover:opacity-100 group-hover:visible'
               ]"
             >
@@ -176,19 +176,32 @@
                 >
                   Trang cá nhân
                 </NuxtLink>
+                <div class="border-b border-black mx-4 my-1"></div>
                 <NuxtLink
                   to="/profile"
                   class="block px-4 py-2 text-sm hover:bg-gray-100"
                 >
                   Tài khoản của tôi
                 </NuxtLink>
-                <NuxtLink
-                  v-if="auth.user?.role === 'staff'"
-                  to="/staff/products"
-                  class="block px-4 py-2 text-sm text-blue-600 font-medium hover:bg-gray-100"
-                >
-                  Quản lý cửa hàng
-                </NuxtLink>
+                <template v-if="auth.user?.role === 'admin'">
+                  <div class="border-b border-black mx-4 my-1"></div>
+                  <NuxtLink
+                    to="/admin/users"
+                    class="block px-4 py-2 text-sm text-red-600 font-medium hover:bg-gray-100"
+                  >
+                    Quản lý người dùng
+                  </NuxtLink>
+                </template>
+                <template v-if="auth.user?.role === 'staff'">
+                  <div class="border-b border-black mx-4 my-1"></div>
+                  <NuxtLink
+                    to="/staff/products"
+                    class="block px-4 py-2 text-sm text-blue-600 font-medium hover:bg-gray-100"
+                  >
+                    Quản lý cửa hàng
+                  </NuxtLink>
+                </template>
+                <div class="border-b border-black mx-4 my-1"></div>
                 <button
                   @click="handleLogout"
                   class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100"

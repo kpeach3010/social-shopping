@@ -2,34 +2,49 @@
   <aside
     ref="sidebarRef"
     :class="[
-      'bg-white border border-gray-200 rounded-lg shadow-lg flex flex-col transition-shadow duration-300 overflow-hidden fixed z-50',
-      isOpen ? 'w-64' : 'w-16',
-      isDragging ? 'cursor-grabbing shadow-2xl' : '',
+      'bg-white border-gray-200 shadow-xl flex flex-col overflow-hidden fixed z-50',
+      // Chỉ bật transition trên Desktop, mobile sẽ tắt hiệu ứng theo yêu cầu người dùng
+      !isDragging && !isMobile ? 'transition-all duration-300' : 'transition-none',
+      // Desktop styles
+      !isMobile ? (isOpen ? 'w-64 border rounded-lg' : 'w-16 border rounded-lg') : '',
+      // Mobile styles
+      isMobile ? (isOpen ? 'bottom-0 left-0 w-full h-[60vh] rounded-t-3xl border-t' : 'bottom-6 right-6 w-14 h-14 rounded-full border shadow-2xl flex items-center justify-center translate-y-0') : '',
+      isDragging && !isMobile ? 'cursor-grabbing shadow-2xl scale-[1.02]' : '',
     ]"
-    :style="{
+    :style="!isMobile ? {
       maxHeight: '60vh',
       minWidth: '48px',
       top: position.top + 'px',
       left: position.left + 'px',
-      visibility: isInitialized ? 'visible' : 'hidden', // Ẩn đi cho đến khi tính xong vị trí ban đầu
+      visibility: isInitialized ? 'visible' : 'hidden',
+    } : {
+      visibility: isInitialized ? 'visible' : 'hidden',
     }"
+    @click.stop="isMobile && !isOpen ? $emit('toggle') : null"
   >
+    <!-- Trạng thái thu gọn trên Mobile: Chỉ hiện Icon -->
+    <div v-if="isMobile && !isOpen" class="flex items-center justify-center w-full h-full cursor-pointer hover:bg-gray-50 transition-colors">
+      <ChatBubbleOvalLeftEllipsisIcon class="w-7 h-7 text-gray-700" />
+    </div>
+
+    <!-- Nội dung đầy đủ (Desktop hoặc Mobile khi mở) -->
+    <template v-else>
     <div
       class="flex items-center justify-between p-3 border-b bg-gray-50 cursor-move select-none"
       @mousedown="startDrag"
     >
       <h2
-        v-if="isOpen"
-        class="text-base font-bold text-gray-700 pointer-events-none"
+        v-if="isOpen || isMobile"
+        class="text-sm sm:text-base font-bold text-gray-700 pointer-events-none flex items-center gap-1"
       >
-        Chat
-        <ChatBubbleOvalLeftEllipsisIcon class="w-6 h-6 inline-block mr-1" />
+        <ChatBubbleOvalLeftEllipsisIcon class="w-5 h-5 sm:w-6 sm:h-6" />
+        <span v-if="isOpen">Trò chuyện</span>
       </h2>
 
       <button
-        v-if="showToggle"
+        v-if="showToggle && !isMobile"
         @mousedown.stop
-        @click="$emit('toggle')"
+        @click.stop="$emit('toggle')"
         class="p-2 rounded hover:bg-gray-100 cursor-pointer"
         :title="isOpen ? 'Thu gọn' : 'Mở rộng'"
       >
@@ -64,6 +79,13 @@
       >
         {{ tab.label }}
       </button>
+      <div v-if="isMobile && isOpen" class="ml-auto pr-3 flex items-center">
+        <button @click.stop="$emit('toggle')" class="p-2 -mr-1 text-gray-500 hover:text-black">
+           <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+           </svg>
+        </button>
+      </div>
     </div>
 
     <nav class="flex-1 space-y-1 px-2 py-2 overflow-y-auto" @mousedown.stop>
@@ -72,7 +94,7 @@
           <button
             v-for="user in users"
             :key="user.id"
-            @click="$emit('openChat', { type: 'direct', partner: user })"
+            @click="handleOpenChat({ type: 'direct', partner: user })"
             class="flex items-center gap-2 w-full px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 transition"
             :title="!isOpen ? user.fullName : ''"
           >
@@ -109,7 +131,7 @@
           <button
             v-for="conv in groupConversations"
             :key="conv.id"
-            @click="$emit('openChat', { type: 'group', conversation: conv })"
+            @click="handleOpenChat({ type: 'group', conversation: conv })"
             class="flex items-center gap-2 w-full px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 transition"
             :title="!isOpen ? conv.name : ''"
           >
@@ -131,6 +153,7 @@
         </div>
       </template>
     </nav>
+    </template>
   </aside>
 </template>
 
@@ -156,6 +179,20 @@ const auth = useAuthStore();
 const users = ref([]);
 const hasFriends = ref(false);
 const groupConversations = ref([]);
+const isMobile = ref(false);
+
+const handleOpenChat = (data) => {
+  emit("openChat", data);
+  // Trên mobile, sau khi mở chat thì tự động đóng sidebar lại
+  if (isMobile.value && props.isOpen) {
+    emit("toggle");
+  }
+};
+
+const checkMobile = () => {
+  isMobile.value = window.innerWidth < 768;
+};
+
 const { $socket } = useNuxtApp();
 
 // Storage cho debounced resize handler
@@ -183,6 +220,11 @@ const savedPosition = ref(null);
 
 // Hàm đặt vị trí mặc định (Góc phải dưới nhưng đảm bảo trong màn hình)
 const setDefaultPosition = () => {
+  checkMobile();
+  if (isMobile.value) {
+    isInitialized.value = true;
+    return;
+  }
   if (!sidebarRef.value) return;
 
   const el = sidebarRef.value;
@@ -215,7 +257,7 @@ const setDefaultPosition = () => {
 
 // Hàm kiểm tra và điều chỉnh vị trí khi size thay đổi
 const adjustPositionForResize = () => {
-  if (!sidebarRef.value || !isInitialized.value) return;
+  if (isMobile.value || !sidebarRef.value || !isInitialized.value) return;
 
   nextTick(() => {
     const el = sidebarRef.value;
@@ -247,6 +289,7 @@ const adjustPositionForResize = () => {
 };
 
 const startDrag = (event) => {
+  if (isMobile.value) return; // Không cho phép kéo trên mobile
   isDragging.value = true;
   const rect = sidebarRef.value.getBoundingClientRect();
 
@@ -400,7 +443,10 @@ onMounted(async () => {
   }, 200);
 
   // Xử lý resize window với debounce
-  window.addEventListener("resize", handleResize);
+  window.addEventListener("resize", () => {
+    checkMobile();
+    handleResize();
+  });
 
   const isReady = await useWaitForAuthReady();
   if (!isReady) return;

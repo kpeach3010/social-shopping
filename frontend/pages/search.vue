@@ -51,7 +51,7 @@
         class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6"
       >
         <div
-          v-for="item in results"
+          v-for="item in paginatedResults"
           :key="item.id"
           class="border rounded-lg shadow-sm hover:shadow-lg transition"
         >
@@ -93,12 +93,26 @@
           </div>
         </div>
       </div>
+
+      <!-- Pagination -->
+      <Pagination
+        v-if="!loading && totalPages > 1"
+        :totalPages="totalPages"
+        :currentPage="currentPage"
+        :perPage="perPage"
+        :total="results.length"
+        @update:currentPage="(p) => (currentPage = p)"
+      />
     </div>
   </div>
 </template>
 <script setup>
-import { ref, watch, onMounted, onUnmounted } from "vue";
+import { ref, watch, onMounted, onUnmounted, computed } from "vue";
 import { FunnelIcon } from "@heroicons/vue/24/outline";
+import Pagination from "@/components/Pagination.vue";
+
+const currentPage = ref(1);
+const perPage = 12;
 const results = ref([]);
 const loading = ref(false);
 const showFilter = ref(false);
@@ -114,6 +128,13 @@ function formatPrice(v) {
     maximumFractionDigits: 0,
   }).format(Number(v) || 0);
 }
+
+const totalPages = computed(() => Math.ceil(results.value.length / perPage));
+
+const paginatedResults = computed(() => {
+  const start = (currentPage.value - 1) * perPage;
+  return results.value.slice(start, start + perPage);
+});
 
 async function fetchResults() {
   if (!route.query.name) return;
@@ -161,5 +182,8 @@ onUnmounted(() => {
   document.removeEventListener("click", handleClickOutside);
 });
 
-watch(() => route.query.name, fetchResults, { immediate: true });
+watch(() => route.query.name, () => {
+  currentPage.value = 1;
+  fetchResults();
+}, { immediate: true });
 </script>

@@ -11,7 +11,7 @@
       >
         <!-- Header -->
         <div
-          class="flex items-start sm:items-center justify-between gap-2 sm:gap-4 px-4 sm:px-7 py-3 sm:py-4 border-b shrink-0 relative"
+          class="flex items-center justify-between gap-2 sm:gap-4 px-4 sm:px-7 py-2.5 sm:py-4 border-b shrink-0 relative"
         >
           <div class="min-w-0">
             <h2 class="text-base sm:text-xl font-bold text-gray-900 truncate">
@@ -82,7 +82,7 @@
                 </div>
               </div>
 
-              <div class="grid grid-cols-2 gap-4 mb-3 sm:mb-4 lg:gap-10">
+              <div class="grid grid-cols-2 gap-2.5 sm:gap-6 mb-3 sm:mb-4 lg:gap-10">
                 <!-- Cột 1: Ảnh áo đã chọn -->
                 <div>
                   <label
@@ -90,14 +90,13 @@
                     >Ảnh áo đã chọn</label
                   >
                   <div
-                    class="w-full flex items-center justify-center min-h-[260px] sm:min-h-[340px] max-h-[700px] h-[38vh] sm:h-[48vh] lg:h-[56vh] bg-gray-100 rounded-xl border overflow-hidden"
+                    class="w-full flex items-center justify-center min-h-[160px] xs:min-h-[220px] sm:min-h-[340px] max-h-[700px] h-[30vh] sm:h-[48vh] lg:h-[56vh] bg-gray-50 rounded-xl border overflow-hidden shadow-inner"
                     style="
                       aspect-ratio: 4/5;
                       min-width: 0;
                       width: 100%;
-                      max-width: 540px;
-                      margin-left: auto;
-                      margin-right: auto;
+                      max-width: 500px;
+                      margin: 0 auto;
                     "
                   >
                     <img
@@ -118,14 +117,13 @@
                     >Ảnh của bạn</label
                   >
                   <div
-                    class="relative rounded-xl sm:rounded-2xl border-2 border-dashed bg-gray-50 flex flex-col items-center justify-center min-h-[260px] sm:min-h-[340px] max-h-[700px] h-[38vh] sm:h-[48vh] lg:h-[56vh] mb-0"
+                    class="relative rounded-xl sm:rounded-2xl border-2 border-dashed bg-gray-50 flex flex-col items-center justify-center min-h-[160px] xs:min-h-[220px] sm:min-h-[340px] max-h-[700px] h-[30vh] sm:h-[48vh] lg:h-[56vh] shadow-inner"
                     style="
                       aspect-ratio: 4/5;
                       min-width: 0;
                       width: 100%;
-                      max-width: 540px;
-                      margin-left: auto;
-                      margin-right: auto;
+                      max-width: 500px;
+                      margin: 0 auto;
                     "
                   >
                     <label
@@ -209,7 +207,7 @@
                 </p>
                 <button
                   type="button"
-                  class="w-full py-2 rounded-lg font-semibold transition flex items-center justify-center gap-2 text-sm"
+                  class="w-full py-2.5 sm:py-3 rounded-xl font-bold transition flex items-center justify-center gap-2 text-sm sm:text-base shadow-sm active:scale-[0.98]"
                   :class="
                     canRun && !loading
                       ? 'bg-blue-600 text-white hover:bg-blue-700'
@@ -264,7 +262,7 @@
 
               <!-- Result image area -->
               <div
-                class="flex-1 min-h-[200px] sm:min-h-[300px] lg:min-h-0 rounded-xl sm:rounded-2xl border bg-gray-50 overflow-hidden flex items-center justify-center"
+                class="flex-1 min-h-[220px] xs:min-h-[280px] sm:min-h-[340px] lg:min-h-0 rounded-xl sm:rounded-2xl border bg-white overflow-hidden flex items-center justify-center shadow-md relative"
               >
                 <div v-if="loading" class="text-center p-4 sm:p-8">
                   <div

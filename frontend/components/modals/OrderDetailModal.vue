@@ -91,7 +91,7 @@
           <!-- Danh sách sản phẩm -->
           <div class="space-y-3">
             <h3 class="font-bold text-gray-900 uppercase tracking-tight text-xs">Sản phẩm ({{ order.items?.length }})</h3>
-            <div class="border rounded-xl divide-y overflow-hidden">
+            <div class="border rounded-xl divide-y overflow-y-auto max-h-[280px] custom-scrollbar shadow-inner bg-white">
               <div
                 v-for="item in order.items"
                 :key="item.id"
@@ -113,7 +113,11 @@
           </div>
 
           <!-- Tổng kết tiền -->
-          <div class="bg-gray-50 rounded-xl p-4 space-y-2 text-sm ml-auto w-full md:w-64 border">
+          <div class="bg-gray-50 rounded-xl p-4 space-y-2 text-sm ml-auto w-full md:w-64 border shadow-sm">
+            <div class="flex justify-between text-gray-500">
+              <span>Tổng số lượng</span>
+              <span class="font-medium text-gray-600">{{ totalQuantity }} sản phẩm</span>
+            </div>
             <div class="flex justify-between text-gray-500">
               <span>Tạm tính</span>
               <span>{{ formatPrice(order.subtotal) }}</span>
@@ -177,7 +181,9 @@
 </template>
 
 <script setup>
-defineProps({
+import { computed } from "vue";
+
+const props = defineProps({
   show: Boolean,
   loading: Boolean,
   order: Object,
@@ -186,6 +192,10 @@ defineProps({
 });
 
 defineEmits(["close", "pay", "change-to-cod", "cancel", "navigate-to-product"]);
+
+const totalQuantity = computed(() => {
+  return props.order?.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+});
 
 const formatPrice = (v) =>
   new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(

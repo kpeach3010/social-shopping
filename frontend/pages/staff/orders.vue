@@ -1,8 +1,8 @@
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import Sidebar from "@/components/modals/staff/Sidebar.vue";
 
-import { Check, X, Loader2 } from "lucide-vue-next";
+import { Check, X as CloseIcon, Loader2, Search, RotateCw } from "lucide-vue-next";
 import Pagination from "@/components/Pagination.vue";
 import OrderDetailModal from "@/components/modals/staff/OrderDetailModal.vue";
 
@@ -76,11 +76,37 @@ const fetchOrders = async () => {
   }
 };
 
-onMounted(fetchOrders);
+onMounted(() => {
+  fetchOrders();
+  if (window.innerWidth < 1024) {
+    isOpen.value = false;
+  }
+});
 
 const filteredOrders = computed(() => {
-  if (selectedStatus.value === "all") return orders.value;
-  return orders.value.filter((o) => o.status === selectedStatus.value);
+  let result = orders.value;
+
+  // Lọc theo trạng thái
+  if (selectedStatus.value !== "all") {
+    result = result.filter((o) => o.status === selectedStatus.value);
+  }
+
+  // Lọc theo từ khóa tìm kiếm (Mã đơn hoặc Tên khách hàng)
+  if (searchKeyword.value.trim()) {
+    const q = searchKeyword.value.toLowerCase();
+    result = result.filter(
+      (o) =>
+        o.id.toLowerCase().includes(q) ||
+        (o.groupOrder?.customer?.fullName || "").toLowerCase().includes(q),
+    );
+  }
+
+  return result;
+});
+
+// Reset trang khi thay đổi từ khóa hoặc trạng thái
+watch([searchKeyword, selectedStatus], () => {
+  currentPage.value = 1;
 });
 
 const totalPages = computed(() =>
@@ -213,87 +239,69 @@ const openDetail = (order) => {
   showDetailModal.value = true;
 };
 
-const resetSearch = async () => {
+const resetSearch = () => {
   searchKeyword.value = "";
-  await fetchOrders();
-};
-
-const searchOrders = async () => {
-  if (!searchKeyword.value || !searchKeyword.value.trim()) {
-    await fetchOrders();
-    return;
-  }
-
-  loading.value = true;
-
-  try {
-    const response = await $fetch(`/orders/search?id=${searchKeyword.value}`, {
-      baseURL: config.public.apiBase,
-      headers: { Authorization: `Bearer ${auth.accessToken}` },
-    });
-
-    console.log("Response API:", response);
-    if (response && Array.isArray(response.data)) {
-      orders.value = response.data;
-    } else {
-      // Trường hợp không tìm thấy hoặc cấu trúc khác
-      orders.value = [];
-    }
-
-    currentPage.value = 1;
-  } catch (err) {
-    console.error("Lỗi tìm đơn:", err);
-    orders.value = [];
-    alert("Không tìm thấy đơn hàng!");
-  } finally {
-    loading.value = false;
-  }
 };
 </script>
 
 <template>
   <div class="flex min-h-screen bg-gray-50">
     <Sidebar :isOpen="isOpen" @toggle="toggleSidebar" />
-    <div class="flex-1 flex flex-col">
-      <main class="flex-1 p-6">
-        <h1 class="text-2xl font-bold mb-4">Quản lý đơn hàng</h1>
+    <div class="flex-1 flex flex-col min-w-0">
+      <main class="flex-1 p-4 md:p-6 overflow-hidden">
+        <div class="flex items-center gap-3 mb-4">
+          <button
+            @click="toggleSidebar"
+            class="lg:hidden p-2 -ml-2 rounded-md hover:bg-gray-200 text-gray-600"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <div class="flex items-center gap-2">
+            <h1 class="text-xl md:text-2xl font-bold">Quản lý đơn hàng</h1>
+            <button
+              @click="fetchOrders"
+              class="p-2 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm flex items-center gap-2 group ml-2"
+              :disabled="loading"
+              title="Tải lại danh sách"
+            >
+              <RotateCw 
+                class="w-4 h-4 text-gray-500 group-hover:text-black transition-colors" 
+                :class="{ 'animate-spin': loading }"
+              />
+            </button>
+          </div>
+        </div>
 
         <!-- Search bar -->
-        <div class="mb-4 flex items-center gap-2">
+        <div class="mb-4 relative max-w-md group">
+          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search class="h-5 w-5 text-gray-400 group-focus-within:text-black transition-colors" />
+          </div>
           <input
             v-model="searchKeyword"
             type="text"
-            placeholder="Tìm kiếm bằng mã đơn..."
-            class="px-4 py-2 border rounded w-64"
-            @keyup.enter="searchOrders"
+            placeholder="Tìm kiếm bằng mã đơn hàng..."
+            class="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-black transition-all text-sm"
           />
           <button
-            class="px-4 py-2 bg-black text-white rounded disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2"
-            @click="searchOrders"
-            :disabled="loading"
-          >
-            <Loader2 v-if="loading && searchKeyword" class="w-4 h-4 animate-spin" />
-            <span>Tìm kiếm</span>
-          </button>
-
-          <!-- nút reset -->
-          <button
             v-if="searchKeyword"
-            class="px-3 py-2 border rounded text-gray-700"
             @click="resetSearch"
+            class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-red-500 transition-colors"
+            title="Xóa tìm kiếm"
           >
-            X
+            <CloseIcon class="h-5 w-5" />
           </button>
         </div>
-
         <!-- Tabs -->
-        <div class="mb-4">
-          <div class="flex gap-2 border-b">
+        <div class="mb-4 overflow-x-auto scrollbar-hide">
+          <div class="flex gap-2 border-b whitespace-nowrap min-w-max">
             <button
               v-for="s in statusOptions"
               :key="s.value"
               @click="selectedStatus = s.value"
-              class="px-4 py-2 text-base font-medium transition border-b-2"
+              class="px-4 py-2 text-sm md:text-base font-medium transition border-b-2"
               :class="[
                 selectedStatus === s.value
                   ? 'border-black text-black font-semibold'
@@ -307,7 +315,7 @@ const searchOrders = async () => {
         </div>
 
         <!-- Loading -->
-        <div v-if="loading" class="text-center py-6 text-gray-500">
+        <div v-if="loading && orders.length === 0" class="text-center py-6 text-gray-500">
           Đang tải...
         </div>
 
@@ -317,12 +325,12 @@ const searchOrders = async () => {
           class="overflow-x-auto bg-white rounded-lg shadow transition"
         >
           <table
-            class="min-w-full text-sm text-left text-gray-600 border-collapse"
+            class="w-max min-w-full text-sm text-left text-gray-600 border-collapse"
           >
             <thead class="bg-gray-300 text-gray-800 font-semibold">
               <tr>
-                <th class="px-2 py-3 w-20">Ảnh</th>
-                <th class="px-4 py-3">Mã đơn</th>
+                <th class="px-2 py-3 w-40 min-w-[150px]">Ảnh</th>
+                <th class="px-4 py-3 min-w-[180px]">Mã đơn</th>
                 <th class="px-4 py-3">Tên nhóm</th>
                 <th class="px-4 py-3">Ngày tạo</th>
                 <th class="px-4 py-3">Tổng tiền</th>
@@ -341,9 +349,8 @@ const searchOrders = async () => {
                 ]"
                 @click="openDetail(o)"
               >
-                <!-- Ảnh -->
-                <td class="px-2 py-3">
-                  <div class="flex items-center gap-1">
+                <td class="px-2 py-3 w-40 min-w-[150px]">
+                  <div class="flex items-center gap-1.5 pr-4">
                     <template v-if="o.items && o.items.length">
                       <template
                         v-for="(item, idx) in o.items.slice(0, 2)"
@@ -542,6 +549,16 @@ const searchOrders = async () => {
           :show="showDetailModal"
           :orderId="detailOrderId"
           @close="showDetailModal = false"
+          @approve="async (o) => {
+            if (o.groupOrderId) await approveGroup(o.groupOrderId);
+            else await approveOrder(o.id);
+            showDetailModal = false;
+          }"
+          @reject="async (o) => {
+            if (o.groupOrderId) await rejectGroup(o.id, o.groupOrderId);
+            else await rejectOrder(o.id);
+            showDetailModal = false;
+          }"
         />
       </main>
     </div>

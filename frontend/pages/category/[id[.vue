@@ -51,34 +51,45 @@
       <!-- Grid sản phẩm -->
       <div
         v-if="!loading && products.length"
-        class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
+        class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6"
       >
         <div
           v-for="p in products"
           :key="p.id"
           class="border rounded-lg shadow-sm hover:shadow-lg transition"
         >
+          <!-- Ảnh -->
           <NuxtLink :to="`/product/${p.id}`">
-            <div class="w-full h-56 bg-white rounded-t-lg overflow-hidden flex items-center justify-center">
+            <div class="w-full h-40 sm:h-56 bg-white rounded-t-lg overflow-hidden flex items-center justify-center">
               <img
                 :src="p.thumbnailUrl"
                 :alt="p.name"
-                class="w-full h-full object-contain"
+                class="w-full h-full object-contain p-2"
               />
             </div>
           </NuxtLink>
 
+          <!-- Nội dung -->
           <div class="p-4 flex flex-col justify-between bg-gray-100 rounded-b-lg">
-            <h3 class="font-semibold text-gray-800 mb-2 truncate">
-              {{ p.name }}
-            </h3>
-            <p class="text-gray-600">
-              {{ formatPrice(p.price || p.price_default) }}
+            <NuxtLink :to="`/product/${p.id}`">
+              <h3 class="font-semibold text-gray-800 mb-2 truncate">
+                {{ p.name }}
+              </h3>
+            </NuxtLink>
+
+            <p class="text-gray-600 font-medium">
+              {{
+                Number(p.price_default || p.price).toLocaleString(
+                  "vi-VN",
+                )
+              }}
+              đ
             </p>
 
+            <!-- Nút xem chi tiết -->
             <NuxtLink
               :to="`/product/${p.id}`"
-              class="mt-3 px-4 py-2 bg-black text-white rounded hover:bg-gray-800 text-center"
+              class="mt-2 sm:mt-3 px-2 py-1.5 sm:px-4 sm:py-2 bg-black text-white rounded hover:bg-gray-800 text-center text-xs sm:text-sm transition-colors"
             >
               Xem chi tiết
             </NuxtLink>

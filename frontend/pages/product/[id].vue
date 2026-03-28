@@ -12,14 +12,14 @@
     <main class="container mx-auto px-4 py-10" v-if="!loading && product">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
         <!-- Ảnh -->
-        <div class="flex gap-4">
+        <div class="flex flex-col md:flex-row gap-4">
           <!-- Danh sách ảnh nhỏ -->
-          <div class="flex flex-col gap-3 w-20">
+          <div class="flex md:flex-col gap-3 w-full md:w-20 overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
             <img
               v-for="(img, idx) in allImages"
               :key="idx"
               :src="img"
-              class="w-20 h-20 object-cover rounded border cursor-pointer hover:opacity-80"
+              class="w-16 h-16 md:w-20 md:h-20 flex-shrink-0 object-cover rounded border cursor-pointer hover:opacity-80"
               :class="selectedImage === img ? 'border-2 border-black' : ''"
               @click="selectedImage = img"
               loading="lazy"
@@ -27,11 +27,11 @@
           </div>
 
           <!-- Ảnh lớn -->
-          <div class="flex-1">
+          <div class="flex-1 order-first md:order-last">
             <img
               :src="selectedImage"
               :alt="product.name"
-              class="w-full rounded-lg shadow"
+              class="w-full rounded-lg shadow-sm"
               loading="lazy"
             />
           </div>
@@ -172,59 +172,62 @@
               <div
                 v-for="c in coupons"
                 :key="c.id"
-                class="flex items-center justify-between px-3 py-2 border rounded-lg bg-white shadow-sm hover:shadow-md transition text-sm cursor-pointer"
+                class="flex flex-col md:flex-row md:items-center justify-between px-3 py-3 md:py-2 border rounded-lg bg-white shadow-sm hover:shadow-md transition text-sm cursor-pointer gap-3"
                 @click="openCouponDetail(c.id)"
               >
                 <!-- Thông tin coupon -->
-                <div>
-                  <span class="font-semibold text-gray-600 mr-2">
-                    {{ c.kind === "general" ? "Mã cá nhân:" : "Mã nhóm:" }}
-                  </span>
+                <div class="flex-1">
+                  <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span class="font-semibold text-gray-600">
+                      {{ c.kind === "general" ? "Mã cá nhân:" : "Mã nhóm:" }}
+                    </span>
 
-                  <span class="font-mono font-semibold text-gray-900 mr-2">
-                    {{ c.code }}
-                  </span>
+                    <span class="font-mono font-semibold text-gray-900 bg-gray-100 px-1.5 py-0.5 rounded">
+                      {{ c.code }}
+                    </span>
 
-                  <span class="text-green-600 font-bold mx-2">
-                    Giảm
-                    <span v-if="c.type === 'percent'">{{ c.value }}%</span>
-                    <span v-else>{{ formatPrice(c.value) }}</span>
-                  </span>
+                    <span class="text-green-600 font-bold">
+                      Giảm
+                      <span v-if="c.type === 'percent'">{{ c.value }}%</span>
+                      <span v-else>{{ formatPrice(c.value) }}</span>
+                    </span>
+                  </div>
 
-                  <span v-if="c.endsAt" class="text-blue-500 text-xs">
+                  <div v-if="c.minOrderTotal" class="text-blue-500 text-xs mt-1 font-medium">
                     Đơn tối thiểu {{ formatPrice(c.minOrderTotal) }}
-                  </span>
+                  </div>
                 </div>
 
                 <!-- Nút tạo nhóm nếu là coupon group -->
                 <div
                   v-if="c.kind === 'group'"
-                  class="flex flex-col items-end gap-1 mt-1 text-sm text-gray-900"
+                  class="flex flex-col items-center md:items-end gap-2 text-sm text-gray-900 w-full md:w-auto pt-2 md:pt-0 border-t md:border-0 border-gray-100"
                 >
                   <button
                     v-if="!auth.isLoggedIn || auth.isCustomer"
                     @click.stop="createInviteLink(c.id)"
                     :disabled="creatingInviteLinks[c.id]"
-                    class="px-3 py-1 bg-black text-white rounded-full hover:bg-gray-800 text-xs font-semibold shadow-sm active:scale-[0.97] cursor-pointer disabled:bg-gray-400 flex items-center justify-center min-w-[90px]"
+                    class="w-full md:w-auto px-4 py-1.5 bg-black text-white rounded-full hover:bg-gray-800 text-xs font-semibold shadow-sm active:scale-[0.97] cursor-pointer disabled:bg-gray-400 flex items-center justify-center min-w-[100px]"
                   >
                     <span v-if="creatingInviteLinks[c.id]" class="loader-inline mr-1"></span>
                     <span v-if="creatingInviteLinks[c.id]">Đang tạo...</span>
                     <span v-else>+ Tạo nhóm</span>
                   </button>
+                  
                   <div
                     v-if="groupInviteLinks[c.id]"
-                    class="flex items-center gap-2 text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded-md px-2 py-1 w-fit mt-1"
+                    class="flex items-center gap-2 text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded-md px-2 py-1.5 w-full md:w-fit mt-1"
                   >
-                    <span class="font-medium text-gray-800">Link:</span>
+                    <span class="font-medium text-gray-800 shrink-0">Link:</span>
                     <input
                       readonly
                       :value="groupInviteLinks[c.id]"
-                      class="bg-transparent w-[140px] truncate focus:outline-none cursor-text text-gray-800"
+                      class="bg-transparent flex-1 md:w-[140px] truncate focus:outline-none cursor-text text-gray-800"
                       @click.stop="$event.target.select()"
                     />
                     <button
                       @click.stop="copyInviteLink(groupInviteLinks[c.id])"
-                      class="text-xs font-semibold text-blue-700 hover:underline cursor-pointer"
+                      class="text-xs font-semibold text-blue-700 hover:underline cursor-pointer shrink-0"
                     >
                       Copy
                     </button>

@@ -305,17 +305,17 @@ export const groupOrderCheckoutService = async (
       userId,
       items,
       couponCode,
-
       null, // dùng địa chỉ mặc định
       paymentMethod, // COD hoặc PAYPAL
       false, // không phải từ giỏ hàng
       groupOrderId,
+      true, // skip notification in each checkout
     );
 
     createdOrders.push(order);
   }
 
-  // 5) Cập nhật trạng thái group order
+  // 5. Cập nhật trạng thái group order
   // COD → "ordering" (trực tiếp gửi shop)
   // PAYPAL → "awaiting_payment" (chờ trưởng nhóm thanh toán trong 30p)
   const newGroupStatus =
@@ -328,6 +328,12 @@ export const groupOrderCheckoutService = async (
       updatedAt: new Date(), // track thời gian để timeout
     })
     .where(eq(groupOrders.id, groupOrderId));
+
+  // Plan V11: Trigger thông báo cho các nhóm bị ảnh hưởng (Stock Down)
+  // Loại trừ chính nhóm này để không nhận thông báo do mình gây ra
+  notifyAffectedGroups(groupOrder.productId, false, groupOrderId).catch((err) =>
+    console.error("Error in groupOrderCheckoutService trigger:", err),
+  );
 
   return {
     orders: createdOrders,
@@ -348,8 +354,8 @@ export const leaveGroupOrderService = async ({ userId, groupOrderId }) => {
       .limit(1);
 
     if (!groupOrder) throw new Error("Nhóm không tồn tại");
-    if (groupOrder.status !== "pending") {
-      throw new Error("Chỉ có thể rời nhóm khi trạng thái là pending");
+    if (groupOrder.status !== "pending" && groupOrder.status !== "locked") {
+      throw new Error("Chỉ có thể rời nhóm khi trạng thái là pending hoặc locked");
     }
 
     // 2. Check Conversation
@@ -390,12 +396,19 @@ export const leaveGroupOrderService = async ({ userId, groupOrderId }) => {
         ),
       );
 
-    // 5. Cập nhật số lượng thành viên (Fix 1: update count)
+    const updateData = {
+      currentMember: sql`${groupOrders.currentMember} - 1`,
+      updatedAt: new Date(),
+    };
+
+    // Nếu nhóm đang locked (đủ người), khi có người rời đi -> quay về pending
+    if (groupOrder.status === "locked") {
+      updateData.status = "pending";
+    }
+
     await tx
       .update(groupOrders)
-      .set({
-        currentMember: sql`${groupOrders.currentMember} - 1`,
-      })
+      .set(updateData)
       .where(eq(groupOrders.id, groupOrderId));
 
     let newLeader = null;
@@ -617,8 +630,17 @@ export const selectItemsService = async ({ groupOrderId, userId, items }) => {
   const variantIds = items.map((i) => i.variantId);
 
   const variants = await db
-    .select()
+    .select({
+      id: productVariants.id,
+      productId: productVariants.productId,
+      stock: productVariants.stock,
+      price: productVariants.price,
+      colorName: colors.name,
+      sizeName: sizes.name,
+    })
     .from(productVariants)
+    .leftJoin(colors, eq(productVariants.colorId, colors.id))
+    .leftJoin(sizes, eq(productVariants.sizeId, sizes.id))
     .where(inArray(productVariants.id, variantIds));
 
   if (variants.length !== items.length) {
@@ -642,7 +664,7 @@ export const selectItemsService = async ({ groupOrderId, userId, items }) => {
     }
 
     if (variant.stock < item.quantity) {
-      throw new Error(`Biến thể ${variant.id} không đủ hàng`);
+      throw new Error(`Sản phẩm phân loại ${variant.colorName} - ${variant.sizeName} không đủ hàng`);
     }
   }
 
@@ -764,8 +786,9 @@ export const selectItemsService = async ({ groupOrderId, userId, items }) => {
 
   // Plan V11: Trigger thông báo cho các nhóm bị ảnh hưởng
   // (Không await để không làm chậm response của user hiện tại)
-  notifyAffectedGroups(groupOrder.productId, false).catch(err => 
-    console.error("Error in notifyAffectedGroups trigger:", err)
+  // Loại trừ chính nhóm này (excludeGroupOrderId = groupOrderId)
+  notifyAffectedGroups(groupOrder.productId, false, groupOrderId).catch((err) =>
+    console.error("Error in notifyAffectedGroups trigger:", err),
   );
 
   return result;
@@ -814,7 +837,7 @@ export const cancelGroupOrderAfterCheckoutService = async (
   }
 
   // 5. Thực hiện Transaction hủy nhóm
-  return await db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     // 5.1 Cập nhật trạng thái nhóm -> Quay lại Locked thay vì Cancelled
     await tx
       .update(groupOrders)
@@ -850,18 +873,7 @@ export const cancelGroupOrderAfterCheckoutService = async (
         .where(eq(coupons.code, couponCode));
     }
 
-    // 5.2 Cập nhật trạng thái TẤT CẢ đơn con -> Cancelled
-    await tx
-      .update(orders)
-      .set({ status: "cancelled", updatedAt: new Date() })
-      .where(
-        and(
-          eq(orders.groupOrderId, groupOrderId),
-          ne(orders.status, "cancelled")
-        )
-      );
-
-    // Lấy tất cả items của các đơn trong nhóm để hoàn kho
+    // Lấy tất cả items của các đơn trong nhóm để hoàn kho TRƯỚC khi cập nhật status sang cancelled
     const allGroupItems = await tx
       .select({
         variantId: orderItems.variantId,
@@ -877,9 +889,21 @@ export const cancelGroupOrderAfterCheckoutService = async (
         )
       );
 
+    // 5.2 Cập nhật trạng thái TẤT CẢ đơn con -> Cancelled
+    await tx
+      .update(orders)
+      .set({ status: "cancelled", updatedAt: new Date() })
+      .where(
+        and(
+          eq(orders.groupOrderId, groupOrderId),
+          ne(orders.status, "cancelled")
+        )
+      );
+
     // gọi hàm hoàn kho với danh sách items vừa lấy
+    let restoredProductIds = [];
     if (allGroupItems.length > 0) {
-      await restoreStockForItems(tx, allGroupItems);
+      restoredProductIds = await restoreStockForItems(tx, allGroupItems, groupOrderId);
     }
 
     // 5.4 Hoàn tiền DUY NHẤT cho trưởng nhóm (người thanh toán) nếu cần
@@ -925,8 +949,20 @@ export const cancelGroupOrderAfterCheckoutService = async (
       productId: group.productId,
       refundSuccess: refundResult.isSuccess,
       refundAmount: refundResult.isSuccess ? totalRefundAmount : 0,
+      restoredProductIds,
     };
   });
+
+  // Sau khi transaction commit thành công, trigger thông báo hàng về cho các nhóm khác
+  if (result.restoredProductIds && result.restoredProductIds.length > 0) {
+    for (const pid of result.restoredProductIds) {
+      notifyAffectedGroups(pid, true, groupOrderId).catch((err) =>
+        console.error("Error in cancelGroupOrderAfterCheckoutService trigger:", err),
+      );
+    }
+  }
+
+  return result;
 };
 
 // Trưởng nhóm giải tán nhóm
@@ -1342,13 +1378,13 @@ export const checkGroupStockStatus = async (groupOrderId) => {
 
   if (!group) return "normal";
 
-  // Calculate group's demand in quantity
+  // Tính số lượng sản phẩm cần thiết cho nhóm này  
   const minTotal = Number(group.minOrderTotal) || 0;
   const price = Number(group.productPrice) || 1;
   const qtyPerMember = Math.ceil(minTotal / price) || 1; // Tối thiểu 1 sản phẩm/người
   const groupDemandQty = group.targetMember * qtyPerMember;
 
-  const totalStockQty = group.productStock; // This is already quantity
+  const totalStockQty = group.productStock;  // số lượng sản phẩm có sẵn
   const globalDemandQty = await calculateProductGlobalDemand(group.productId);
 
   if (totalStockQty < groupDemandQty) {
@@ -1364,7 +1400,7 @@ export const checkGroupStockStatus = async (groupOrderId) => {
 /**
  * Phát tán thông báo cho các nhóm bị ảnh hưởng bởi thay đổi tồn kho của sản phẩm
  */
-export const notifyAffectedGroups = async (productId, isStockUp = false) => {
+export const notifyAffectedGroups = async (productId, isStockUp = false, excludeGroupOrderId = null) => {
   try {
     // 0. Lấy thông tin sản phẩm (stock và thumbnail)
     const [product] = await db
@@ -1386,13 +1422,15 @@ export const notifyAffectedGroups = async (productId, isStockUp = false) => {
         groupName: conversations.name,
         targetMember: groupOrders.targetMember,
         lastStockStatus: groupOrders.lastStockStatus,
+        status: groupOrders.status,
       })
       .from(groupOrders)
       .leftJoin(conversations, eq(groupOrders.id, conversations.groupOrderId))
       .where(
         and(
           eq(groupOrders.productId, productId),
-          inArray(groupOrders.status, ["pending", "locked", "ordering"])
+          inArray(groupOrders.status, ["pending", "locked", "ordering"]),
+          excludeGroupOrderId ? ne(groupOrders.id, excludeGroupOrderId) : sql`true`
         )
       );
 
@@ -1418,12 +1456,17 @@ export const notifyAffectedGroups = async (productId, isStockUp = false) => {
 
       if (status === "insufficient") {
         messageContent = `⚠️ THÔNG BÁO: Hiện tại tồn kho của sản phẩm không đủ`;
-        ntfContent = `Sản phẩm trong nhóm "${gName}" hiện đang không đủ đáp ứng số lượng nhóm cần. Hãy thay đổi sản phẩm mua chung hoặc chờ đợt hàng sau nhé!`;
+        if (group.status === "ordering") {
+          messageContent += `. Hãy giữ nguyên đơn, đừng hủy đơn để tránh mất lượt đặt hàng nhé!`;
+          ntfContent = `Sản phẩm trong nhóm "${gName}" hiện đang thiếu hàng. Đừng hủy đơn lúc này để tránh việc không thể đặt lại đơn cho sản phẩm này!`;
+        } else {
+          ntfContent = `Sản phẩm trong nhóm "${gName}" hiện đang không đủ đáp ứng số lượng nhóm cần. Hãy thay đổi sản phẩm mua chung hoặc chờ đợt hàng sau nhé!`;
+        }
         ntfTitle = `[${gName}] Tồn kho không đủ!`;
         ntfType = "group_stock_warning";
       } else if (isStockUp && group.lastStockStatus === "insufficient") {
         // TRƯỜNG HỢP ƯU TIÊN: Hàng đã về sau khi từng bị hết (insufficient -> any)
-        messageContent = `📣 THÔNG BÁO: Sản phẩm của nhóm đã có hàng trở lại!`;
+        messageContent = `📣 THÔNG BÁO: Sản phẩm của nhóm đã có hàng trở lại! Hãy kiểm tra lại tồn kho nhé!`;
         if (status === "low_stock" || status === "competing") {
           messageContent += ` Tuy nhiên số lượng vẫn còn khá ít!`;
         }
@@ -1436,12 +1479,12 @@ export const notifyAffectedGroups = async (productId, isStockUp = false) => {
         ntfTitle = `[${gName}] Sắp hết hàng - Chốt ngay!`;
         ntfType = "group_stock_warning";
       } else if (status === "low_stock") {
-        messageContent = `📢 LƯU Ý: Sản phẩm mua chung hiện chỉ còn rất ít trong kho`;
+        messageContent = `📢 LƯU Ý: Sản phẩm mua chung hiện chỉ còn rất ít trong kho. Hãy kiểm tra lại tồn kho nhé!`;
         ntfContent = `Sản phẩm trong nhóm "${gName}" sắp hết hàng. Hãy nhanh tay hoàn tất đơn hàng nhé!`;
         ntfTitle = `[${gName}] Sắp hết hàng!`;
         ntfType = "group_stock_warning";
       } else if (status === "normal" && isStockUp) {
-        messageContent = `📣 THÔNG BÁO: Sản phẩm của nhóm đã có hàng trở lại!`;
+        messageContent = `📣 THÔNG BÁO: Sản phẩm của nhóm đã có hàng trở lại! Hãy xem lại tồn kho nhé!`;
         ntfContent = `Sản phẩm trong nhóm "${gName}" đã về thêm. Vào hoàn tất đơn hàng ngay thôi nào!`;
         ntfTitle = `[${gName}] Hàng đã về thêm!`;
         ntfType = "group_stock_recovered";

@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-col min-h-screen">
     <!-- Banner Slider -->
-    <section class="relative w-full h-[300px] md:h-[450px] overflow-hidden group mt-0 lg:-mt-1">
+    <section class="relative w-full h-[200px] sm:h-[300px] md:h-[450px] overflow-hidden group mt-0 lg:-mt-1">
       <ClientOnly>
         <!-- Slides -->
         <div
@@ -26,24 +26,24 @@
         <button
           v-if="sliderImages.length > 1"
           @click="prevSlide"
-          class="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/30 backdrop-blur-md border border-white/20 text-white transition-all hover:bg-black/50 z-30 flex items-center justify-center shadow-lg"
+          class="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 p-1.5 sm:p-2 rounded-full bg-black/30 backdrop-blur-md border border-white/20 text-white transition-all hover:bg-black/50 z-30 hidden sm:flex items-center justify-center shadow-lg"
           aria-label="Previous slide"
         >
-          <ChevronLeftIcon class="w-6 h-6" />
+          <ChevronLeftIcon class="w-5 h-5 sm:w-6 sm:h-6" />
         </button>
         <button
           v-if="sliderImages.length > 1"
           @click="nextSlide"
-          class="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/30 backdrop-blur-md border border-white/20 text-white transition-all hover:bg-black/50 z-30 flex items-center justify-center shadow-lg"
+          class="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 p-1.5 sm:p-2 rounded-full bg-black/30 backdrop-blur-md border border-white/20 text-white transition-all hover:bg-black/50 z-30 hidden sm:flex items-center justify-center shadow-lg"
           aria-label="Next slide"
         >
-          <ChevronRightIcon class="w-6 h-6" />
+          <ChevronRightIcon class="w-5 h-5 sm:w-6 sm:h-6" />
         </button>
 
         <!-- Indicators (Dots) -->
         <div
           v-if="sliderImages.length > 1"
-          class="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-3 z-30"
+          class="absolute bottom-3 sm:bottom-6 left-1/2 -translate-x-1/2 flex gap-2 sm:gap-3 z-30"
         >
           <button
             v-for="(_, index) in sliderImages"
@@ -82,7 +82,7 @@
     <!-- Danh sách sản phẩm -->
     <section v-else class="container mx-auto px-4 pt-4 pb-10">
       <div class="text-center">
-        <h2 class="text-2xl font-bold mb-6 inline-block border-b-3 border-green-500 pb-1">TẤT CẢ SẢN PHẨM</h2>
+        <h2 class="text-xl sm:text-2xl font-bold mb-6 inline-block border-b-3 border-green-500 pb-1">TẤT CẢ SẢN PHẨM</h2>
       </div>
 
       <!-- Bộ lọc -->
@@ -116,7 +116,7 @@
       </div>
 
       <div
-        class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
+        class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6"
       >
         <div
           v-for="product in paginatedProducts"
@@ -125,11 +125,11 @@
         >
           <!-- Ảnh -->
           <NuxtLink :to="`/product/${product.id}`">
-            <div class="w-full h-56 bg-white rounded-t-lg overflow-hidden flex items-center justify-center">
+            <div class="w-full h-40 sm:h-56 bg-white rounded-t-lg overflow-hidden flex items-center justify-center">
               <img
                 :src="product.thumbnailUrl"
                 :alt="product.name"
-                class="w-full h-full object-contain"
+                class="w-full h-full object-contain p-2"
               />
             </div>
           </NuxtLink>
@@ -154,7 +154,7 @@
             <!-- Nút xem chi tiết -->
             <NuxtLink
               :to="`/product/${product.id}`"
-              class="mt-3 px-4 py-2 bg-black text-white rounded hover:bg-gray-800 text-center"
+              class="mt-2 sm:mt-3 px-2 py-1.5 sm:px-4 sm:py-2 bg-black text-white rounded hover:bg-gray-800 text-center text-xs sm:text-sm transition-colors"
             >
               Xem chi tiết
             </NuxtLink>

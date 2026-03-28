@@ -434,6 +434,7 @@ const dateOfBirthError = computed(() => {
 
 const provinceError = computed(() => {
   if (!form.province.trim()) return "";
+  if (/\d/.test(form.province)) return "Tên tỉnh/thành phố không được chứa số";
   if (form.province.trim().length < 2) return "Tên tỉnh/thành phố quá ngắn";
   if (form.province.trim().length > 50) return "Tên tỉnh/thành phố quá dài";
   return "";
@@ -441,6 +442,7 @@ const provinceError = computed(() => {
 
 const districtError = computed(() => {
   if (!form.district.trim()) return "";
+  if (/\d/.test(form.district)) return "Tên quận/huyện không được chứa số";
   if (form.district.trim().length < 2) return "Tên quận/huyện quá ngắn";
   if (form.district.trim().length > 50) return "Tên quận/huyện quá dài";
   return "";

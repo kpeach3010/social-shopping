@@ -4,7 +4,7 @@
     class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
   >
     <div
-      class="bg-white rounded-xl p-6 max-w-md w-full flex flex-col items-center shadow-2xl max-h-[90vh] overflow-y-auto"
+      class="bg-white rounded-2xl p-4 sm:p-6 w-full max-w-[95%] sm:max-w-md flex flex-col items-center shadow-2xl max-h-[90vh] overflow-y-auto border border-gray-100"
     >
       <!-- Loading tạo link -->
       <div v-if="creating" class="flex flex-col items-center py-8">
@@ -195,7 +195,7 @@
         <img
           :src="qrUrl"
           alt="PayPal QR"
-          class="w-48 h-48 mb-3 border rounded"
+          class="w-40 h-40 sm:w-48 sm:h-48 mb-3 border rounded-lg shadow-sm opacity-90 hover:opacity-100 transition duration-300"
         />
         <div class="flex items-center gap-2 text-xs text-gray-400 mb-2">
           <span class="animate-spin">⏳</span> Đang chờ thanh toán...

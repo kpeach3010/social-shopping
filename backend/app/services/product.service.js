@@ -999,8 +999,7 @@ export const updateProductService = async (productId, data) => {
         .set({ stock: realTotalStock })
         .where(eq(products.id, productId));
 
-      // Plan V11: Trigger thông báo cho các nhóm bị ảnh hưởng (Hàng về)
-      // Không await để không làm chậm response trả về cho staff
+      // Trigger thông báo cho các nhóm bị ảnh hưởng (Hàng về)
       notifyAffectedGroups(productId, true).catch(err => 
         console.error("Error in notifyAffectedGroups trigger (Staff Update):", err)
       );

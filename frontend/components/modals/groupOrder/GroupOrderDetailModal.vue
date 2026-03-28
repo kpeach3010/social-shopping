@@ -226,6 +226,7 @@
               v-if="
                 auth.isCustomer &&
                 (groupOrder.status === 'pending' ||
+                  groupOrder.status === 'locked' ||
                   groupOrder.status === 'completed' ||
                   groupOrder.status === 'cancelled')
               "
@@ -254,28 +255,11 @@
               </button>
             </div>
 
-            <div
-              v-else-if="auth.isCustomer && groupOrder.status === 'locked'"
-              class="mt-5 flex justify-center gap-3"
-            >
-              <!-- Nút giải tán nhóm (Dành cho Trưởng nhóm) -->
-              <button
-                v-if="auth.user?.id === groupOrder.creatorId"
-                @click="disbandGroup"
-                :disabled="actionLoading"
-                class="px-5 py-2 bg-gray-800 hover:bg-black text-white font-semibold rounded-xl shadow-sm transition flex items-center justify-center min-w-[140px]"
-              >
-                <span v-if="actionLoading" class="loader-white mr-2"></span>
-                <span>{{
-                  actionLoading ? "Đang xử lý..." : "Giải tán nhóm"
-                }}</span>
-              </button>
-            </div>
 
             <!-- Thông tin khác -->
             <div class="mt-4 text-xs text-gray-500 text-right space-y-1">
               <p class="italic text-blue-400">
-                Chỉ có thể rời nhóm khi nhóm đang mở, đã hoàn tất hoặc đã huỷ.
+                Chỉ có thể rời nhóm khi nhóm đang mở, đã đủ thành viên, đã hoàn tất hoặc đã huỷ.
               </p>
               <p class="italic text-gray-500">
                 Trưởng nhóm có quyền giải tán nhóm khi chưa đặt đơn hoặc sau khi

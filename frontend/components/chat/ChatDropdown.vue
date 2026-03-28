@@ -15,7 +15,7 @@
     <transition name="fade-slide">
       <div
         v-show="dropdownOpen"
-        class="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden"
+        class="fixed md:absolute inset-x-4 md:inset-auto md:right-0 top-16 md:top-full mt-2 md:w-80 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden max-w-[calc(100vw-2rem)] mx-auto"
       >
         <div class="max-h-96 overflow-y-auto">
           <div

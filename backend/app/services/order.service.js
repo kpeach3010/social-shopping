@@ -122,9 +122,9 @@ export const processOrderRefund = async (order) => {
   return { isSuccess: false, noRefundNeeded: true };
 };
 
-export const restoreStockForItems = async (tx, items) => {
+export const restoreStockForItems = async (tx, items, excludeGroupOrderId = null) => {
+  // 1. Hoàn kho cho từng Variant trước
   for (const item of items) {
-    // 1. Hoàn kho cho Variant
     if (item.variantId) {
       await tx
         .update(productVariants)
@@ -133,26 +133,26 @@ export const restoreStockForItems = async (tx, items) => {
         })
         .where(eq(productVariants.id, item.variantId));
     }
-
-    // 2. Hoàn kho cho Product cha
-    if (item.productId) {
-      await tx
-        .update(products)
-        .set({
-          stock: sql`${products.stock} + ${item.quantity}`,
-        })
-        .where(eq(products.id, item.productId));
-    }
   }
 
-  // Plan V11: Trigger thông báo "Hàng về" (isStockUp = true)
+  // 2. Cập nhật lại stock cho Product cha dựa trên tổng stock của các variant (giống logic checkout)
   const productIds = [...new Set(items.map((i) => i.productId).filter(Boolean))];
   for (const productId of productIds) {
-    notifyAffectedGroups(productId, true).catch((err) =>
-      console.error("Error in restoreStockForItems trigger:", err),
-    );
+    const [{ totalStock }] = await tx
+      .select({
+        totalStock: sql`SUM(${productVariants.stock})`.mapWith(Number),
+      })
+      .from(productVariants)
+      .where(eq(productVariants.productId, productId));
+
+    await tx
+      .update(products)
+      .set({ stock: totalStock || 0 })
+      .where(eq(products.id, productId));
   }
-};
+
+  return productIds;
+}
 
 import config from "../config/index.js";
 
@@ -211,6 +211,7 @@ export const checkoutService = async (
   paymentMethod = "COD",
   fromCart = true,
   groupOrderId = null,
+  skipNotification = false,
 ) => {
   if (!items || items.length === 0) {
     throw new Error("Đơn hàng phải có ít nhất 1 sản phẩm");
@@ -276,7 +277,7 @@ export const checkoutService = async (
     const variant = variants.find((v) => v.id === item.variantId);
     if (!variant) throw new Error("Variant không tồn tại");
     if (variant.stock < item.quantity) {
-      throw new Error(`Variant ${variant.id} không đủ hàng`);
+      throw new Error(`Sản phẩm phân loại ${variant.color} - ${variant.size} không đủ hàng`);
     }
 
     const lineTotal = Number(variant.price) * item.quantity;
@@ -429,11 +430,15 @@ export const checkoutService = async (
   }
 
   // Plan V11: Trigger thông báo cho các nhóm bị ảnh hưởng (Stock Down)
-  const productIds = [...new Set(orderItemsData.map((oi) => oi.variant.productId).filter(Boolean))];
-  for (const productId of productIds) {
-    notifyAffectedGroups(productId, false).catch((err) =>
-      console.error("Error in checkoutService trigger:", err),
-    );
+  if (!skipNotification) {
+    const productIds = [
+      ...new Set(orderItemsData.map((oi) => oi.variant.productId).filter(Boolean)),
+    ];
+    for (const productId of productIds) {
+      notifyAffectedGroups(productId, false).catch((err) =>
+        console.error("Error in checkoutService trigger:", err),
+      );
+    }
   }
 
   // 8) Xoá cartItems nếu từ giỏ hàng
@@ -567,16 +572,15 @@ export const cancelOrderService = async (orderId, userId) => {
     .returning();
 
   // 5) Hoàn lại stock cho sản phẩm
-  const items = await db
-    .select()
-    .from(orderItems)
-    .where(eq(orderItems.orderId, orderId));
+  const productIds = await restoreStockForItems(db, items);
 
-  for (const item of items) {
-    await db
-      .update(productVariants)
-      .set({ stock: sql`${productVariants.stock} + ${item.quantity}` })
-      .where(eq(productVariants.id, item.variantId));
+  // Kích hoạt thông báo hàng về ngay lập tức (không trong transaction)
+  if (productIds.length > 0) {
+    for (const pid of productIds) {
+      notifyAffectedGroups(pid, true).catch((err) =>
+        console.error("Error in cancelOrderService trigger:", err),
+      );
+    }
   }
 
   // 6) Hoàn tiền nếu cần (dùng helper)
@@ -988,7 +992,7 @@ export const updateOrderStatusService = async (orderId, action, staffId) => {
 
     // A. Nếu là ĐƠN NHÓM -> Dùng Transaction hủy cả nhóm
     if (order.groupOrderId) {
-      return await db.transaction(async (tx) => {
+      const result = await db.transaction(async (tx) => {
         // 1. Trả nhóm về trạng thái locked để trưởng nhóm có thể giải tán hoặc thay đổi sản phẩm hoặc mua lại
         await tx
           .update(groupOrders)
@@ -1023,8 +1027,9 @@ export const updateOrderStatusService = async (orderId, action, staffId) => {
         }
 
         // Thực hiện hoàn kho
+        let groupProductIds = [];
         if (allGroupItems.length > 0) {
-          await restoreStockForItems(tx, allGroupItems);
+          groupProductIds = await restoreStockForItems(tx, allGroupItems);
         }
 
         // 3. Hoàn tiền DUY NHẤT cho trưởng nhóm (người thanh toán) nếu cần
@@ -1073,8 +1078,19 @@ export const updateOrderStatusService = async (orderId, action, staffId) => {
 
         if (conv) updatedCurrentOrder.conversationId = conv.id;
 
-        return updatedCurrentOrder;
+        return { updatedCurrentOrder, groupProductIds };
       });
+
+      // Sau khi transaction commit thành công, trigger thông báo hàng về
+      if (result.groupProductIds && result.groupProductIds.length > 0) {
+        for (const pid of result.groupProductIds) {
+          notifyAffectedGroups(pid, true).catch((err) =>
+            console.error("Error in updateOrderStatusService trigger (Group):", err),
+          );
+        }
+      }
+
+      return result.updatedCurrentOrder;
     }
 
     // B. Nếu là ĐƠN LẺ -> Cập nhật bình thường
@@ -1091,7 +1107,16 @@ export const updateOrderStatusService = async (orderId, action, staffId) => {
       .where(eq(orderItems.orderId, orderId));
 
     //  Hoàn kho
-    await restoreStockForItems(db, items);
+    const individualProductIds = await restoreStockForItems(db, items);
+
+    // Kích hoạt thông báo hàng về ngay lập tức (không trong transaction)
+    if (individualProductIds.length > 0) {
+      for (const pid of individualProductIds) {
+        notifyAffectedGroups(pid, true).catch((err) =>
+          console.error("Error in updateOrderStatusService trigger (Indiv):", err),
+        );
+      }
+    }
 
     // Hoàn tiền nếu cần
     const refundRes = await processOrderRefund(updated);

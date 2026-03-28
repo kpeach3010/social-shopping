@@ -38,10 +38,10 @@ export const orderStatusEnum = pgEnum("order_status", [
   "cancelled",
 ]);
 export const groupStockStatusEnum = pgEnum("group_stock_status", [
-  "normal",
-  "low_stock",
-  "insufficient",
-  "competing",
+  "normal", // đủ cho tất cả các nhóm
+  "low_stock", // có hàng lại
+  "insufficient", // không đủ hàng cho nhóm
+  "competing", // đủ nhưng cạnh tranh
 ]);
 export const groupOrderStatusEnum = pgEnum("group_order_status", [
   "pending",
@@ -432,7 +432,7 @@ export const groupOrders = pgTable(
     targetMember: integer("target_member").notNull(), // so luong thanh vien muc tieu
     currentMember: integer("current_member").notNull().default(1), // so luong thanh vien hien tai
     status: groupOrderStatusEnum("status").notNull().default("pending"),
-    lastStockStatus: groupStockStatusEnum("last_stock_status").default("normal"),
+    lastStockStatus: groupStockStatusEnum("last_stock_status").default("normal"), 
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
   },

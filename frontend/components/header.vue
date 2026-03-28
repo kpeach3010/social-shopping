@@ -1,29 +1,37 @@
 <template>
   <header class="bg-white shadow-md">
     <div class="container mx-auto px-4 py-1 flex items-center justify-between">
-      <!-- Logo + Menu -->
-      <div class="flex items-center space-x-6">
-        <NuxtLink to="/" class="flex items-center gap-2 text-3xl font-black text-green-600 hover:opacity-80 transition-opacity">
-          <img src="/logo.png" alt="SocialShop Logo" class="h-12 w-auto object-contain" />
-          <span>SocialShop</span>
-        </NuxtLink>
-        <NuxtLink to="/" class="text-gray-700 hover:text-black"
-          >Trang chủ</NuxtLink
-        >
-        <NuxtLink
-          to="/feed"
-          class="flex items-center gap-1 text-gray-700 hover:text-black"
-          ><FireIcon class="w-5 h-5 text-red-500" />NEW FEED</NuxtLink
-        >
+      <!-- Hamburger Icon (Mobile - Left) -->
+      <button 
+        @click="mobileMenuOpen = !mobileMenuOpen"
+        class="lg:hidden p-2 -ml-2 text-gray-700 hover:bg-gray-100 rounded-md"
+      >
+        <Bars3Icon v-if="!mobileMenuOpen" class="w-6 h-6" />
+        <XMarkIcon v-else class="w-6 h-6" />
+      </button>
 
-        <!-- Danh mục -->
-        <div class="relative group">
-          <button class="text-gray-700 hover:text-black px-4 py-2">
-            Danh mục
-          </button>
-          <div
-            class="absolute left-0 top-full bg-white shadow-lg rounded-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity duration-200 delay-100 z-50 flex"
-          >
+      <!-- Logo + Menu (Desktop) -->
+      <div class="flex items-center space-x-6">
+        <NuxtLink to="/" class="flex items-center gap-2 text-2xl sm:text-3xl font-black text-green-600 hover:opacity-80 transition-opacity shrink-0">
+          <img src="/logo.png" alt="SocialShop Logo" class="h-10 sm:h-12 w-auto object-contain" />
+          <span class="hidden xs:block">SocialShop</span>
+        </NuxtLink>
+        
+        <div class="hidden lg:flex items-center space-x-6">
+          <NuxtLink to="/" class="text-gray-700 hover:text-black">Trang chủ</NuxtLink>
+          <NuxtLink
+            to="/feed"
+            class="flex items-center gap-1 text-gray-700 hover:text-black"
+          ><FireIcon class="w-5 h-5 text-red-500" />NEW FEED</NuxtLink>
+
+          <!-- Danh mục -->
+          <div class="relative group">
+            <button class="text-gray-700 hover:text-black px-4 py-2">
+              Danh mục
+            </button>
+            <div
+              class="absolute left-0 top-full bg-white shadow-lg rounded-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-opacity duration-200 delay-100 z-50 flex"
+            >
             <ul class="w-48 border-r">
               <li
                 v-for="cat in categories"
@@ -51,17 +59,18 @@
                 </ul>
               </li>
             </ul>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Thanh tìm kiếm -->
-      <div class="flex-1 mx-6">
+      <!-- Thanh tìm kiếm (Desktop) -->
+      <div class="hidden md:block flex-1 mx-6">
         <ProductSearchBox />
       </div>
 
-      <!-- Auth -->
-      <div class="flex items-center space-x-4" :key="headerKey">
+      <!-- Auth & Mobile Controls -->
+      <div class="flex items-center space-x-2 sm:space-x-4" :key="headerKey">
         <template v-if="!auth.isLoggedIn">
           <NuxtLink
             to="/login-page"
@@ -191,6 +200,69 @@
         </template>
       </div>
     </div>
+
+    <!-- Thanh tìm kiếm (Mobile) -->
+    <div class="md:hidden px-4 pb-2">
+      <ProductSearchBox />
+    </div>
+
+    <!-- Mobile Menu Drawer -->
+    <div 
+      v-if="mobileMenuOpen"
+      class="lg:hidden fixed inset-0 z-[60] flex"
+    >
+      <!-- Overlay -->
+      <div class="fixed inset-0 bg-black/50" @click="mobileMenuOpen = false"></div>
+      
+      <!-- Drawer Content -->
+      <div class="relative w-72 max-w-[80vw] bg-white h-full shadow-xl flex flex-col overflow-y-auto">
+        <div class="p-4 border-b flex items-center justify-between bg-white sticky top-0 z-10">
+          <NuxtLink to="/" class="flex items-center gap-2 text-xl font-black text-green-600" @click="mobileMenuOpen = false">
+            <img src="/logo.png" alt="SocialShop Logo" class="h-8 w-auto object-contain" />
+            <span>SocialShop</span>
+          </NuxtLink>
+          <button @click="mobileMenuOpen = false" class="p-1 -mr-1 text-gray-400 hover:text-black transition">
+            <XMarkIcon class="w-6 h-6" />
+          </button>
+        </div>
+        
+        <div class="flex flex-col p-4 space-y-4">
+          <NuxtLink to="/" class="font-bold py-2 border-b" @click="mobileMenuOpen = false">Trang chủ</NuxtLink>
+          <NuxtLink to="/feed" class="font-bold py-2 border-b flex items-center gap-2" @click="mobileMenuOpen = false">
+            NEW FEED <FireIcon class="w-5 h-5 text-red-500" /> 
+          </NuxtLink>
+          
+          <div>
+            <h3 class="font-bold text-gray-500 mb-2 uppercase text-xs">Danh mục</h3>
+            <div class="space-y-1">
+              <div v-for="cat in categories" :key="cat.id" class="flex flex-col">
+                <div class="flex items-center justify-between py-2 border-b">
+                  <NuxtLink :to="`/category/${cat.id}`" class="flex-1" @click="mobileMenuOpen = false">{{ cat.name }}</NuxtLink>
+                  <button v-if="cat.children?.length" @click="toggleMobileSubmenu(cat.id)" class="p-1">
+                    <ChevronDownIcon 
+                      class="w-4 h-4 transition-transform" 
+                      :class="activeMobileSubmenu === cat.id ? 'rotate-180' : ''"
+                    />
+                  </button>
+                </div>
+                <!-- Submenu -->
+                <div v-if="activeMobileSubmenu === cat.id && cat.children?.length" class="pl-4 bg-gray-50">
+                  <NuxtLink 
+                    v-for="child in cat.children" 
+                    :key="child.id"
+                    :to="`/category/${child.id}`"
+                    class="block py-2 text-sm text-gray-600 border-b last:border-0"
+                    @click="mobileMenuOpen = false"
+                  >
+                    {{ child.name }}
+                  </NuxtLink>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </header>
 </template>
 
@@ -199,11 +271,24 @@ import ProductSearchBox from "~/components/ProductSearchBox.vue";
 import ChatDropdown from "~/components/chat/ChatDropdown.vue";
 import NotificationsDropdown from "~/components/NotificationsDropdown.vue";
 import FriendsDropdown from "~/components/FriendsDropdown.vue";
-import { ShoppingCartIcon, FireIcon } from "@heroicons/vue/24/outline";
+import { 
+  ShoppingCartIcon, 
+  FireIcon, 
+  Bars3Icon, 
+  XMarkIcon,
+  ChevronDownIcon 
+} from "@heroicons/vue/24/outline";
 import { useAuthStore } from "~/stores/auth";
 import { useChatStore } from "~/stores/chat";
 import { useFriendStore } from "~/stores/friend";
 import { ref, computed, onMounted, watch, onBeforeUnmount } from "vue";
+
+const mobileMenuOpen = ref(false);
+const activeMobileSubmenu = ref(null);
+
+const toggleMobileSubmenu = (id) => {
+  activeMobileSubmenu.value = activeMobileSubmenu.value === id ? null : id;
+};
 
 const auth = useAuthStore();
 const config = useRuntimeConfig();

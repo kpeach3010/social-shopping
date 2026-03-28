@@ -48,37 +48,45 @@
       <!-- Kết quả -->
       <div
         v-if="results.length"
-        class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
+        class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6"
       >
         <div
           v-for="item in results"
           :key="item.id"
           class="border rounded-lg shadow-sm hover:shadow-lg transition"
         >
+          <!-- Ảnh -->
           <NuxtLink :to="`/product/${item.id}`">
-            <div class="w-full h-56 bg-white rounded-t-lg overflow-hidden flex items-center justify-center">
+            <div class="w-full h-40 sm:h-56 bg-white rounded-t-lg overflow-hidden flex items-center justify-center">
               <img
                 :src="item.thumbnailUrl"
                 :alt="item.name"
-                class="w-full h-full object-contain"
+                class="w-full h-full object-contain p-2"
               />
             </div>
           </NuxtLink>
 
-          <div class="p-4 bg-gray-100 rounded-b-lg">
+          <!-- Nội dung -->
+          <div class="p-4 flex flex-col justify-between bg-gray-100 rounded-b-lg">
             <NuxtLink :to="`/product/${item.id}`">
-              <h3 class="font-semibold text-black mb-2 truncate">
+              <h3 class="font-semibold text-gray-800 mb-2 truncate">
                 {{ item.name }}
               </h3>
             </NuxtLink>
 
-            <p class="text-black font-medium">
-              {{ formatPrice(item.price_default || item.price) }}
+            <p class="text-gray-600 font-medium">
+              {{
+                Number(item.price_default || item.price).toLocaleString(
+                  "vi-VN",
+                )
+              }}
+              đ
             </p>
 
+            <!-- Nút xem chi tiết -->
             <NuxtLink
               :to="`/product/${item.id}`"
-              class="mt-3 px-4 py-2 bg-black text-white rounded hover:bg-gray-800 text-center block"
+              class="mt-2 sm:mt-3 px-2 py-1.5 sm:px-4 sm:py-2 bg-black text-white rounded hover:bg-gray-800 text-center text-xs sm:text-sm transition-colors"
             >
               Xem chi tiết
             </NuxtLink>

@@ -230,39 +230,49 @@
       >
         <!-- Tóm tắt sản phẩm -->
         <div>
-          <h2 class="text-lg font-semibold mb-3">Sản phẩm đã chọn</h2>
+          <h2 class="text-lg font-semibold mb-3 flex items-center justify-between">
+            <span>Sản phẩm đã chọn <span class="text-gray-400 font-medium">({{ totalQuantity }})</span></span>
+          </h2>
 
-          <div
-            v-for="it in checkoutItems"
-            :key="it.variantId"
-            class="flex items-center gap-4 border-b py-3"
-          >
-            <div class="w-16 h-16 shrink-0">
-              <img
-                :src="it.imageUrl"
-                class="w-full h-full object-cover rounded"
-              />
-            </div>
-            <div class="flex-1">
-              <p class="font-medium">{{ it.productName }}</p>
-              <p class="text-sm text-gray-500">{{ it.variantName }}</p>
-              <p class="text-sm text-gray-500">Số lượng: {{ it.quantity }}</p>
-            </div>
-            <div class="text-right">
-              <p class="text-sm text-gray-500">
-                {{ formatPrice(it.price) }} /sp
-              </p>
-              <p class="font-semibold">
-                {{ formatPrice(it.price * it.quantity) }}
-              </p>
+          <div class="max-h-72 overflow-y-auto pr-2 custom-scrollbar">
+            <div
+              v-for="(it, index) in checkoutItems"
+              :key="it.variantId"
+              class="flex items-center gap-3 border-b py-3 last:border-0"
+            >
+              <span class="text-xs font-bold text-gray-400 w-4 shrink-0 text-center">{{ index + 1 }}</span>
+              <div class="w-16 h-16 shrink-0 relative">
+                <img
+                  :src="it.imageUrl"
+                  class="w-full h-full object-contain rounded shadow-sm border border-gray-100"
+                />
+              </div>
+              <div class="flex-1">
+                <p class="font-medium text-gray-900 line-clamp-1 h-5 overflow-hidden text-sm">{{ it.productName }}</p>
+                <p class="text-[10px] text-gray-500">{{ it.variantName }}</p>
+                <p class="text-[10px] text-gray-500 font-semibold mt-1">x {{ it.quantity }}</p>
+              </div>
+              <div class="text-right">
+                <p class="text-[10px] text-gray-500">
+                  {{ formatPrice(it.price) }}
+                </p>
+                <p class="font-bold text-gray-900 text-sm">
+                  {{ formatPrice(it.price * it.quantity) }}
+                </p>
+              </div>
             </div>
           </div>
 
           <!-- Tổng kết -->
+          <div class="flex justify-between mt-1 text-sm text-gray-500 font-medium">
+            <span>Tổng số sản phẩm</span>
+            <span>{{ totalItemsCount }}</span>
+          </div>
           <div class="flex justify-between mt-3 font-semibold">
             <span>Tạm tính</span>
             <span>{{ formatPrice(subtotal) }}</span>
           </div>
+
           <div
             v-if="selectedCoupon"
             class="flex items-center justify-between text-green-600 mt-1"
@@ -461,36 +471,89 @@
             v-if="shippingMode === 'new'"
             class="grid grid-cols-1 sm:grid-cols-2 gap-4"
           >
-            <input
-              v-model="shipping.name"
-              placeholder="Họ tên"
-              class="border rounded px-4 py-2"
-            />
-            <input
-              v-model="shipping.phone"
-              placeholder="Số điện thoại"
-              class="border rounded px-4 py-2"
-            />
-            <input
-              v-model="shipping.province"
-              placeholder="Tỉnh/Thành phố"
-              class="border rounded px-4 py-2"
-            />
-            <input
-              v-model="shipping.district"
-              placeholder="Quận/Huyện"
-              class="border rounded px-4 py-2"
-            />
-            <input
-              v-model="shipping.ward"
-              placeholder="Phường/Xã"
-              class="border rounded px-4 py-2"
-            />
-            <input
-              v-model="shipping.addressDetail"
-              placeholder="Địa chỉ chi tiết"
-              class="border rounded px-4 py-2"
-            />
+            <!-- Họ tên -->
+            <div>
+              <label class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wider">Họ và tên</label>
+              <input
+                v-model="shipping.name"
+                placeholder="VD: Nguyễn Văn A"
+                :class="[
+                  'w-full border rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-black/5 outline-none transition bg-gray-50/50',
+                  shippingNameError ? 'border-red-300' : 'border-gray-200'
+                ]"
+              />
+              <p v-if="shippingNameError" class="text-[10px] text-red-600 mt-1 font-medium">{{ shippingNameError }}</p>
+            </div>
+
+            <!-- Số điện thoại -->
+            <div>
+              <label class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wider">Số điện thoại</label>
+              <input
+                v-model="shipping.phone"
+                placeholder="Nhập số điện thoại"
+                :class="[
+                  'w-full border rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-black/5 outline-none transition bg-gray-50/50',
+                  shippingPhoneError ? 'border-red-300' : 'border-gray-200'
+                ]"
+              />
+              <p v-if="shippingPhoneError" class="text-[10px] text-red-600 mt-1 font-medium">{{ shippingPhoneError }}</p>
+            </div>
+
+            <!-- Tỉnh/Thành phố -->
+            <div>
+              <label class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wider">Tỉnh/Thành phố</label>
+              <input
+                v-model="shipping.province"
+                placeholder="Nhập tỉnh/thành phố"
+                :class="[
+                  'w-full border rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-black/5 outline-none transition bg-gray-50/50',
+                  shippingProvinceError ? 'border-red-300' : 'border-gray-200'
+                ]"
+              />
+              <p v-if="shippingProvinceError" class="text-[10px] text-red-600 mt-1 font-medium">{{ shippingProvinceError }}</p>
+            </div>
+
+            <!-- Quận/Huyện -->
+            <div>
+              <label class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wider">Quận/Huyện</label>
+              <input
+                v-model="shipping.district"
+                placeholder="Nhập quận/huyện"
+                :class="[
+                  'w-full border rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-black/5 outline-none transition bg-gray-50/50',
+                  shippingDistrictError ? 'border-red-300' : 'border-gray-200'
+                ]"
+              />
+              <p v-if="shippingDistrictError" class="text-[10px] text-red-600 mt-1 font-medium">{{ shippingDistrictError }}</p>
+            </div>
+
+            <!-- Phường/Xã -->
+            <div>
+              <label class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wider">Phường/Xã</label>
+              <input
+                v-model="shipping.ward"
+                placeholder="Nhập phường/xã"
+                :class="[
+                  'w-full border rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-black/5 outline-none transition bg-gray-50/50',
+                  shippingWardError ? 'border-red-300' : 'border-gray-200'
+                ]"
+              />
+              <p v-if="shippingWardError" class="text-[10px] text-red-600 mt-1 font-medium">{{ shippingWardError }}</p>
+            </div>
+
+            <!-- Địa chỉ chi tiết -->
+            <div class="sm:col-span-2">
+              <label class="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wider">Địa chỉ chi tiết</label>
+              <input
+                v-model="shipping.addressDetail"
+                placeholder="Nhập số nhà, tên đường..."
+                :class="[
+                  'w-full border rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-black/5 outline-none transition bg-gray-50/50',
+                  shippingAddressDetailError ? 'border-red-300' : 'border-gray-200'
+                ]"
+              />
+              <p v-if="shippingAddressDetailError" class="text-[10px] text-red-600 mt-1 font-medium">{{ shippingAddressDetailError }}</p>
+            </div>
           </div>
         </div>
 
@@ -505,7 +568,7 @@
               'bg-yellow-500 hover:bg-yellow-600': paymentMethod === 'PAYPAL',
               'bg-black hover:bg-gray-800': paymentMethod === 'COD',
             }"
-            :disabled="loading"
+            :disabled="loading || !isShippingValid"
           >
             <span v-if="loading" class="animate-spin text-xl">⏳</span>
             <span v-else>
@@ -570,6 +633,66 @@ const orderInfo = ref(null);
 const loading = ref(false);
 const couponLoading = ref(false);
 
+// --- Validation ---
+const shippingNameError = computed(() => {
+  if (!shipping.name.trim()) return "";
+  if (shipping.name.trim().length < 2) return "Họ tên phải có ít nhất 2 ký tự";
+  if (!/^[a-zA-ZÀ-ỹ\s]+$/.test(shipping.name.trim())) return "Họ tên chỉ chứa chữ cái";
+  return "";
+});
+
+const shippingPhoneError = computed(() => {
+  if (!shipping.phone.trim()) return "";
+  const phoneRegex = /^(\+84|0)[3-9]\d{8}$/;
+  if (!phoneRegex.test(shipping.phone.trim().replace(/\s/g, ""))) return "Số điện thoại không hợp lệ";
+  return "";
+});
+
+const shippingProvinceError = computed(() => {
+  if (!shipping.province.trim()) return "";
+  if (/\d/.test(shipping.province)) return "Tên tỉnh/thành phố không được chứa số";
+  if (shipping.province.trim().length < 2) return "Tên tỉnh/thành phố quá ngắn";
+  return "";
+});
+
+const shippingDistrictError = computed(() => {
+  if (!shipping.district.trim()) return "";
+  if (/\d/.test(shipping.district)) return "Tên quận/huyện không được chứa số";
+  if (shipping.district.trim().length < 2) return "Tên quận/huyện quá ngắn";
+  return "";
+});
+
+const shippingWardError = computed(() => {
+  if (!shipping.ward.trim()) return "";
+  if (/\d/.test(shipping.ward)) return "Tên phường/xã không được chứa số";
+  if (shipping.ward.trim().length < 2) return "Tên phường/xã quá ngắn";
+  return "";
+});
+
+const shippingAddressDetailError = computed(() => {
+  if (!shipping.addressDetail.trim()) return "";
+  if (shipping.addressDetail.trim().length < 5) return "Địa chỉ chi tiết phải từ 5 ký tự";
+  return "";
+});
+
+const isShippingValid = computed(() => {
+  if (shippingMode.value === "default") return true;
+  return (
+    shipping.name.trim() !== "" &&
+    shipping.phone.trim() !== "" &&
+    shipping.province.trim() !== "" &&
+    shipping.district.trim() !== "" &&
+    shipping.ward.trim() !== "" &&
+    shipping.addressDetail.trim() !== "" &&
+    !shippingNameError.value &&
+    !shippingPhoneError.value &&
+    !shippingProvinceError.value &&
+    !shippingDistrictError.value &&
+    !shippingWardError.value &&
+    !shippingAddressDetailError.value
+  );
+});
+
 // --- Payment Modal (reusable) ---
 const paymentModalRef = ref(null);
 const paypalPendingOrderId = ref(null);
@@ -577,6 +700,12 @@ const paypalPendingOrderId = ref(null);
 // --- Tính toán ---
 const subtotal = computed(() =>
   checkoutItems.value.reduce((s, i) => s + Number(i.price) * i.quantity, 0),
+);
+
+const totalQuantity = computed(() => checkoutItems.value.length);
+
+const totalItemsCount = computed(() =>
+  checkoutItems.value.reduce((sum, i) => sum + i.quantity, 0),
 );
 
 const discountTotal = computed(() => {

@@ -16,7 +16,7 @@
     <transition name="fade-slide">
       <div
         v-show="open"
-        class="absolute right-0 mt-2 w-96 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden"
+        class="fixed md:absolute inset-x-4 md:inset-auto md:right-0 top-16 md:top-full mt-2 md:w-96 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden max-w-[calc(100vw-2rem)] mx-auto"
       >
         <div class="px-4 py-3 border-b border-gray-200 bg-gray-50">
           <h3 class="font-semibold text-gray-900 text-sm">Thông báo</h3>

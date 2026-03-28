@@ -25,19 +25,19 @@
         <div
           v-for="item in cart.items"
           :key="item.id"
-          class="flex items-center gap-4 border rounded-lg p-4 shadow-sm"
+          class="flex items-start sm:items-center gap-3 sm:gap-4 border rounded-lg p-3 sm:p-4 shadow-sm bg-white"
         >
           <!-- Checkbox chọn sản phẩm -->
           <input
             type="checkbox"
             v-model="selectedItems"
             :value="item.id"
-            class="w-4 h-4 text-black border-gray-300 rounded"
+            class="w-4 h-4 text-black border-gray-300 rounded mt-1 sm:mt-0"
           />
 
           <!-- Ảnh -->
           <div
-            class="w-20 h-20 flex-shrink-0 cursor-pointer"
+            class="w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 cursor-pointer"
             @click="goToProduct(item)"
           >
             <img
@@ -46,146 +46,150 @@
             />
           </div>
 
-          <!-- Thông tin -->
-          <div class="flex-1 min-w-0">
-            <h2
-              class="font-semibold text-base sm:text-lg truncate cursor-pointer hover:text-gray-700 transition"
-              @click="goToProduct(item)"
-            >
-              {{ item.productName }}
-            </h2>
-            <p class="text-sm text-gray-500">
-              Màu: {{ item.colorName }} · Size: {{ item.sizeName }}
-            </p>
-            <p class="text-xs text-gray-400">
-              Kho: {{ item.stock || 0 }} sản phẩm
-            </p>
-            <p
-              v-if="item.quantity > (item.stock || 0)"
-              class="text-xs text-red-500 font-medium"
-            >
-              ⚠️ Vượt quá kho! Hiện tại chỉ còn {{ item.stock || 0 }} sản phẩm
-            </p>
-          </div>
-
-          <!-- Số lượng -->
-          <div class="flex items-center space-x-2 relative">
-            <button
-              @click="dec(item)"
-              class="px-2 py-1 border rounded hover:bg-gray-100 transition-all duration-150"
-              :class="{ 'opacity-75': loadingItems.has(item.id) }"
-            >
-              −
-            </button>
-            <div class="relative px-2 min-w-[2rem] text-center">
-              <span class="select-none">{{ item.quantity }}</span>
-              <!-- Subtle loading indicator -->
-              <div
-                v-if="loadingItems.has(item.id)"
-                class="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full animate-pulse"
-              ></div>
+          <!-- Nội dung & Giá/Số lượng (Flex-col on mobile) -->
+          <div class="flex-1 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 min-w-0">
+            <!-- Thông tin -->
+            <div class="flex-1 min-w-0">
+              <h2
+                class="font-semibold text-sm sm:text-lg truncate cursor-pointer hover:text-gray-700 transition"
+                @click="goToProduct(item)"
+              >
+                {{ item.productName }}
+              </h2>
+              <p class="text-xs sm:text-sm text-gray-500">
+                Màu: {{ item.colorName }} · Size: {{ item.sizeName }}
+              </p>
+              <p class="text-[10px] sm:text-xs text-gray-400">
+                Kho: {{ item.stock || 0 }} sản phẩm
+              </p>
+              <p
+                v-if="item.quantity > (item.stock || 0)"
+                class="text-[10px] sm:text-xs text-red-500 font-medium"
+              >
+                ⚠️ Vượt quá kho! Còn {{ item.stock || 0 }}
+              </p>
             </div>
-            <button
-              @click="inc(item)"
-              class="px-2 py-1 border rounded hover:bg-gray-100 transition-all duration-150"
-              :class="{ 'opacity-75': loadingItems.has(item.id) }"
-            >
-              +
-            </button>
-          </div>
 
-          <!-- Giá -->
-          <div class="w-24 text-right font-bold">
-            {{ formatPrice(item.price * item.quantity) }}
+            <!-- Cụm Số lượng & Giá -->
+            <div class="flex items-center justify-between sm:justify-end gap-4 sm:min-w-[200px]">
+              <!-- Số lượng -->
+              <div class="flex items-center space-x-2 relative scale-90 sm:scale-100">
+                <button
+                  @click="dec(item)"
+                  class="w-8 h-8 flex items-center justify-center border rounded hover:bg-gray-100 transition-all duration-150"
+                  :class="{ 'opacity-75': loadingItems.has(item.id) }"
+                >
+                  −
+                </button>
+                <div class="relative px-1 min-w-[1.5rem] text-center">
+                  <span class="select-none font-medium">{{ item.quantity }}</span>
+                  <div
+                    v-if="loadingItems.has(item.id)"
+                    class="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full animate-pulse"
+                  ></div>
+                </div>
+                <button
+                  @click="inc(item)"
+                  class="w-8 h-8 flex items-center justify-center border rounded hover:bg-gray-100 transition-all duration-150"
+                  :class="{ 'opacity-75': loadingItems.has(item.id) }"
+                >
+                  +
+                </button>
+              </div>
+
+              <!-- Giá -->
+              <div class="sm:w-32 text-right font-bold text-gray-900 text-sm sm:text-base whitespace-nowrap">
+                {{ formatPrice(item.price * item.quantity) }}
+              </div>
+            </div>
           </div>
         </div>
 
         <!-- Tóm tắt -->
-        <div class="mt-6 flex justify-between items-center">
-          <div class="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              v-model="selectAll"
-              @change="toggleSelectAll"
-              class="w-4 h-4 text-black border-gray-300 rounded"
-            />
-            <span class="text-gray-600">Chọn tất cả</span>
+        <div class="mt-8 border-t pt-6 flex flex-col lg:flex-row lg:justify-between gap-6">
+          <!-- Trái: Chọn tất cả & Xóa -->
+          <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div class="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                v-model="selectAll"
+                @change="toggleSelectAll"
+                class="w-4 h-4 text-black border-gray-300 rounded"
+              />
+              <span class="text-sm sm:text-base text-gray-600">Chọn tất cả</span>
+            </div>
 
-            <!-- Nút xóa đa chọn -->
             <button
               v-if="selectedItems.length > 0"
               @click="removeSelectedItems"
-              class="ml-4 px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
-              :title="`Xóa ${selectedItems.length} sản phẩm đã chọn`"
+              class="px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 text-xs sm:text-sm font-medium transition"
             >
-              Xóa sản phẩm đã chọn ({{ selectedItems.length }})
+              Xóa đã chọn ({{ selectedItems.length }})
             </button>
           </div>
 
-          <div class="text-right">
-            <p class="text-sm text-gray-500">
-              Đã chọn: {{ selectedItems.length }} sản phẩm
-            </p>
-
-            <p class="text-lg font-semibold">
-              Tổng: {{ formatPrice(totalSelected) }}
-            </p>
-            <!-- Chọn coupon áp dụng trên tổng tiền -->
-            <div class="mt-2 flex items-center justify-end gap-2">
-              <button
-                @click="
-                  openCoupon = true;
-                  loadCoupons();
-                "
-                class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 text-sm"
-              >
-                {{
-                  selectedCoupon
-                    ? `Đang áp dụng: ${selectedCoupon.code}`
-                    : "Chọn mã giảm giá"
-                }}
-              </button>
-
-              <!-- Nút huỷ -->
-              <button
-                v-if="selectedCoupon"
-                @click="selectedCoupon = null"
-                class="text-red-600 text-sm hover:underline"
-              >
-                Huỷ
-              </button>
+          <!-- Phải: Tính tiền & Đặt đơn -->
+          <div class="bg-gray-50 p-4 sm:p-6 rounded-xl flex flex-col gap-3 min-w-full sm:min-w-[350px]">
+            <div class="flex justify-between items-center text-sm text-gray-500">
+              <span>Đã chọn:</span>
+              <span class="font-medium text-gray-900">{{ selectedItems.length }} sản phẩm</span>
             </div>
 
-            <p
-              v-if="selectedCoupon"
-              class="mt-2 text-green-600 font-semibold text-base"
-            >
-              Sau giảm: {{ formatPrice(totalSelectedAfterDiscount) }}
-            </p>
+            <div class="flex justify-between items-center text-base sm:text-lg font-semibold">
+              <span>Tạm tính:</span>
+              <span>{{ formatPrice(totalSelected) }}</span>
+            </div>
+
+            <!-- Coupon -->
+            <div class="space-y-2 mt-2">
+              <div class="flex items-center justify-between gap-2">
+                <button
+                  @click="
+                    openCoupon = true;
+                    loadCoupons();
+                  "
+                  class="flex-1 px-4 py-2 bg-white border border-dashed border-green-500 text-green-700 rounded-lg hover:bg-green-50 text-sm font-medium transition"
+                >
+                  {{
+                    selectedCoupon
+                      ? `Mã: ${selectedCoupon.code}`
+                      : "Chọn mã giảm giá"
+                  }}
+                </button>
+
+                <button
+                  v-if="selectedCoupon"
+                  @click="selectedCoupon = null"
+                  class="text-red-500 text-xs hover:underline"
+                >
+                  Huỷ
+                </button>
+              </div>
+
+              <div
+                v-if="selectedCoupon"
+                class="flex justify-between items-center text-base sm:text-xl font-bold text-green-600"
+              >
+                <span>Tổng sau giảm:</span>
+                <span>{{ formatPrice(totalSelectedAfterDiscount) }}</span>
+              </div>
+            </div>
 
             <!-- Cảnh báo vượt kho -->
             <div
               v-if="selectedItemsOutOfStock.length > 0"
-              class="mt-2 p-2 bg-red-50 border border-red-200 rounded text-sm"
+              class="p-2 bg-red-50 border border-red-200 rounded text-xs text-red-600 leading-tight"
             >
-              <p class="text-red-500">
-                Một số sản phẩm đã chọn vượt quá kho. Vui lòng giảm số lượng để
-                tiếp tục đặt hàng
-              </p>
+              ⚠️ Một số sản phẩm vượt quá kho. Vui lòng giảm số lượng.
             </div>
 
             <!-- Nút đặt đơn -->
             <button
               @click="goToCheckout"
-              class="inline-block mt-2 bg-black text-white px-6 py-2 rounded hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              class="w-full mt-2 bg-black text-white px-6 py-3 rounded-xl hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed font-bold text-base sm:text-lg shadow-lg active:scale-[0.98] transition-all"
               :disabled="!canCheckout"
-              :title="
-                !canCheckout
-                  ? 'Vui lòng chọn sản phẩm và kiểm tra kho trước khi đặt đơn'
-                  : ''
-              "
             >
-              Đặt đơn
+              Đặt đơn ngay
             </button>
           </div>
         </div>

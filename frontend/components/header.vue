@@ -70,7 +70,7 @@
       </div>
 
       <!-- Auth & Mobile Controls -->
-      <div class="flex items-center space-x-2 sm:space-x-4" :key="headerKey">
+      <div ref="dropdownContainer" class="flex items-center space-x-2 sm:space-x-4" :key="headerKey">
         <template v-if="!auth.isLoggedIn">
           <NuxtLink
             to="/login-page"
@@ -107,10 +107,7 @@
           </NuxtLink>
 
           <!-- Chat, Notifications, Friends -->
-          <div
-            ref="dropdownContainer"
-            class="relative flex items-center space-x-4"
-          >
+          <div class="relative flex items-center space-x-4">
             <ChatDropdown
               v-if="auth.isCustomer"
               :open="activeDropdown === 'chat'"
@@ -130,7 +127,8 @@
           <!-- Dropdown user -->
           <div class="relative group">
             <button
-              class="flex items-center space-x-1 text-gray-700 hover:text-black"
+              @click.stop="onDropdownToggle('user')"
+              class="flex items-center space-x-1 text-gray-700 hover:text-black cursor-pointer focus:outline-none"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -166,7 +164,10 @@
             </button>
 
             <div
-              class="absolute right-0 top-full mt-0 w-40 bg-white border rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition duration-200 delay-100 z-50"
+              :class="[
+                'absolute right-0 top-full mt-0 w-40 bg-white border rounded-md shadow-lg transition duration-200 z-50',
+                activeDropdown === 'user' ? 'opacity-100 visible translate-y-1' : 'opacity-0 invisible group-hover:opacity-100 group-hover:visible'
+              ]"
             >
               <div class="py-1">
                 <NuxtLink

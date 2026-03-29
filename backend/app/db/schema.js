@@ -104,7 +104,8 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "group_order_confirmed", // Đơn nhóm được xác nhận
   "group_order_completed", // Đơn nhóm hoàn thành
   "group_stock_warning", // Cảnh báo tồn kho thấp
-  "group_stock_recovered" // Thông báo hàng về thêm
+  "group_stock_recovered", // Thông báo hàng về thêm
+  "group_order_expired" // Nhóm mua chung hết hạn
 ]);
 
 export const users = pgTable("users", {

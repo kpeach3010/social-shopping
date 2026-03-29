@@ -50,6 +50,13 @@
       "when": 1774338556232,
       "tag": "0006_blushing_grim_reaper",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1774791314438,
+      "tag": "0007_lush_tomorrow_man",
+      "breakpoints": true
     }
   ]
 }

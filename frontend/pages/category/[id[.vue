@@ -108,7 +108,10 @@
       />
 
       <!-- Không có sản phẩm -->
-      <div v-else-if="!loading" class="text-center text-gray-500">
+      <div
+        v-if="!loading && products.length === 0"
+        class="text-center text-gray-500"
+      >
         Không có sản phẩm nào trong danh mục này.
       </div>
     </main>

@@ -97,7 +97,7 @@ const submitUpdate = async () => {
     const payload = { ...user.value };
     const config = useRuntimeConfig();
 
-    await $fetch("/users/profile", {
+    const res = await $fetch("/users/profile", {
       method: "PATCH",
       baseURL: config.public.apiBase,
       headers: {
@@ -107,8 +107,10 @@ const submitUpdate = async () => {
       body: payload,
     });
 
-    // Cập nhật lại user trong store (sau khi load lại data hoặc force update)
-    if (auth.loadFromStorage) await auth.loadFromStorage();
+    // Cập nhật lại user trong store và localStorage ngay lập tức
+    if (res && res.data) {
+      auth.setAuth(res.data, auth.accessToken, auth.refreshToken);
+    }
     
     alert("Cập nhật thông tin thành công!");
     emit("refresh");

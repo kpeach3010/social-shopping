@@ -207,8 +207,11 @@ export const updateUserService = async (userId, payload) => {
     .returning({
       id: users.id,
       fullName: users.fullName,
+      email: users.email,
       phone: users.phone,
       gender: users.gender,
+      role: users.role,
+      status: users.status,
       dateOfBirth: users.dateOfBirth,
       province: users.province,
       district: users.district,

@@ -7,7 +7,7 @@ import {
   products,
   groupOrders,
 } from "../db/schema.js";
-import { eq, lte, gte, isNull, lt, and, or, inArray, sql } from "drizzle-orm";
+import { eq, lte, gte, isNull, lt, and, or, inArray, sql, ne } from "drizzle-orm";
 import { GroupKind } from "../enums/kind.enum.js";
 import { CouponType } from "../enums/type.enum.js";
 
@@ -184,6 +184,9 @@ export const getValidCouponsService = async (userId = null) => {
 
   // Batch query: đếm số lần user đã dùng TẤT CẢ coupon trong 1 query duy nhất
   const couponCodes = activeCoupons.map((c) => c.code);
+  
+  if (couponCodes.length === 0) return [];
+
   const usageCounts = await db
     .select({
       couponCode: orders.couponCode,
@@ -191,7 +194,15 @@ export const getValidCouponsService = async (userId = null) => {
     })
     .from(orders)
     .where(
-      and(eq(orders.userId, userId), inArray(orders.couponCode, couponCodes)),
+      and(
+        eq(orders.userId, userId),
+        inArray(orders.couponCode, couponCodes),
+        ne(orders.status, "rejected"), // Bị từ chối thì không tính
+        or(
+          ne(orders.status, "cancelled"), // Đơn hủy thì tính
+          isNull(orders.groupOrderId), // Đơn thường bị hủy thì vẫn tính
+        ),
+      ),
     )
     .groupBy(orders.couponCode);
 

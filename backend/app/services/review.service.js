@@ -63,6 +63,11 @@ export const createReviewService = async (userId, data) => {
     throw new Error("Không tìm thấy sản phẩm trong đơn hàng");
   }
 
+  // 1.1 Kiểm tra rating (từ 1-5 sao)
+  if (!data.rating || data.rating < 1 || data.rating > 5) {
+    throw new Error("Vui lòng chọn mức độ hài lòng từ 1 đến 5 sao");
+  }
+
   // 2. Check đã review chưa
   const [existingReview] = await db
     .select()

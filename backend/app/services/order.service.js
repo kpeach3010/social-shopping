@@ -14,7 +14,7 @@ import {
   conversations,
   reviews,
 } from "../db/schema.js";
-import { sql, eq, and, ne, inArray, desc, ilike } from "drizzle-orm";
+import { sql, eq, and, ne, inArray, desc, ilike, or, isNull } from "drizzle-orm";
 import { getAvailableCouponsForProductsService } from "./coupon.service.js";
 import supabase from "../../services/supbase/client.js";
 import { sendOrderStatusNotification } from "./orderNotification.service.js";
@@ -309,7 +309,8 @@ export const checkoutService = async (
     }
 
     // Kiểm tra số lần sử dụng cho mỗi user
-    // Chỉ đếm các đơn hàng chưa bị hủy (không tính cancelled/rejected)
+    // Đối với đơn hàng cá nhân (không thuộc nhóm), KỂ CẢ HỦY vẫn tính vào lượt dùng (policy mới).
+    // Chỉ loại bỏ đơn bị Shop từ chối (rejected).
     if (coupon.perUserLimit) {
       const [{ count }] = await db
         .select({
@@ -320,8 +321,11 @@ export const checkoutService = async (
           and(
             eq(orders.userId, userId),
             eq(orders.couponCode, couponCode),
-            ne(orders.status, "cancelled"),
             ne(orders.status, "rejected"),
+            or(
+              ne(orders.status, "cancelled"),
+              isNull(orders.groupOrderId),
+            ),
           ),
         );
 
@@ -533,7 +537,7 @@ export const changeMyOrderPaymentMethodToCodService = async (
 
 // CUSTOMER: Hủy đơn
 export const cancelOrderService = async (orderId, userId) => {
-  // 1) Tìm order
+  // 1) Tìm order và các sản phẩm trong đơn
   const [order] = await db
     .select()
     .from(orders)
@@ -542,54 +546,74 @@ export const cancelOrderService = async (orderId, userId) => {
 
   if (!order) throw new Error("Đơn hàng không tồn tại");
 
-  const [coupon] = await db
-    .select({ kind: coupons.kind })
-    .from(coupons)
-    .where(eq(coupons.code, order.couponCode))
-    .limit(1);
-
-  if (coupon?.kind === "group") {
-    throw new Error("Đơn nhóm không thể tự hủy.");
-  }
-
-  // 2) Chỉ cho phép user hủy chính order của mình
+  // 2) Bảo mật & Ràng buộc
   if (order.userId !== userId) {
     throw new Error("Không có quyền hủy đơn hàng này");
   }
 
-  // 3) Chỉ cho phép hủy khi pending hoặc awaiting_payment
+  if (order.groupOrderId) {
+    throw new Error("Đơn hàng thuộc nhóm mua chung không thể tự hủy.");
+  }
+
+  // Chỉ cho phép hủy khi pending hoặc awaiting_payment
   if (order.status !== "pending" && order.status !== "awaiting_payment") {
     throw new Error(
-      "Chỉ có thể hủy đơn khi đang ở trạng thái chờ thanh toán hoặc chờ xác nhận",
+      "Chỉ có thể hủy đơn khi đang ở trạng thái chờ xác nhận hoặc chờ thanh toán",
     );
   }
 
-  // 4) Cập nhật trạng thái thành cancelled
-  const [updated] = await db
-    .update(orders)
-    .set({ status: "cancelled" })
-    .where(eq(orders.id, orderId))
-    .returning();
+  // Lấy danh sách sản phẩm để hoàn kho
+  const finalOrderItems = await db
+    .select()
+    .from(orderItems)
+    .where(eq(orderItems.orderId, orderId));
 
-  // 5) Hoàn lại stock cho sản phẩm
-  const productIds = await restoreStockForItems(db, items);
+  // 3) Thực thi Hủy đơn trong Transaction
+  const updatedOrder = await db.transaction(async (tx) => {
+    // 3.1) Cập nhật trạng thái
+    const [updated] = await tx
+      .update(orders)
+      .set({ status: "cancelled", updatedAt: new Date() })
+      .where(eq(orders.id, orderId))
+      .returning();
 
-  // Kích hoạt thông báo hàng về ngay lập tức (không trong transaction)
-  if (productIds.length > 0) {
-    for (const pid of productIds) {
-      notifyAffectedGroups(pid, true).catch((err) =>
-        console.error("Error in cancelOrderService trigger:", err),
-      );
+    // 3.2) Hoàn tồn kho
+    if (finalOrderItems.length > 0) {
+      await restoreStockForItems(tx, finalOrderItems);
     }
+
+    // 3.3) Hoàn lại lượt dùng coupon cho kho hệ thống (nếu có dùng mã)
+    if (order.couponCode) {
+      await tx
+        .update(coupons)
+        .set({
+          used: sql`GREATEST(0, ${coupons.used} - 1)`,
+        })
+        .where(eq(coupons.code, order.couponCode));
+    }
+
+    return updated;
+  });
+
+  // 4) Xử lý sau khi Hủy thành công (ngoài transaction)
+  
+  // 4.1) Thông báo hàng về cho các nhóm đang quan tâm
+  const productIds = [
+    ...new Set(finalOrderItems.map((i) => i.productId).filter(Boolean)),
+  ];
+  for (const pid of productIds) {
+    notifyAffectedGroups(pid, true).catch((err) =>
+      console.error("Error trigger notifyAffectedGroups:", err),
+    );
   }
 
-  // 6) Hoàn tiền nếu cần (dùng helper)
-  const refundRes = await processOrderRefund(updated);
+  // 4.2) Xử lý hoàn tiền PayPal nếu đơn đã thanh toán
+  const refundRes = await processOrderRefund(updatedOrder);
 
-  // 7) Gửi thông báo hủy đơn cho user
+  // 4.3) Gửi thông báo hệ thống cho user
   let customMsg = `Đơn hàng #${orderId} đã được hủy theo yêu cầu của bạn.`;
   if (refundRes.isSuccess) {
-    customMsg += ` Đã hoàn tiền ${formatVND(updated.total)} vào tài khoản PayPal của bạn.`;
+    customMsg += ` Đã hoàn tiền ${formatVND(updatedOrder.total)} vào tài khoản PayPal của bạn.`;
   }
 
   await sendOrderStatusNotification({
@@ -599,7 +623,7 @@ export const cancelOrderService = async (orderId, userId) => {
     customContent: customMsg,
   });
 
-  return updated;
+  return updatedOrder;
 };
 
 // Lấy danh sách order của 1 user

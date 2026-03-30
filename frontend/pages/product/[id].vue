@@ -836,7 +836,7 @@ const createInviteLink = async (couponId) => {
 
     if (res.reused) {
       alert(
-        `Bạn đã có nhóm đang hoạt động cho sản phẩm này!\nTên nhóm: ${res.conversationName}`,
+        `Bạn đã có nhóm đang hoạt động cho sản phẩm và mã giảm giá này!\nTên nhóm: ${res.conversationName}`,
       );
     }
 

@@ -297,6 +297,12 @@ const updateQuantityOptimistically = (item, action) => {
     item.quantity = Math.max(0, item.quantity - 1);
   }
 
+  // --- Optimistic UI Update: Remove item immediately if quantity is 0 ---
+  if (item.quantity === 0) {
+    cart.value.items = cart.value.items.filter((i) => i.id !== itemId);
+    selectedItems.value = selectedItems.value.filter((id) => id !== itemId);
+  }
+
   // Clear timer cũ nếu có
   if (pendingUpdates.value[itemId]?.timer) {
     clearTimeout(pendingUpdates.value[itemId].timer);
@@ -367,6 +373,12 @@ const executeQuantityUpdate = async (item, itemId, originalQuantity) => {
 
     // Rollback on error
     item.quantity = originalQuantity;
+    
+    // Nếu sản phẩm đã bị xóa khỏi UI, tải lại giỏ hàng để khôi phục
+    if (originalQuantity > 0 && !cart.value.items.some(i => i.id === itemId)) {
+      await fetchCartItems();
+    }
+    
     alert("Không thể cập nhật số lượng. Vui lòng thử lại.");
   } finally {
     // Cleanup
@@ -399,30 +411,26 @@ const removeItem = async (item) => {
 
   if (!confirmed) return;
 
+  // Optimistic UI Update: Xóa item ngay lập tức
+  const originalItems = [...cart.value.items];
+  const originalSelected = [...selectedItems.value];
+  
+  cart.value.items = cart.value.items.filter((i) => i.id !== item.id);
+  selectedItems.value = selectedItems.value.filter((id) => id !== item.id);
+  updateCartHeader();
+
   try {
     await $fetch(`/cart/remove/${item.variantId}`, {
       method: "DELETE",
       baseURL: config.public.apiBase,
       headers: { Authorization: `Bearer ${auth.accessToken}` },
     });
-
-    // Xóa item khỏi danh sách local
-    cart.value.items = cart.value.items.filter((i) => i.id !== item.id);
-
-    // Xóa khỏi danh sách đã chọn nếu có
-    selectedItems.value = selectedItems.value.filter((id) => id !== item.id);
-
-    // Cập nhật số lượng trong header
-    const newTotal = cart.value.items.reduce((sum, i) => sum + i.quantity, 0);
-    if (process.client) {
-      window.dispatchEvent(
-        new CustomEvent("cart-updated", {
-          detail: { count: newTotal },
-        }),
-      );
-    }
   } catch (e) {
     console.error("Lỗi xóa sản phẩm:", e);
+    // Rollback trên lỗi
+    cart.value.items = originalItems;
+    selectedItems.value = originalSelected;
+    updateCartHeader();
     alert("Không thể xóa sản phẩm. Vui lòng thử lại.");
   }
 };
@@ -440,6 +448,18 @@ const removeSelectedItems = async () => {
 
   if (!confirmed) return;
 
+  // Optimistic UI Update: Xóa ngay lập tức
+  const originalItems = [...cart.value.items];
+  const originalSelected = [...selectedItems.value];
+  const originalSelectAll = selectAll.value;
+
+  cart.value.items = cart.value.items.filter(
+    (item) => !selectedItems.value.includes(item.id),
+  );
+  selectedItems.value = [];
+  selectAll.value = false;
+  updateCartHeader();
+
   try {
     // Sử dụng API mới để xóa nhiều sản phẩm cùng lúc
     const variantIds = selectedProducts.map((item) => item.variantId);
@@ -450,33 +470,19 @@ const removeSelectedItems = async () => {
       headers: { Authorization: `Bearer ${auth.accessToken}` },
       body: { variantIds },
     });
-
-    // Cập nhật danh sách local
-    cart.value.items = cart.value.items.filter(
-      (item) => !selectedItems.value.includes(item.id),
-    );
-
-    // Reset danh sách đã chọn
-    selectedItems.value = [];
-    selectAll.value = false;
-
-    // Cập nhật số lượng trong header
-    const newTotal = cart.value.items.reduce((sum, i) => sum + i.quantity, 0);
-    if (process.client) {
-      window.dispatchEvent(
-        new CustomEvent("cart-updated", {
-          detail: { count: newTotal },
-        }),
-      );
-    }
   } catch (e) {
     console.error("Lỗi xóa sản phẩm:", e);
+    // Rollback trên lỗi
+    cart.value.items = originalItems;
+    selectedItems.value = originalSelected;
+    selectAll.value = originalSelectAll;
+    updateCartHeader();
     alert("Không thể xóa một số sản phẩm. Vui lòng thử lại.");
   }
 };
 
 // --- Load giỏ hàng ---
-onMounted(async () => {
+const fetchCartItems = async () => {
   try {
     const res = await $fetch("/cart/get-cart-items", {
       baseURL: config.public.apiBase,
@@ -488,6 +494,10 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
+};
+
+onMounted(async () => {
+  await fetchCartItems();
 });
 
 // --- Coupon ---

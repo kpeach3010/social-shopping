@@ -10,9 +10,10 @@ import {
   coupons,
 } from "../db/schema.js";
 import { notifyAffectedGroups } from "../services/groupOrders.service.js";
-import { eq, and, lt, isNull, isNotNull, sql } from "drizzle-orm";
+import { eq, and, lt, isNull, isNotNull, sql, inArray } from "drizzle-orm";
 import { sendOrderStatusNotification } from "../services/orderNotification.service.js";
 import { createNotificationService } from "../services/notification.service.js";
+import { restoreStockForItems } from "../services/order.service.js";
 
 /**
  * Tự động hủy đơn hàng ở trạng thái awaiting_payment
@@ -40,7 +41,11 @@ export const cancelUnpaidOrders = async (io) => {
           isNull(orders.groupOrderId),
         ),
       )
-      .returning({ id: orders.id, userId: orders.userId });
+      .returning({ 
+        id: orders.id, 
+        userId: orders.userId, 
+        couponCode: orders.couponCode 
+      });
 
     if (cancelledNormal.length > 0) {
       console.log(
@@ -48,7 +53,38 @@ export const cancelUnpaidOrders = async (io) => {
         cancelledNormal.map((o) => o.id),
       );
 
+      // --- 1.1. Hoàn tồn kho cho đơn thường ---
+      const normalOrderIds = cancelledNormal.map((o) => o.id);
+      const itemsToRestore = await db
+        .select()
+        .from(orderItems)
+        .where(inArray(orderItems.orderId, normalOrderIds));
+
+      if (itemsToRestore.length > 0) {
+        const affectedProductIds = await restoreStockForItems(db, itemsToRestore);
+        console.log(`[Cron] Đã hoàn kho cho ${itemsToRestore.length} items từ ${cancelledNormal.length} đơn thường.`);
+
+        // Plan V11: Thông báo cho các nhóm khác về việc có hàng về
+        for (const pid of affectedProductIds) {
+          notifyAffectedGroups(pid, true).catch((err) =>
+            console.error(`[Cron] Lỗi thông báo sản phẩm ${pid}:`, err),
+          );
+        }
+      }
+
+      // --- 1.2. Hoàn lại lượt dùng coupon ---
       for (const order of cancelledNormal) {
+        if (order.couponCode) {
+          await db
+            .update(coupons)
+            .set({
+              used: sql`GREATEST(0, ${coupons.used} - 1)`,
+            })
+            .where(eq(coupons.code, order.couponCode));
+          console.log(`[Cron] Đã hoàn 1 lượt dùng coupon "${order.couponCode}" cho đơn ${order.id}`);
+        }
+
+        // --- 1.3. Gửi thông báo ---
         await sendOrderStatusNotification({
           orderId: order.id,
           userId: order.userId,

@@ -715,7 +715,7 @@ export const selectItemsService = async ({ groupOrderId, userId, items }) => {
         }
         if (subtotal < coupon.minOrderTotal) {
           throw new Error(
-            `Giá trị tối thiểu để áp mã là ${coupon.minOrderTotal}`,
+            `Giá trị đơn hàng tối thiểu phải là ${(coupon.minOrderTotal)}đ`,
           );
         }
       }
@@ -1226,7 +1226,7 @@ export const changeGroupOrderProductService = async ({
         ...new Set(activeGroupsWithProduct.map((m) => m.fullName)),
       ].join(", ");
       throw new Error(
-        `Không thể đổi sản phẩm vì các thành viên sau đang có nhóm mua chung khác hoạt động với sản phẩm này: ${busyNames}`,
+        `Không thể đổi sản phẩm vì các thành viên sau đang có nhóm mua chung khác hoạt động với sản phẩm và mã giảm giá này: ${busyNames}`,
       );
     }
   }
@@ -1321,7 +1321,7 @@ export const changeGroupOrderProductService = async ({
             )[0]?.conversationId,
         ),
       );
-    return { success: true };
+    return { success: true, status: groupOrder.status };
   });
 };
 

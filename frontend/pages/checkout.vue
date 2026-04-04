@@ -422,13 +422,13 @@
                   class="font-semibold text-yellow-700 flex items-center gap-2"
                 >
                   PayPal
-                  <span
+                  <!-- <span
                     class="bg-yellow-100 text-yellow-800 text-xs px-2 py-0.5 rounded"
                     >Mới</span
-                  >
+                  > -->
                 </div>
                 <div class="text-xs text-gray-500">
-                  Quét mã QR bằng app PayPal hoặc đăng nhập PayPal
+                  Quét mã QR để thanh toán
                 </div>
               </div>
               <img

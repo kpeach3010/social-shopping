@@ -155,7 +155,7 @@
                 <input
                   v-model="form.province"
                   type="text"
-                  placeholder="Nhập Tỉnh/Thành phố"
+                  placeholder=""
                   :class="[
                     'appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500',
                     provinceError ? 'border-red-300' : 'border-gray-300',
@@ -206,7 +206,7 @@
                 <input
                   v-model="form.district"
                   type="text"
-                  placeholder="Nhập Quận/Huyện"
+                  placeholder=""
                   :class="[
                     'appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500',
                     districtError ? 'border-red-300' : 'border-gray-300',
@@ -256,7 +256,7 @@
                 <input
                   v-model="form.ward"
                   type="text"
-                  placeholder="Nhập Phường/Xã"
+                  placeholder=""
                   :class="[
                     'appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500',
                     wardError ? 'border-red-300' : 'border-gray-300',

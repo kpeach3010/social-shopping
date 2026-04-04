@@ -690,7 +690,7 @@ async function processGroupOrderPaymentSuccess(
           "../services/message.service.js"
         );
         const content =
-          "Thanh toán nhóm hoàn tất! Đơn hàng đã được gửi đến shop.";
+          "Thanh toán nhóm hoàn tất! Chờ nhân viên xác nhận đơn hàng.";
         const sysMsg = await createSystemMessage(conversationId, content);
 
         global.io.to(conversationId).emit("message", {

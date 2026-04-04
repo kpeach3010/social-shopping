@@ -1,6 +1,7 @@
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineNuxtConfig({
+  devtools: false,
   runtimeConfig: {
     public: {
       supabaseUrl: process.env.NUXT_PUBLIC_SUPABASE_URL,

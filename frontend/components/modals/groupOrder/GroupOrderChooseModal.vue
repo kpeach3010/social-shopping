@@ -479,7 +479,7 @@ function addCurrentSelection() {
   const v = selectedVariant.value;
 
   if (v.stock && quantity.value > v.stock) {
-    alert("Số lượng vượt quá tồn kho biến thể.");
+    alert("Số lượng vượt quá tồn kho.");
     return;
   }
 
@@ -489,7 +489,7 @@ function addCurrentSelection() {
     // Cộng dồn số lượng
     const newQty = existing.quantity + quantity.value;
     if (v.stock && newQty > v.stock) {
-      alert("Tổng số lượng vượt quá tồn kho biến thể.");
+      alert("Tổng số lượng vượt quá tồn kho.");
       return;
     }
     existing.quantity = newQty;

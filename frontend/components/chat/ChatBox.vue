@@ -1107,7 +1107,7 @@ async function cancelGroupOrder() {
     });
 
     // 3. Thông báo thành công
-    alert("Đã hủy nhóm thành công!");
+    alert("Đã hủy đơn nhóm thành công!");
 
     // Cập nhật UI ngay lập tức trong khi chờ Socket
     if (groupDetail.value?.groupOrder) {

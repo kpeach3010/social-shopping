@@ -4,16 +4,22 @@ import { eq, ne, inArray, count, sql } from "drizzle-orm";
 
 export const createCategoryService = async (data) => {
   try {
-    // Kiem tra trung ten danh muc
+    if (!data.name || !data.name.trim()) {
+      throw new Error("Tên danh mục không được để trống.");
+    }
+
+    // Kiem tra trung ten danh muc (không phân biệt hoa thường)
     const exists = await db
       .select()
       .from(categories)
-      .where(eq(categories.name, data.name))
+      .where(sql`LOWER(${categories.name}) = LOWER(${data.name.trim()})`)
       .limit(1);
 
     if (exists.length > 0) {
-      throw new Error("category name already exists");
+      throw new Error("Tên danh mục này đã tồn tại.");
     }
+
+
 
     const payload = {
       name: data.name,
@@ -81,25 +87,26 @@ export const updateCategoryService = async (id, data) => {
   try {
     const existing = await getCategoryById(id);
 
+    if (data.name !== undefined && !data.name.trim()) {
+      throw new Error("Tên danh mục không được để trống.");
+    }
+
     // FIX 1: Chỉ kiểm tra trùng tên NẾU tên có thay đổi
     // (Nếu chỉ đổi danh mục cha mà tên giữ nguyên thì bỏ qua bước này)
-    if (data.name && data.name !== existing.name) {
+    if (data.name && data.name.trim() !== existing.name) {
       const nameExists = await db
         .select()
         .from(categories)
         .where(
-          // FIX 2: Dùng and() để gộp 2 điều kiện
-          and(
-            eq(categories.name, data.name),
-            ne(categories.id, id) // Loại trừ chính nó
-          )
+          sql`LOWER(${categories.name}) = LOWER(${data.name.trim()}) AND ${categories.id} != ${id}`
         )
         .limit(1);
 
       if (nameExists.length > 0) {
-        throw new Error("category name already exists");
+        throw new Error("Tên danh mục mới đã tồn tại ở một danh mục khác.");
       }
     }
+
 
     // FIX 3: Logic xử lý cập nhật cha
     const payload = {

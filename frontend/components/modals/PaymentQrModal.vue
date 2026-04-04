@@ -2,6 +2,7 @@
   <div
     v-if="visible"
     class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+    @click.self="close"
   >
     <div
       class="bg-white rounded-2xl p-4 sm:p-6 w-full max-w-[95%] sm:max-w-md flex flex-col items-center shadow-2xl max-h-[90vh] overflow-y-auto border border-gray-100"
@@ -279,6 +280,20 @@ const startPayment = async ({ order, items, paymentMethod }) => {
   const actualAmount = isObject ? order.total : items;
   const actualMethod = isObject ? paymentMethod : arguments[0].paymentMethod;
 
+  // Check if we can reuse the same payment (same ID, amount, and method)
+  if (
+    dbOrderId.value === actualOrderId &&
+    paymentAmount.value === Number(actualAmount) &&
+    method.value === actualMethod &&
+    qrUrl.value
+  ) {
+    console.log("Reusing existing QR code for individual order:", actualOrderId);
+    visible.value = true;
+    creating.value = false;
+    if (actualMethod === "PAYPAL") startPolling(actualOrderId);
+    return;
+  }
+
   // Reset state
   creating.value = true;
   error.value = "";
@@ -330,6 +345,21 @@ const startGroupPayment = async ({
   totalBeforeDiscount: tbd = 0,
   totalShippingFee: tsf = 0,
 }) => {
+  // Check if we can reuse the same group payment
+  if (
+    isGroupPayment.value &&
+    groupOrderId.value === gId &&
+    paymentAmount.value === amount &&
+    method.value === paymentMethod &&
+    qrUrl.value
+  ) {
+    console.log("Reusing existing QR code for group order:", gId);
+    visible.value = true;
+    creating.value = false;
+    if (paymentMethod === "PAYPAL") startGroupPolling(gId);
+    return;
+  }
+
   // Reset state
   creating.value = true;
   error.value = "";

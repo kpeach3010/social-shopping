@@ -20,12 +20,31 @@ const auth = useAuthStore();
 const loading = ref(false);
 const config = useRuntimeConfig();
 
-// State form category
+// State form category - Khởi tạo trực tiếp từ props thay vì dùng watch
 const form = ref({
-  id: "",
+  id: props.categoryData?.id || "",
+  name: props.categoryData?.name || "",
+  parentId: props.categoryData?.parentId || "", // Nếu null thì về rỗng để khớp với option value=""
+  sort: props.categoryData?.sort || 0,
+});
+
+const errors = ref({
   name: "",
-  parentId: "", // Dùng string rỗng để mapping với value="" của select
-  sort: 0,
+  general: "",
+});
+
+const validate = () => {
+  errors.value = { name: "", general: "" };
+  if (!form.value.name.trim()) {
+    errors.value.name = "Tên danh mục không được để trống.";
+    return false;
+  }
+  return true;
+};
+
+// Xóa lỗi khi người dùng nhập lại (sử dụng optional chaining để tránh lỗi nếu newVal bị undefined)
+watch(() => form.value.name, (newVal) => {
+  if (newVal?.trim()) errors.value.name = "";
 });
 
 // Lọc danh sách cha: Loại bỏ chính danh mục đang sửa ra khỏi danh sách chọn
@@ -35,34 +54,16 @@ const availableParents = computed(() => {
   return props.allCategories.filter((c) => c.id !== props.categoryData.id);
 });
 
-// Watch categoryData để fill dữ liệu vào form khi mở modal
-watch(
-  () => props.categoryData,
-  (val) => {
-    if (val) {
-      form.value = {
-        id: val.id,
-        name: val.name || "",
-        parentId: val.parentId || "", // Nếu null thì về rỗng
-        sort: val.sort || 0,
-      };
-    }
-  },
-  { immediate: true, deep: true }
-);
 
 // Submit API
 const submitCategory = async () => {
-  if (!form.value.name.trim()) {
-    alert("Vui lòng nhập tên danh mục");
-    return;
-  }
+  if (!validate()) return;
 
   loading.value = true;
   try {
     // Chuẩn bị payload khớp với updateCategoryService
     const payload = {
-      name: form.value.name,
+      name: form.value.name.trim(),
       parentId: form.value.parentId || null, // Nếu rỗng thì gửi null
       sort: Number(form.value.sort),
     };
@@ -78,30 +79,35 @@ const submitCategory = async () => {
       baseURL: config.public.apiBase,
     });
 
-    alert("Cập nhật danh mục thành công!");
     emit("refresh"); // Reload lại danh sách bên ngoài
     emit("close"); // Đóng modal
   } catch (err) {
     // Xử lý lỗi từ backend (ví dụ: trùng tên)
-    const errorMsg = err?.response?._data?.error || "Lỗi cập nhật danh mục!";
-    if (errorMsg.includes("category name already exists")) {
-      alert("Tên danh mục đã tồn tại, vui lòng chọn tên khác!");
+    if (err?.response?._data?.error) {
+      const beError = err.response._data.error;
+      if (beError.includes("tên") || beError.includes("Tên")) {
+        errors.value.name = beError;
+      } else {
+        errors.value.general = beError;
+      }
     } else {
-      alert(errorMsg);
+      errors.value.general = "Có lỗi xảy ra khi cập nhật danh mục.";
     }
     console.error(err);
   } finally {
     loading.value = false;
   }
 };
+
 </script>
 
 <template>
   <div class="fixed inset-0 flex items-center justify-center z-50">
     <div
       class="absolute inset-0 bg-black/30 backdrop-blur-sm"
-      @click="emit('close')"
+      @click="$emit('close')"
     ></div>
+
 
     <div
       class="relative bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden z-10 border"
@@ -115,8 +121,9 @@ const submitCategory = async () => {
         </h2>
         <button
           class="text-gray-400 hover:text-black text-xl transition-colors"
-          @click="emit('close')"
+          @click="$emit('close')"
         >
+
           <X class="w-6 h-6" />
         </button>
       </div>
@@ -130,9 +137,14 @@ const submitCategory = async () => {
             v-model="form.name"
             type="text"
             placeholder="Nhập tên danh mục..."
-            class="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent transition"
+            class="w-full border px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-black/5 transition-all duration-200"
+            :class="errors.name ? 'border-red-500 bg-red-50 focus:ring-red-50' : 'border-gray-300 focus:ring-black'"
           />
+          <p v-if="errors.name" class="text-red-500 text-[11px] mt-1 italic font-medium">
+            {{ errors.name }}
+          </p>
         </div>
+
 
         <div class="space-y-1">
           <label class="block text-sm font-medium text-gray-700"
@@ -196,17 +208,31 @@ const submitCategory = async () => {
       </div>
 
       <div
-        class="sticky bottom-0 bg-white border-t px-6 py-4 flex justify-end gap-3"
+        class="sticky bottom-0 bg-white border-t px-6 py-4 flex flex-col items-end gap-3"
       >
-        <button
-          @click="submitCategory"
-          :disabled="loading"
-          class="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-        >
-          <Loader2 v-if="loading" class="w-4 h-4 animate-spin" />
-          <span>{{ loading ? "Đang lưu..." : "Lưu thay đổi" }}</span>
-        </button>
+        <p v-if="errors.general" class="w-full text-red-500 text-xs font-bold bg-red-50 px-3 py-2 rounded border border-red-100">
+          {{ errors.general }}
+        </p>
+
+        <div class="flex gap-3">
+          <button
+            @click="$emit('close')"
+            class="px-4 py-2 bg-white border border-gray-200 rounded hover:bg-gray-50 font-medium text-sm transition-colors"
+          >
+
+            Hủy bỏ
+          </button>
+          <button
+            @click="submitCategory"
+            :disabled="loading"
+            class="px-6 py-2 bg-black text-white rounded hover:bg-gray-800 transition flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed font-medium text-sm"
+          >
+            <Loader2 v-if="loading" class="w-4 h-4 animate-spin" />
+            <span>{{ loading ? "Đang lưu..." : "Lưu thay đổi" }}</span>
+          </button>
+        </div>
       </div>
+
     </div>
   </div>
 </template>

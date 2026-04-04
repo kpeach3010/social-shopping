@@ -4,6 +4,7 @@ import { ref } from "vue";
 const props = defineProps({
   categories: { type: Array, required: true },
   modelValue: { type: String, default: "" },
+  error: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["update:modelValue"]);
@@ -31,8 +32,10 @@ const renderOptions = (list, level = 0) => {
     <button
       @click="toggle"
       type="button"
-      class="w-full border rounded px-3 py-2 flex justify-between items-center bg-gray-50 hover:bg-gray-100 text-gray-700"
+      class="w-full border rounded px-3 py-2 flex justify-between items-center bg-gray-50 hover:bg-gray-100 text-gray-700 transition-all duration-200"
+      :class="{ 'border-red-500 bg-red-50 focus:ring-1 focus:ring-red-500': error }"
     >
+
       <span>
         {{
           modelValue

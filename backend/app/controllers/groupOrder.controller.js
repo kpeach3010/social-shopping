@@ -14,6 +14,7 @@ import {
 import { createSystemMessage } from "../services/message.service.js";
 import { formatVND } from "../services/order.service.js";
 import { createNotificationService } from "../services/notification.service.js";
+import { groupOrderStatusEnum } from "../enums/groupOrderStatus.enum.js";
 import { db } from "../db/client.js";
 import {
   users,
@@ -484,7 +485,9 @@ export const changeGroupOrderProductController = async (req, res) => {
     // 3. Lưu system message
     let sysMsg = null;
     const content =
-      "Trưởng nhóm đã đổi sản phẩm mua chung. Vui lòng chọn lại biến thể.";
+      result.status === groupOrderStatusEnum.PENDING
+        ? "Trưởng nhóm đã đổi sản phẩm mua chung."
+        : "Trưởng nhóm đã đổi sản phẩm mua chung. Vui lòng chọn lại biến thể.";
     if (conversationId) {
       sysMsg = await createSystemMessage(conversationId, content);
     }

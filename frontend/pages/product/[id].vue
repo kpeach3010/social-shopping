@@ -168,7 +168,7 @@
               ></div>
             </div>
 
-            <div v-else-if="coupons.length" class="space-y-2">
+            <div v-else-if="coupons.length" class="space-y-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
               <div
                 v-for="c in coupons"
                 :key="c.id"
@@ -461,6 +461,29 @@
       "
       :apiBase="config.public.apiBase"
       @close="showTryProduct = false"
+      @share-to-post="onTryOnShareToPost"
+      @share-to-chat="onTryOnShareToChat"
+    />
+
+    <!-- [NEW] Tạo bài viết từ kết quả thử đồ -->
+    <CreatePostModal
+      v-if="showSharePost"
+      :products="product ? [product] : []"
+      :initial-files="tryOnSharedFiles"
+      :initial-content="tryOnPostContent"
+      :elevated="true"
+      @close="closeSharePost"
+      @created="closeSharePost"
+    />
+
+    <!-- [NEW] Gửi ảnh thử đồ vào cuộc trò chuyện -->
+    <ShareToConvModal
+      :isOpen="showShareConv"
+      :image-preview-url="tryOnPreviewUrl"
+      :image-file="tryOnSharedFile"
+      :elevated="true"
+      @close="closeShareConv"
+      @sent="closeShareConv"
     />
   </div>
 </template>
@@ -470,6 +493,8 @@ import { useAuthStore } from "@/stores/auth";
 import MediaGalleryModal from "@/components/MediaGalleryModal.vue";
 import CouponDetailModal from "@/components/modals/CouponDetailModal.vue";
 import TryProductModal from "@/components/modals/TryProductModal.vue";
+import CreatePostModal from "@/components/modals/feed/CreatePostModal.vue";
+import ShareToConvModal from "@/components/modals/ShareToConvModal.vue";
 
 // Đảm bảo formatDate luôn có sẵn cho template
 const formatDate = (date) => {
@@ -487,6 +512,38 @@ const copyInviteLink = (link) => {
 };
 
 const showTryProduct = ref(false);
+
+// [NEW] State cho chia sẻ kết quả thử đồ
+const showSharePost = ref(false);
+const showShareConv = ref(false);
+const tryOnSharedFiles = ref([]);   // Array<File> cho CreatePostModal
+const tryOnSharedFile = ref(null);  // File đơn lẻ cho ShareToConvModal
+const tryOnPreviewUrl = ref('');    // Blob URL để hiển thị preview trong ShareToConvModal
+const tryOnPostContent = ref('');   // Text prefill cho CreatePostModal
+
+function onTryOnShareToPost({ file, previewUrl }) {
+  tryOnSharedFiles.value = [file];
+  tryOnPostContent.value = `Tôi vừa thử đồ ảo với sản phẩm ${product.value?.name || ''}! ✨\nKết quả trông thật tuyệt! Bạn nghĩ sao?`;
+  showSharePost.value = true;
+}
+
+function onTryOnShareToChat({ file, previewUrl }) {
+  tryOnSharedFile.value = file;
+  tryOnPreviewUrl.value = previewUrl;
+  showShareConv.value = true;
+}
+
+function closeSharePost() {
+  showSharePost.value = false;
+  tryOnSharedFiles.value = [];
+  tryOnPostContent.value = '';
+}
+
+function closeShareConv() {
+  showShareConv.value = false;
+  tryOnSharedFile.value = null;
+  tryOnPreviewUrl.value = '';
+}
 
 const route = useRoute();
 const config = useRuntimeConfig();
@@ -913,5 +970,23 @@ const formatPrice = (v) =>
   to {
     transform: rotate(360deg);
   }
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f9fafb;
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
 }
 </style>

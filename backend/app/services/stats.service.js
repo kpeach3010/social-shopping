@@ -49,7 +49,7 @@ export const getStaffDashboardStatsService = async (range = "30d") => {
   // 1. Tổng quan
   const [summary] = await db
     .select({
-      totalRevenue: sql`COALESCE(SUM(${orders.total}), 0)`.mapWith(Number),
+      totalRevenue: sql`COALESCE(SUM(${orders.total} - ${orders.shippingFee}), 0)`.mapWith(Number),
       totalOrders: sql`COUNT(*)`.mapWith(Number),
       totalCustomers: countDistinct(orders.userId).mapWith(Number),
     })
@@ -74,14 +74,14 @@ export const getStaffDashboardStatsService = async (range = "30d") => {
     .select({
       day: sql`DATE(${orders.createdAt})`.as("day"),
       singleRevenue:
-        sql`SUM(CASE WHEN ${orders.groupOrderId} IS NULL THEN ${orders.total} ELSE 0 END)`.mapWith(
+        sql`SUM(CASE WHEN ${orders.groupOrderId} IS NULL THEN ${orders.total} - ${orders.shippingFee} ELSE 0 END)`.mapWith(
           Number,
         ),
       groupRevenue:
-        sql`SUM(CASE WHEN ${orders.groupOrderId} IS NOT NULL THEN ${orders.total} ELSE 0 END)`.mapWith(
+        sql`SUM(CASE WHEN ${orders.groupOrderId} IS NOT NULL THEN ${orders.total} - ${orders.shippingFee} ELSE 0 END)`.mapWith(
           Number,
         ),
-      totalRevenue: sql`SUM(${orders.total})`.mapWith(Number),
+      totalRevenue: sql`SUM(${orders.total} - ${orders.shippingFee})`.mapWith(Number),
     })
     .from(orders)
     .where(whereRevenue)

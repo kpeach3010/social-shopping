@@ -329,7 +329,7 @@ export const joinGroupOrderByInviteTokenService = async ({ token, userId }) => {
 
     if (userUsed >= coupon.perUserLimit) {
       throw new Error(
-        `Bạn đã dùng mã giảm giá này tối đa ${coupon.perUserLimit} lần. Không thể tham gia nhóm.`
+        `Bạn đã hết lượt sử dụng cho mã giảm giá này. Mã giảm chỉ được sử dụng ${coupon.perUserLimit} lần.`
       );
     }
   }

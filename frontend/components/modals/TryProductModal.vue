@@ -82,22 +82,17 @@
                 </div>
               </div>
 
-              <div class="grid grid-cols-2 gap-2.5 sm:gap-6 mb-3 sm:mb-4 lg:gap-10">
+              <!-- Grid 2 ảnh: flex-1 min-h-0 để tự co khi viewport nhỏ -->
+              <div class="grid grid-cols-2 gap-2.5 sm:gap-4 lg:gap-6 flex-1 min-h-0 overflow-hidden mb-3 sm:mb-4">
                 <!-- Cột 1: Ảnh áo đã chọn -->
-                <div>
+                <div class="flex flex-col min-h-0">
                   <label
-                    class="font-semibold text-gray-900 text-xs sm:text-sm mb-1 block"
+                    class="font-semibold text-gray-900 text-xs sm:text-sm mb-1 block shrink-0"
                     >Ảnh áo đã chọn</label
                   >
                   <div
-                    class="w-full flex items-center justify-center min-h-[160px] xs:min-h-[220px] sm:min-h-[340px] max-h-[700px] h-[30vh] sm:h-[48vh] lg:h-[56vh] bg-gray-50 rounded-xl border overflow-hidden shadow-inner"
-                    style="
-                      aspect-ratio: 4/5;
-                      min-width: 0;
-                      width: 100%;
-                      max-width: 500px;
-                      margin: 0 auto;
-                    "
+                    class="flex-1 min-h-0 w-full flex items-center justify-center bg-gray-50 rounded-xl border overflow-hidden shadow-inner"
+                    style="aspect-ratio: 4/5; min-width: 0;"
                   >
                     <img
                       v-if="currentClothImage"
@@ -110,21 +105,16 @@
                     >
                   </div>
                 </div>
+
                 <!-- Cột 2: Upload ảnh cá nhân -->
-                <div>
+                <div class="flex flex-col min-h-0">
                   <label
-                    class="font-semibold text-gray-900 text-xs sm:text-sm mb-1 block"
+                    class="font-semibold text-gray-900 text-xs sm:text-sm mb-1 block shrink-0"
                     >Ảnh của bạn</label
                   >
                   <div
-                    class="relative rounded-xl sm:rounded-2xl border-2 border-dashed bg-gray-50 flex flex-col items-center justify-center min-h-[160px] xs:min-h-[220px] sm:min-h-[340px] max-h-[700px] h-[30vh] sm:h-[48vh] lg:h-[56vh] shadow-inner"
-                    style="
-                      aspect-ratio: 4/5;
-                      min-width: 0;
-                      width: 100%;
-                      max-width: 500px;
-                      margin: 0 auto;
-                    "
+                    class="relative flex-1 min-h-0 rounded-xl sm:rounded-2xl border-2 border-dashed bg-gray-50 flex flex-col items-center justify-center shadow-inner overflow-hidden"
+                    style="aspect-ratio: 4/5; min-width: 0;"
                   >
                     <label
                       class="w-full h-full flex flex-col items-center justify-center cursor-pointer group"
@@ -198,7 +188,7 @@
                 </div>
               </div>
               <!-- Controls: FIXED area -->
-              <div class="mt-1 sm:mt-2 shrink-0 w-full">
+              <div class="mt-1 sm:mt-2 shrink-0 min-w-0 flex flex-col items-center">
                 <p
                   v-if="errorMsg"
                   class="text-sm text-red-600 mb-2 text-center"
@@ -207,7 +197,7 @@
                 </p>
                 <button
                   type="button"
-                  class="w-full py-2.5 sm:py-3 rounded-xl font-bold transition flex items-center justify-center gap-2 text-sm sm:text-base shadow-sm active:scale-[0.98]"
+                  class="px-8 py-2.5 sm:py-3 rounded-xl font-bold transition flex items-center justify-center gap-2 text-sm sm:text-base shadow-sm active:scale-[0.98]"
                   :class="
                     canRun && !loading
                       ? 'bg-blue-600 text-white hover:bg-blue-700'
@@ -250,14 +240,55 @@
                   </p>
                 </div>
 
-                <button
-                  v-if="resultUrl"
-                  type="button"
-                  class="px-3 py-1.5 rounded-lg bg-gray-100 text-gray-800 text-sm hover:bg-gray-200 transition"
-                  @click="downloadResult"
-                >
-                  Tải ảnh
-                </button>
+                <div v-if="resultUrl" class="flex items-center gap-2">
+                  <!-- Nút tải ảnh -->
+                  <button
+                    type="button"
+                    class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-800 text-sm hover:bg-gray-200 transition"
+                    @click="downloadResult"
+                  >
+                    <ArrowDownTrayIcon class="w-4 h-4" />
+                    <span class="hidden sm:inline">Tải ảnh</span>
+                  </button>
+
+                  <!-- Nút chia sẻ -->
+                  <div class="relative" ref="shareMenuRef">
+                    <button
+                      type="button"
+                      class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700 transition active:scale-[0.97]"
+                      @click.stop="showShareMenu = !showShareMenu"
+                    >
+                      <ShareIcon class="w-4 h-4" />
+                      <span class="hidden sm:inline">Chia sẻ</span>
+                    </button>
+
+                    <!-- Dropdown menu -->
+                    <div
+                      v-if="showShareMenu"
+                      class="absolute right-0 top-full mt-2 w-52 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden"
+                    >
+                      <button
+                        type="button"
+                        class="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-800 hover:bg-gray-50 transition"
+                        @click="shareToPost"
+                        :disabled="sharingLoading"
+                      >
+                        <PencilSquareIcon class="w-4 h-4 text-gray-600 shrink-0" />
+                        <span>Tạo bài viết</span>
+                      </button>
+                      <div class="border-t border-gray-100"></div>
+                      <button
+                        type="button"
+                        class="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-800 hover:bg-gray-50 transition"
+                        @click="shareToChat"
+                        :disabled="sharingLoading"
+                      >
+                        <ChatBubbleLeftEllipsisIcon class="w-4 h-4 text-gray-600 shrink-0" />
+                        <span>Gửi vào cuộc trò chuyện</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <!-- Result image area -->
@@ -302,7 +333,13 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, onBeforeUnmount } from "vue";
+import { computed, ref, watch, onBeforeUnmount, onMounted } from "vue";
+import {
+  ArrowDownTrayIcon,
+  PencilSquareIcon,
+  ChatBubbleLeftEllipsisIcon,
+} from "@heroicons/vue/24/outline";
+import { Share2 as ShareIcon } from "lucide-vue-next";
 
 const props = defineProps({
   isOpen: { type: Boolean, default: false },
@@ -312,7 +349,7 @@ const props = defineProps({
   apiBase: { type: String, default: "" },
 });
 
-const emit = defineEmits(["close"]);
+const emit = defineEmits(["close", "share-to-post", "share-to-chat"]);
 
 const selectedColor = ref("");
 const personFile = ref(null);
@@ -323,6 +360,11 @@ const errorMsg = ref("");
 const startTime = ref(null);
 const processingTime = ref(null);
 const elapsedTime = ref("0.0");
+
+// Share menu
+const showShareMenu = ref(false);
+const sharingLoading = ref(false);
+const shareMenuRef = ref(null);
 
 let timerId = null;
 
@@ -372,7 +414,62 @@ onBeforeUnmount(() => {
   clearPerson();
   clearResult();
   stopTimer();
+  document.removeEventListener("click", handleClickOutsideShareMenu);
 });
+
+onMounted(() => {
+  document.addEventListener("click", handleClickOutsideShareMenu);
+});
+
+function handleClickOutsideShareMenu(e) {
+  if (
+    shareMenuRef.value &&
+    !shareMenuRef.value.contains(e.target)
+  ) {
+    showShareMenu.value = false;
+  }
+}
+
+// Chuyển Blob URL thành File object để upload
+async function convertBlobToFile() {
+  if (!resultUrl.value) return null;
+  try {
+    const res = await fetch(resultUrl.value);
+    const blob = await res.blob();
+    return new File([blob], "tryon_result.jpg", { type: "image/jpeg" });
+  } catch (err) {
+    console.error("Lỗi chuyển Blob sang File:", err);
+    return null;
+  }
+}
+
+async function shareToPost() {
+  showShareMenu.value = false;
+  sharingLoading.value = true;
+  try {
+    const file = await convertBlobToFile();
+    if (!file) throw new Error("Không thể xử lý ảnh");
+    emit("share-to-post", { file, previewUrl: resultUrl.value });
+  } catch (err) {
+    console.error("Lỗi chia sẻ bài viết:", err);
+  } finally {
+    sharingLoading.value = false;
+  }
+}
+
+async function shareToChat() {
+  showShareMenu.value = false;
+  sharingLoading.value = true;
+  try {
+    const file = await convertBlobToFile();
+    if (!file) throw new Error("Không thể xử lý ảnh");
+    emit("share-to-chat", { file, previewUrl: resultUrl.value });
+  } catch (err) {
+    console.error("Lỗi chia sẻ chat:", err);
+  } finally {
+    sharingLoading.value = false;
+  }
+}
 
 const currentClothImage = computed(() => {
   if (!selectedColor.value) return "";

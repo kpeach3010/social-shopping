@@ -259,11 +259,7 @@
             <!-- Thông tin khác -->
             <div class="mt-4 text-xs text-gray-500 text-right space-y-1">
               <p class="italic text-blue-400">
-                Chỉ có thể rời nhóm khi nhóm đang mở, đã đủ thành viên, đã hoàn tất hoặc đã huỷ.
-              </p>
-              <p class="italic text-gray-500">
-                Trưởng nhóm có quyền giải tán nhóm khi chưa đặt đơn hoặc sau khi
-                hủy đơn
+                Chỉ được rời hoặc giải tán nhóm khi nhóm đang mở, đã đủ thành viên, hoàn tất hoặc đã huỷ.
               </p>
             </div>
           </template>

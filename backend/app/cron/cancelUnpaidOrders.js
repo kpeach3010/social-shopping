@@ -255,7 +255,7 @@ export const cancelUnpaidOrders = async (io) => {
               creatorId && String(member.userId) === String(creatorId);
 
             const content = isCreator
-              ? `Nhóm "${groupName}": Đơn hàng nhóm đã bị hủy do bạn chưa thanh toán trong ${PAYMENT_TIMEOUT_MINUTES} phút. Vui lòng đặt đơn lại.`
+              ? `Nhóm "${groupName}": Đơn hàng nhóm đã bị hủy do bạn quá hạn thanh toán trong ${PAYMENT_TIMEOUT_MINUTES} phút. Vui lòng đặt đơn lại.`
               : `Nhóm "${groupName}": Đơn hàng nhóm đã bị hủy do trưởng nhóm thanh toán trễ. Vui lòng chờ trưởng nhóm đặt đơn lại.`;
 
             // Tìm orderId của thành viên này (nếu có) để link thông báo

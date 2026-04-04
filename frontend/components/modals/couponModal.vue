@@ -99,14 +99,14 @@
         </div>
       </div>
 
-      <div class="mt-4 text-right">
+      <!-- <div class="mt-4 text-right">
         <button
           @click="$emit('close')"
           class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
         >
           Đóng
         </button>
-      </div>
+      </div> -->
     </div>
   </div>
 </template>

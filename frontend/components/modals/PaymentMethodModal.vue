@@ -28,8 +28,7 @@
       <!-- Content -->
       <div class="p-6">
         <p class="text-sm text-gray-600 mb-6">
-          Hãy chọn phương thức thanh toán mà bạn muốn sử dụng cho đơn hàng của
-          mình
+          Hãy chọn phương thức thanh toán mà bạn muốn sử dụng cho đơn hàng nhóm. 
         </p>
 
         <div class="space-y-3">
@@ -52,6 +51,10 @@
               codLoading ? "Đang xử lý..." : "Thanh toán khi nhận hàng (COD)"
             }}
           </button>
+          <!--chữ kích thước nhỏ, in nghiêng -->
+          <p class="text-xs text-red-600 italic ">
+            *Nếu chọn trực tuyến trưởng nhóm sẽ là người thanh toán cho cả nhóm
+          </p>
         </div>
       </div>
     </div>

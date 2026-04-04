@@ -288,7 +288,7 @@
                         "
                         class="w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50 font-medium"
                       >
-                        Xóa
+                        Xóa bài viết
                       </button>
                     </div>
                   </div>
@@ -1097,6 +1097,7 @@ const handleDeletePost = async (postId) => {
 
     if (res.success) {
       posts.value = posts.value.filter((p) => p.id !== postId);
+      alert("Đã xóa bài viết thành công");
     }
   } catch (err) {
     alert("Lỗi xóa bài: " + (err.message || ""));

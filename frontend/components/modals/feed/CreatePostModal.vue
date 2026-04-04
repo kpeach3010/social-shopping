@@ -1,6 +1,10 @@
 <template>
   <div
-    class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 overflow-hidden p-3"
+    :class="[
+      'fixed inset-0 bg-black/40 flex items-center justify-center overflow-hidden p-3',
+      elevated ? 'z-[1100]' : 'z-50'
+    ]"
+    @click.self="$emit('close')"
   >
     <div
       class="bg-white w-full max-w-lg rounded-lg flex flex-col my-4 max-h-[90vh]"
@@ -50,14 +54,14 @@
         </div>
 
         <div>
-          <label class="block text-xs font-medium mb-1">Quyền riêng tư</label>
+          <label class="block text-xs font-medium mb-1">Phạm vi hiển thị</label>
           <select
             v-model="form.visibility"
             class="w-full border rounded-lg p-2 text-sm"
           >
             <option value="public">🌍 Công khai</option>
             <option value="friends">👥 Bạn bè</option>
-            <option value="private">🔒 Riêng tư</option>
+            <option value="private">🔒 Chỉ mình tôi</option>
           </select>
         </div>
 
@@ -209,7 +213,7 @@
           :disabled="isLoading"
           class="w-full py-2 bg-black text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition"
         >
-          {{ isLoading ? "Đang đăng..." : "Đăng bài" }}
+          {{ isLoading ? (mode === "edit" ? "Đang lưu..." : "Đang đăng...") : (mode === "edit" ? "Lưu thay đổi" : "Đăng bài") }}
         </button>
       </div>
     </div>
@@ -225,6 +229,9 @@ const props = defineProps({
   products: Array,
   mode: { type: String, default: "create" },
   post: { type: Object, default: null },
+  initialFiles: { type: Array, default: () => [] },
+  initialContent: { type: String, default: "" },
+  elevated: { type: Boolean, default: false },  // [NEW] hiển thị trên modal khác (z-[1100])
 });
 const emit = defineEmits(["close", "created", "updated"]);
 
@@ -253,6 +260,23 @@ function handleClickOutsidePostEmoji(e) {
 
 onMounted(() => {
   document.addEventListener("click", handleClickOutsidePostEmoji);
+
+  // [NEW] Nếu được truyền initialFiles từ chia sẻ thử đồ ảo
+  if (props.initialFiles && props.initialFiles.length > 0) {
+    props.initialFiles.forEach((file) => {
+      const fileIndex = form.files.length;
+      form.files.push(file);
+      if (file.type.startsWith("image/")) {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          filePreviews.value[fileIndex] = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+      } else {
+        filePreviews.value[fileIndex] = null;
+      }
+    });
+  }
 });
 
 onBeforeUnmount(() => {
@@ -260,7 +284,7 @@ onBeforeUnmount(() => {
 });
 
 const form = reactive({
-  content: props.post?.content || "",
+  content: props.initialContent || props.post?.content || "",
   visibility: props.post?.visibility || "public",
   productIds: props.post?.products?.map((p) => p.id) || [],
   files: [],
@@ -385,8 +409,10 @@ const submit = async () => {
 
     if (props.mode === "edit") {
       emit("updated", res.data);
+      alert("Đã chỉnh sửa bài viết thành công");
     } else {
       emit("created", res.data);
+      alert("Đã đăng bài thành công");
     }
     emit("close");
   } catch (error) {

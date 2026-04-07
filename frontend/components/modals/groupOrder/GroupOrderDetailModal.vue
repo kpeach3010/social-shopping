@@ -237,8 +237,8 @@
                 :disabled="actionLoading"
                 class="px-5 py-2 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-xl shadow-sm transition flex items-center justify-center min-w-[120px]"
               >
-                <span v-if="actionLoading" class="loader-white mr-2"></span>
-                <span>{{ actionLoading ? "Đang rời..." : "Rời nhóm" }}</span>
+                <span v-if="actionType === 'leave'" class="loader-white mr-2"></span>
+                <span>{{ actionType === 'leave' ? "Đang rời..." : "Rời nhóm" }}</span>
               </button>
 
               <!-- Nút giải tán nhóm (Dành cho Trưởng nhóm) -->
@@ -248,9 +248,9 @@
                 :disabled="actionLoading"
                 class="px-5 py-2 bg-gray-800 hover:bg-black text-white font-semibold rounded-xl shadow-sm transition flex items-center justify-center min-w-[140px]"
               >
-                <span v-if="actionLoading" class="loader-white mr-2"></span>
+                <span v-if="actionType === 'disband'" class="loader-white mr-2"></span>
                 <span>{{
-                  actionLoading ? "Đang xử lý..." : "Giải tán nhóm"
+                  actionType === 'disband' ? "Đang xử lý..." : "Giải tán nhóm"
                 }}</span>
               </button>
             </div>
@@ -387,6 +387,7 @@ const props = defineProps({
 });
 
 const actionLoading = ref(false);
+const actionType = ref(null);
 
 const emit = defineEmits(["close", "leave-success", "open-select-product"]);
 const auth = useAuthStore();
@@ -469,6 +470,7 @@ async function leaveGroup() {
   if (!ok) return;
 
   actionLoading.value = true;
+  actionType.value = 'leave';
   try {
     const res = await $fetch(`/group-orders/${props.groupOrder.id}/leave`, {
       method: "PATCH",
@@ -483,6 +485,7 @@ async function leaveGroup() {
     alert(err?.data?.error || "Không thể rời nhóm.");
   } finally {
     actionLoading.value = false;
+    actionType.value = null;
     // Luôn đóng modal
     emit("close");
   }
@@ -495,6 +498,7 @@ async function disbandGroup() {
   if (!ok) return;
 
   actionLoading.value = true;
+  actionType.value = 'disband';
   try {
     const res = await $fetch(`/group-orders/${props.groupOrder.id}/disband`, {
       method: "DELETE",
@@ -509,6 +513,7 @@ async function disbandGroup() {
     alert(err?.data?.error || "Không thể giải tán nhóm lúc này.");
   } finally {
     actionLoading.value = false;
+    actionType.value = null;
     // Đóng UI modal
     emit("close");
   }

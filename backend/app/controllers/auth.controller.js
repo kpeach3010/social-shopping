@@ -41,8 +41,9 @@ export const refreshTokenController = async (req, res) => {
       refreshToken: session.refresh_token,
     });
   } catch (err) {
-    return res.status(401).json({
+    return res.status(err.statusCode || 401).json({
       error: err.message || "Token refresh failed",
+      action: err.action
     });
   }
 };

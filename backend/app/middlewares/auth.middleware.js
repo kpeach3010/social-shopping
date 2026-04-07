@@ -1,4 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
+import { db } from "../db/client.js";
+import { users } from "../db/schema.js";
+import { eq } from "drizzle-orm";
 
 // Client backend dùng service_role để verify token
 const supabase = createClient(
@@ -22,6 +25,11 @@ export const authenticate = async (req, res, next) => {
     if (error || !data?.user) {
       console.error("Supabase verify error:", error);
       return res.status(401).json({ message: "Token không hợp lệ" });
+    }
+
+    const [dbUser] = await db.select().from(users).where(eq(users.id, data.user.id)).limit(1);
+    if (dbUser && dbUser.status === "disabled") {
+      return res.status(403).json({ message: "Tài khoản của bạn đã bị vô hiệu hóa", action: "LOGOUT" });
     }
 
     // Lưu user Supabase vào req
@@ -65,6 +73,11 @@ export const optionalAuthenticate = async (req, res, next) => {
     if (error || !data?.user) {
       // Token không hợp lệ → xử lý như anonymous
       return next();
+    }
+
+    const [dbUser] = await db.select().from(users).where(eq(users.id, data.user.id)).limit(1);
+    if (dbUser && dbUser.status === "disabled") {
+      return res.status(403).json({ message: "Tài khoản của bạn đã bị vô hiệu hóa", action: "LOGOUT" });
     }
 
     req.user = data.user;

@@ -18,6 +18,7 @@ const orders = ref([]);
 const loading = ref(false);
 const processingOrderId = ref(null);
 const processingGroupId = ref(null);
+const processingAction = ref(null);
 const selectedStatus = ref("all");
 const showDetailModal = ref(false);
 const detailOrderId = ref(null);
@@ -159,6 +160,7 @@ const groupColorMap = computed(() => {
 const approveOrder = async (id) => {
   if (!confirm("Xác nhận đơn hàng này?")) return;
   processingOrderId.value = id;
+  processingAction.value = 'approve';
   try {
     await $fetch(`/orders/approve/${id}`, {
       method: "PATCH",
@@ -172,6 +174,7 @@ const approveOrder = async (id) => {
     console.error(err);
   } finally {
     processingOrderId.value = null;
+    processingAction.value = null;
   }
 };
 
@@ -179,6 +182,7 @@ const approveOrder = async (id) => {
 const approveGroup = async (groupOrderId) => {
   if (!confirm("Xác nhận tất cả đơn trong nhóm này?")) return;
   processingGroupId.value = groupOrderId;
+  processingAction.value = 'approve';
   try {
     await $fetch(`/orders/approve-group/${groupOrderId}`, {
       method: "PATCH",
@@ -192,12 +196,14 @@ const approveGroup = async (groupOrderId) => {
     console.error(err);
   } finally {
     processingGroupId.value = null;
+    processingAction.value = null;
   }
 };
 
 const rejectOrder = async (id) => {
   if (!confirm("Từ chối đơn hàng này?")) return;
   processingOrderId.value = id;
+  processingAction.value = 'reject';
   try {
     await $fetch(`/orders/reject/${id}`, {
       method: "PATCH",
@@ -211,6 +217,7 @@ const rejectOrder = async (id) => {
     console.error(err);
   } finally {
     processingOrderId.value = null;
+    processingAction.value = null;
   }
 };
 
@@ -218,6 +225,7 @@ const rejectOrder = async (id) => {
 const rejectGroup = async (orderId, groupOrderId) => {
   if (!confirm("Từ chối toàn bộ đơn trong nhóm này?")) return;
   processingGroupId.value = groupOrderId;
+  processingAction.value = 'reject';
   try {
     await $fetch(`/orders/reject/${orderId}`, {
       method: "PATCH",
@@ -231,6 +239,7 @@ const rejectGroup = async (orderId, groupOrderId) => {
     console.error(err);
   } finally {
     processingGroupId.value = null;
+    processingAction.value = null;
   }
 };
 
@@ -464,7 +473,7 @@ const resetSearch = () => {
                           @click.stop="approveGroup(o.groupOrderId)"
                           :disabled="processingGroupId === o.groupOrderId"
                         >
-                          <Loader2 v-if="processingGroupId === o.groupOrderId" class="w-4 h-4 animate-spin" />
+                          <Loader2 v-if="processingGroupId === o.groupOrderId && processingAction === 'approve'" class="w-4 h-4 animate-spin" />
                           <Check v-else class="w-4 h-4" />
                           <span class="text-sm font-medium">Xác nhận nhóm</span>
                         </button>
@@ -477,8 +486,8 @@ const resetSearch = () => {
                           @click.stop="rejectGroup(o.id, o.groupOrderId)"
                           :disabled="processingGroupId === o.groupOrderId"
                         >
-                          <Loader2 v-if="processingGroupId === o.groupOrderId" class="w-4 h-4 animate-spin" />
-                          <X v-else class="w-4 h-4" />
+                          <Loader2 v-if="processingGroupId === o.groupOrderId && processingAction === 'reject'" class="w-4 h-4 animate-spin" />
+                          <CloseIcon v-else class="w-4 h-4" />
                           <span class="text-sm font-medium">Từ chối nhóm</span>
                         </button>
                       </template>
@@ -498,7 +507,7 @@ const resetSearch = () => {
                         @click.stop="approveOrder(o.id)"
                         :disabled="processingOrderId === o.id"
                       >
-                        <Loader2 v-if="processingOrderId === o.id" class="w-4 h-4 animate-spin" />
+                        <Loader2 v-if="processingOrderId === o.id && processingAction === 'approve'" class="w-4 h-4 animate-spin" />
                         <Check v-else class="w-4 h-4" />
                         <span class="text-sm font-medium">Xác nhận</span>
                       </button>
@@ -511,8 +520,8 @@ const resetSearch = () => {
                         @click.stop="rejectOrder(o.id)"
                         :disabled="processingOrderId === o.id"
                       >
-                        <Loader2 v-if="processingOrderId === o.id" class="w-4 h-4 animate-spin" />
-                        <X v-else class="w-4 h-4" />
+                        <Loader2 v-if="processingOrderId === o.id && processingAction === 'reject'" class="w-4 h-4 animate-spin" />
+                        <CloseIcon v-else class="w-4 h-4" />
                         <span class="text-sm font-medium">Từ chối</span>
                       </button>
                       <span v-else class="text-sm text-gray-500 italic">-</span>

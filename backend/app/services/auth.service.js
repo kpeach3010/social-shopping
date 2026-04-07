@@ -162,6 +162,13 @@ export const refreshTokenService = async (refreshToken) => {
     throw new Error("User không tồn tại trong database");
   }
 
+  if (dbUser.status === "disabled") {
+    const error = new Error("Tài khoản của bạn đã bị vô hiệu hóa");
+    error.action = "LOGOUT";
+    error.statusCode = 403;
+    throw error;
+  }
+
   return {
     session,
     user: dbUser,

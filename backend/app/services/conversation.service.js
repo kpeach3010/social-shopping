@@ -266,14 +266,6 @@ export const joinGroupOrderByInviteTokenService = async ({ token, userId }) => {
   if (link.expiresAt && link.expiresAt < now)
     throw new Error("Link mời đã hết hạn");
 
-  // Nếu chưa kích hoạt thì đánh dấu là đã dùng
-  if (!link.isUsed) {
-    await db
-      .update(inviteLinks)
-      .set({ isUsed: true })
-      .where(eq(inviteLinks.id, link.id));
-  }
-
   // 1. Lấy thông tin coupon TRƯỚC TIÊN để kiểm tra điều kiện
   let coupon;
   [coupon] = await db
@@ -450,6 +442,14 @@ export const joinGroupOrderByInviteTokenService = async ({ token, userId }) => {
     userId,
     hasChosen: false,
   });
+
+  // Đánh dấu liên kết đã được sử dụng nếu đây là người đầu tiên tham gia thành công
+  if (!link.isUsed) {
+    await db
+      .update(inviteLinks)
+      .set({ isUsed: true })
+      .where(eq(inviteLinks.id, link.id));
+  }
 
   //  Cập nhật số lượng thành viên
   const [{ count: totalMembers }] = await db

@@ -107,6 +107,16 @@ export const updateCategoryService = async (id, data) => {
       }
     }
 
+    // FIX 2.5: Ngăn chặn vòng lặp danh mục (chọn con cháu làm cha)
+    if (data.parentId) {
+      if (data.parentId === id) {
+        throw new Error("Không thể chọn chính danh mục này làm danh mục cha.");
+      }
+      const nestedIds = await findNestedCategoryIds(id);
+      if (nestedIds.includes(data.parentId)) {
+        throw new Error("Không thể chọn danh mục con của chính nó làm danh mục cha.");
+      }
+    }
 
     // FIX 3: Logic xử lý cập nhật cha
     const payload = {
@@ -130,7 +140,7 @@ export const updateCategoryService = async (id, data) => {
 };
 
 // Hàm đệ quy để tìm tất cả ID danh mục con của một danh mục (bao gồm cả ID danh mục gốc)
-const findNestedCategoryIds = async (parentId) => {
+async function findNestedCategoryIds(parentId) {
   // Bắt đầu với ID của danh mục gốc
   let allIds = [parentId];
 
@@ -149,7 +159,7 @@ const findNestedCategoryIds = async (parentId) => {
   }
 
   return allIds;
-};
+}
 
 // Xóa một danh mục sau khi kiểm tra không có sản phẩm nào thuộc danh mục đó hoặc danh mục con của nó
 export const deleteCategoryService = async (id) => {

@@ -11,8 +11,15 @@ const loading = ref(false);
 
 const showCreateModal = ref(false);
 const searchQuery = ref("");
+const selectedStatus = ref("all");
 const currentPage = ref(1);
 const perPage = 12;
+
+const statusOptions = [
+  { value: "all", label: "Tất cả" },
+  { value: "active", label: "Đang hoạt động" },
+  { value: "disabled", label: "Đã vô hiệu" },
+];
 
 const config = useRuntimeConfig();
 
@@ -35,13 +42,21 @@ onMounted(fetchUsers);
 
 // Filter
 const filteredUsers = computed(() => {
-  if (!searchQuery.value) return users.value;
-  const q = searchQuery.value.toLowerCase();
-  return users.value.filter(
-    (u) =>
-      u.fullName?.toLowerCase().includes(q) ||
-      u.email?.toLowerCase().includes(q),
-  );
+  let result = users.value;
+  
+  if (selectedStatus.value !== "all") {
+    result = result.filter((u) => u.status === selectedStatus.value);
+  }
+
+  if (searchQuery.value) {
+    const q = searchQuery.value.toLowerCase();
+    result = result.filter(
+      (u) =>
+        u.fullName?.toLowerCase().includes(q) ||
+        u.email?.toLowerCase().includes(q),
+    );
+  }
+  return result;
 });
 
 // Pagination
@@ -51,8 +66,8 @@ const paginated = computed(() => {
   return filteredUsers.value.slice(start, start + perPage);
 });
 
-// Reset page on search
-watch(searchQuery, () => {
+// Reset page on search or status change
+watch([searchQuery, selectedStatus], () => {
   currentPage.value = 1;
 });
 
@@ -148,6 +163,26 @@ const enableUser = async (id) => {
       >
         <CloseIcon class="h-5 w-5" />
       </button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="mb-4 overflow-x-auto scrollbar-hide">
+      <div class="flex gap-2 border-b whitespace-nowrap min-w-max">
+        <button
+          v-for="s in statusOptions"
+          :key="s.value"
+          @click="selectedStatus = s.value"
+          class="px-4 py-2 text-sm md:text-base font-medium transition border-b-2"
+          :class="[
+            selectedStatus === s.value
+              ? 'border-black text-black font-semibold'
+              : 'border-transparent text-gray-500 hover:text-black',
+          ]"
+          style="background: none; border-radius: 0; outline: none"
+        >
+          {{ s.label }}
+        </button>
+      </div>
     </div>
 
     <!-- Loading -->

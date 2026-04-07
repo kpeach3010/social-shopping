@@ -35,6 +35,20 @@ export default defineNuxtPlugin((nuxtApp) => {
       return await originalFetch(url, options);
     } catch (err) {
       const status = err?.status || err?.response?.status;
+      const resData = err?.response?._data || err?.data || err?.response?.data;
+
+      // Xử lý tài khoản bị vô hiệu hóa (từ backend action: "LOGOUT" hoặc message)
+      if (status === 403 && (resData?.action === "LOGOUT" || resData?.message === "Tài khoản của bạn đã bị vô hiệu hóa" || resData?.error === "Tài khoản của bạn đã bị vô hiệu hóa")) {
+        alert("Tài khoản của bạn đã bị vô hiệu hóa");
+        auth.logout();
+
+        // Nếu không ở trang đăng nhập thì về trang chủ
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/';
+        }
+        
+        throw err;
+      }
 
       // Nếu không phải lỗi 401 thì ném lỗi ra luôn
       if (status !== 401) throw err;

@@ -47,11 +47,24 @@ watch(() => form.value.name, (newVal) => {
   if (newVal?.trim()) errors.value.name = "";
 });
 
-// Lọc danh sách cha: Loại bỏ chính danh mục đang sửa ra khỏi danh sách chọn
-// Để tránh trường hợp chọn chính mình làm cha (gây lỗi vòng lặp vô tận)
+// Lọc danh sách cha: Loại bỏ chính danh mục đang sửa VÀ toàn bộ danh mục con/cháu khỏi danh sách chọn
+// Để tránh trường hợp chọn danh mục con làm cha (gây lỗi vòng lặp vòng lặp vô tận)
 const availableParents = computed(() => {
   if (!props.categoryData) return props.allCategories;
-  return props.allCategories.filter((c) => c.id !== props.categoryData.id);
+
+  // Thuật toán đệ quy lấy ra tất cả ID của toàn bộ con/cháu
+  const getDescendantIds = (parentId, list) => {
+    let ids = [parentId];
+    const children = list.filter(c => c.parentId === parentId);
+    children.forEach(child => {
+      ids = ids.concat(getDescendantIds(child.id, list));
+    });
+    return ids;
+  };
+
+  const invalidIds = getDescendantIds(props.categoryData.id, props.allCategories);
+
+  return props.allCategories.filter((c) => !invalidIds.includes(c.id));
 });
 
 
@@ -79,6 +92,7 @@ const submitCategory = async () => {
       baseURL: config.public.apiBase,
     });
 
+    alert("Đã sửa danh mục thành công");
     emit("refresh"); // Reload lại danh sách bên ngoài
     emit("close"); // Đóng modal
   } catch (err) {

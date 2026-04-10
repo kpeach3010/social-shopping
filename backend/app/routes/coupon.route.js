@@ -9,7 +9,7 @@ const router = express.Router();
 router.post(
   "/create-coupon",
   authenticate,
-  hasRoles(Role.STAFF),
+  hasRoles(Role.ADMIN),
   CouponController.createCouponController,
 );
 
@@ -36,12 +36,13 @@ router.get(
 router.delete(
   "/delete-coupon/:ids",
   authenticate,
+  hasRoles(Role.ADMIN),
   CouponController.deleteCouponController,
 );
 router.patch(
   "/update-coupon/:id",
   authenticate,
-  hasRoles(Role.STAFF),
+  hasRoles(Role.ADMIN),
   CouponController.updateCouponController,
 );
 

@@ -5,11 +5,11 @@ import { getStaffDashboardStatsController } from "../controllers/stats.controlle
 
 const router = express.Router();
 
-// Thống kê tổng quan cho staff
+// Thống kê tổng quan cho admin
 router.get(
   "/staff/dashboard",
   authenticate,
-  hasRoles(Role.STAFF),
+  hasRoles(Role.ADMIN),
   getStaffDashboardStatsController,
 );
 

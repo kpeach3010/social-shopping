@@ -7,6 +7,9 @@ import {
   BarChart,
   ChartBarStacked,
 } from "lucide-vue-next";
+import { useAuthStore } from "@/stores/auth";
+
+const auth = useAuthStore();
 const props = defineProps({
   isOpen: { type: Boolean, default: true },
   showToggle: { type: Boolean, default: true },
@@ -33,13 +36,18 @@ const handleMenuClick = () => {
   }
 };
 
-const menu = [
-  { to: "/staff/dashboard", label: "Thống kê", icon: BarChart },
-  { to: "/staff/products", label: "Sản phẩm", icon: Shirt },
-  { to: "/staff/category", label: "Danh mục sản phẩm", icon: ChartBarStacked },
-  { to: "/staff/coupons", label: "Mã giảm giá", icon: BadgePercent },
-  { to: "/staff/orders", label: "Đơn hàng", icon: ShoppingBag },
+const allMenu = [
+  { to: "/admin/dashboard", label: "Thống kê", icon: BarChart, roles: ["admin"] },
+  { to: "/admin/products", label: "Sản phẩm", icon: Shirt, roles: ["admin"] },
+  { to: "/admin/category", label: "Danh mục sản phẩm", icon: ChartBarStacked, roles: ["admin"] },
+  { to: "/admin/coupons", label: "Mã giảm giá", icon: BadgePercent, roles: ["admin"] },
+  { to: "/admin/orders", label: "Đơn hàng", icon: ShoppingBag, roles: ["admin", "staff"] },
 ];
+
+const filteredMenu = computed(() => {
+  const role = auth.user?.role || "customer";
+  return allMenu.filter((item) => item.roles.includes(role));
+});
 </script>
 <template>
   <!-- Backdrop cho Mobile -->
@@ -81,7 +89,7 @@ const menu = [
     </div>
     <nav class="flex-1 space-y-2 px-2">
       <NuxtLink
-        v-for="item in menu"
+        v-for="item in filteredMenu"
         :key="item.to"
         :to="item.to"
         class="flex items-center gap-2 px-3 py-2 rounded font-medium transition"

@@ -114,6 +114,7 @@
                   >
                   <div
                     class="relative flex-1 min-h-0 rounded-xl sm:rounded-2xl border-2 border-dashed bg-gray-50 flex flex-col items-center justify-center shadow-inner overflow-hidden"
+                    :class="personPreview && !personValid && !validatingPerson ? 'border-red-400' : 'border-dashed'"
                     style="aspect-ratio: 4/5; min-width: 0;"
                   >
                     <label
@@ -130,6 +131,7 @@
                         <img
                           :src="personPreview"
                           class="w-full h-full object-contain rounded-2xl"
+                          :class="{ 'opacity-40': validatingPerson }"
                           alt="Preview"
                         />
                       </template>
@@ -160,6 +162,35 @@
                         </div>
                       </template>
                     </label>
+
+                    <!-- Validation overlay: đang kiểm tra -->
+                    <div
+                      v-if="validatingPerson"
+                      class="absolute inset-0 flex flex-col items-center justify-center bg-white/70 z-20 rounded-xl sm:rounded-2xl pointer-events-none"
+                    >
+                      <span class="inline-block w-7 h-7 border-[3px] border-blue-500 border-t-transparent rounded-full animate-spin mb-2" />
+                      <p class="text-xs text-blue-600 font-medium">Đang kiểm tra ảnh…</p>
+                    </div>
+
+                    <!-- Invalid badge -->
+                    <div
+                      v-if="personPreview && !personValid && !validatingPerson"
+                      class="absolute inset-0 flex flex-col items-center justify-center bg-red-50/60 z-20 rounded-xl sm:rounded-2xl pointer-events-none"
+                    >
+                      <span class="text-2xl">⚠️</span>
+                    </div>
+
+                    <!-- Valid badge -->
+                    <div
+                      v-if="personPreview && personValid && !validatingPerson"
+                      class="absolute top-2 left-2 flex items-center justify-center w-8 h-8 bg-green-500 text-white rounded-full shadow-lg z-30 animate-in fade-in zoom-in duration-300"
+                      title="Ảnh hợp lệ"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                      </svg>
+                    </div>
+
                     <!-- Nút xóa ảnh, chỉ hiện khi có preview -->
                     <button
                       v-if="personPreview"
@@ -194,6 +225,13 @@
                   class="text-sm text-red-600 mb-2 text-center"
                 >
                   {{ errorMsg }}
+                </p>
+                <p
+                  v-if="personPreview && personValid && !validatingPerson && !loading"
+                  class="text-xs text-green-600 mb-2 font-medium flex items-center gap-1"
+                >
+                  <span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                  Ảnh hợp lệ. Hãy bấm "Thử ngay" để bắt đầu.
                 </p>
                 <button
                   type="button"
@@ -354,6 +392,8 @@ const emit = defineEmits(["close", "share-to-post", "share-to-chat"]);
 const selectedColor = ref("");
 const personFile = ref(null);
 const personPreview = ref("");
+const personValid = ref(false);       // true khi ảnh đã detect đúng 1 người
+const validatingPerson = ref(false);  // true khi đang chạy COCO-SSD
 const resultUrl = ref("");
 const loading = ref(false);
 const errorMsg = ref("");
@@ -380,6 +420,8 @@ function clearResult() {
 function clearPerson() {
   personFile.value = null;
   personPreview.value = "";
+  personValid.value = false;
+  validatingPerson.value = false;
 }
 
 function resetAll() {
@@ -481,13 +523,53 @@ const currentClothImage = computed(() => {
 
 const canRun = computed(() => {
   return (
-    !!selectedColor.value && !!personFile.value && !!currentClothImage.value
+    !!selectedColor.value &&
+    !!personFile.value &&
+    !!currentClothImage.value &&
+    personValid.value &&
+    !validatingPerson.value
   );
 });
 
-function onPersonFileChange(e) {
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${src}"]`)) return resolve();
+    const s = document.createElement("script");
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+async function loadCocoSsd() {
+  if (window.__cocoSsdModel) return window.__cocoSsdModel;
+  await loadScript(
+    "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"
+  );
+  await loadScript(
+    "https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"
+  );
+  window.__cocoSsdModel = await window.cocoSsd.load();
+  return window.__cocoSsdModel;
+}
+
+async function validatePersonImage(dataUrl) {
+  const model = await loadCocoSsd();
+  const img = new Image();
+  img.src = dataUrl;
+  await new Promise((resolve) => { img.onload = resolve; });
+  const predictions = await model.detect(img);
+  const persons = predictions.filter((p) => p.class === "person");
+  return persons.length;
+}
+
+async function onPersonFileChange(e) {
   errorMsg.value = "";
+  personValid.value = false;
   const file = e.target.files?.[0];
+  // Reset input để có thể chọn lại cùng file
+  e.target.value = "";
   if (!file) return;
 
   if (!file.type.startsWith("image/")) {
@@ -499,12 +581,35 @@ function onPersonFileChange(e) {
     return;
   }
 
+  // Hiện preview ngay, sau đó validate
   personFile.value = file;
   clearResult();
 
-  const reader = new FileReader();
-  reader.onload = (ev) => (personPreview.value = ev.target?.result || "");
-  reader.readAsDataURL(file);
+  const dataUrl = await new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (ev) => resolve(ev.target?.result || "");
+    reader.readAsDataURL(file);
+  });
+  personPreview.value = dataUrl;
+
+  // Chạy COCO-SSD detect
+  validatingPerson.value = true;
+  try {
+    const count = await validatePersonImage(dataUrl);
+    if (count !== 1) {
+      errorMsg.value = "Ảnh không hợp lệ, vui lòng chọn ảnh khác.";
+      personValid.value = false;
+    } else {
+      errorMsg.value = "";
+      personValid.value = true;
+    }
+  } catch (err) {
+    // Nếu model lỗi (mất mạng...) thì cho qua, không chặn người dùng
+    console.warn("[COCO-SSD] Không thể kiểm tra ảnh, bỏ qua validation:", err);
+    personValid.value = true;
+  } finally {
+    validatingPerson.value = false;
+  }
 }
 
 function startTimer() {

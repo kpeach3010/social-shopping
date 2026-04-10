@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Test – Kiểm tra ảnh người (COCO-SSD)</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px 80px;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+      background: linear-gradient(135deg, #60a5fa, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .subtitle {
+      font-size: 0.85rem;
+      color: #64748b;
+      margin-bottom: 36px;
+      text-align: center;
+    }
+
+    .card {
+      background: #1a1d27;
+      border: 1px solid #2d3148;
+      border-radius: 20px;
+      padding: 32px;
+      width: 100%;
+      max-width: 560px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+    }
+
+    /* Drop zone */
+    .drop-zone {
+      position: relative;
+      border: 2px dashed #3b4166;
+      border-radius: 14px;
+      height: 280px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      overflow: hidden;
+      background: #12141e;
+    }
+    .drop-zone:hover { border-color: #60a5fa; background: #12182e; }
+    .drop-zone.drag-over { border-color: #a78bfa; background: #16122e; }
+    .drop-zone.valid   { border-color: #34d399; border-style: solid; }
+    .drop-zone.invalid { border-color: #f87171; border-style: solid; }
+
+    .drop-zone input[type=file] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer;
+    }
+
+    .drop-icon {
+      font-size: 3rem;
+      margin-bottom: 12px;
+      transition: transform 0.2s;
+    }
+    .drop-zone:hover .drop-icon { transform: scale(1.1); }
+    .drop-hint { font-size: 0.85rem; color: #64748b; text-align: center; }
+
+    /* Preview */
+    #preview-img {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: contain;
+      border-radius: 12px;
+      transition: opacity 0.2s;
+    }
+    #preview-img.dimmed { opacity: 0.35; }
+
+    /* Canvas overlay */
+    #bbox-canvas {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+    }
+
+    /* Overlays */
+    .overlay {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      border-radius: 12px;
+      pointer-events: none;
+      z-index: 5;
+    }
+    .overlay.checking {
+      background: rgba(10,12,24,0.55);
+      backdrop-filter: blur(2px);
+    }
+    .overlay.result-ok  { background: rgba(4,46,28,0.35); }
+    .overlay.result-bad { background: rgba(60,10,10,0.35); }
+
+    .spinner {
+      width: 40px; height: 40px;
+      border: 4px solid #3b4166;
+      border-top-color: #60a5fa;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 10px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .overlay-text {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #93c5fd;
+      text-align: center;
+    }
+    .overlay-emoji { font-size: 2.4rem; margin-bottom: 6px; }
+
+    /* Status bar */
+    #status-bar {
+      margin-top: 18px;
+      padding: 14px 18px;
+      border-radius: 12px;
+      font-size: 0.88rem;
+      font-weight: 500;
+      display: none;
+      align-items: center;
+      gap: 10px;
+      line-height: 1.45;
+    }
+    #status-bar.idle    { display: none; }
+    #status-bar.show    { display: flex; }
+    #status-bar.ok  {
+      background: #052e16;
+      border: 1px solid #166534;
+      color: #4ade80;
+    }
+    #status-bar.warn {
+      background: #2d1a00;
+      border: 1px solid #92400e;
+      color: #fbbf24;
+    }
+    #status-bar.error {
+      background: #2d0a0a;
+      border: 1px solid #991b1b;
+      color: #f87171;
+    }
+    #status-bar.info {
+      background: #0c1a30;
+      border: 1px solid #1e40af;
+      color: #93c5fd;
+    }
+    .status-icon { font-size: 1.3rem; flex-shrink: 0; }
+    .status-msg  { flex: 1; }
+
+    /* Detected objects list */
+    #objects-section {
+      margin-top: 18px;
+      display: none;
+    }
+    #objects-section h3 {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #475569;
+      margin-bottom: 10px;
+    }
+    .obj-tags {
+      display: flex; flex-wrap: wrap; gap: 7px;
+    }
+    .obj-tag {
+      padding: 4px 11px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      background: #1e2235;
+      border: 1px solid #2d3148;
+      color: #94a3b8;
+    }
+    .obj-tag.person {
+      background: #0d2644;
+      border-color: #1d4ed8;
+      color: #60a5fa;
+    }
+    .obj-tag .conf {
+      opacity: 0.65;
+      font-weight: 400;
+      margin-left: 4px;
+    }
+
+    /* Model status */
+    #model-status {
+      margin-top: 22px;
+      font-size: 0.75rem;
+      color: #475569;
+      display: flex; align-items: center; gap: 7px;
+    }
+    #model-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #374151;
+      flex-shrink: 0;
+      transition: background 0.4s;
+    }
+    #model-dot.loading { background: #fbbf24; animation: pulse 1s infinite; }
+    #model-dot.ready   { background: #34d399; }
+    #model-dot.error   { background: #f87171; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    /* Clear btn */
+    #clear-btn {
+      margin-top: 18px;
+      width: 100%;
+      padding: 11px;
+      border-radius: 10px;
+      border: 1px solid #2d3148;
+      background: transparent;
+      color: #64748b;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: none;
+    }
+    #clear-btn:hover { background: #1a1d27; color: #e2e8f0; border-color: #4b5563; }
+
+    /* Notes */
+    .notes {
+      margin-top: 28px;
+      font-size: 0.75rem;
+      color: #374151;
+      text-align: center;
+      line-height: 1.7;
+    }
+    .notes code {
+      background: #1a1d27;
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #60a5fa;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🔍 Test Phát Hiện Người</h1>
+  <p class="subtitle">Upload ảnh → COCO-SSD sẽ kiểm tra có đúng 1 người không<br>Dùng để test trước khi tích hợp vào Try-On</p>
+
+  <div class="card">
+
+    <!-- Drop zone -->
+    <div class="drop-zone" id="drop-zone">
+      <input type="file" id="file-input" accept="image/*" />
+
+      <!-- Placeholder -->
+      <div id="placeholder">
+        <div class="drop-icon">🖼️</div>
+        <p style="font-size:0.92rem;font-weight:600;margin-bottom:6px;">Kéo thả hoặc click để chọn ảnh</p>
+        <p class="drop-hint">JPG · PNG · WebP · tối đa 10MB</p>
+      </div>
+
+      <!-- Preview -->
+      <img id="preview-img" style="display:none;" alt="preview" />
+
+      <!-- Canvas bbox -->
+      <canvas id="bbox-canvas" style="display:none;"></canvas>
+
+      <!-- Checking overlay -->
+      <div class="overlay checking" id="ov-checking" style="display:none;">
+        <div class="spinner"></div>
+        <div class="overlay-text">Đang kiểm tra ảnh…</div>
+      </div>
+
+      <!-- OK overlay -->
+      <div class="overlay result-ok" id="ov-ok" style="display:none;">
+        <div class="overlay-emoji">✅</div>
+      </div>
+
+      <!-- Bad overlay -->
+      <div class="overlay result-bad" id="ov-bad" style="display:none;">
+        <div class="overlay-emoji">⚠️</div>
+      </div>
+    </div>
+
+    <!-- Status -->
+    <div id="status-bar">
+      <span class="status-icon" id="status-icon"></span>
+      <span class="status-msg" id="status-msg"></span>
+    </div>
+
+    <!-- Detected objects -->
+    <div id="objects-section">
+      <h3>Vật thể phát hiện được</h3>
+      <div class="obj-tags" id="obj-tags"></div>
+    </div>
+
+    <!-- Model status -->
+    <div id="model-status">
+      <span id="model-dot"></span>
+      <span id="model-label">Model chưa tải</span>
+    </div>
+
+    <!-- Clear -->
+    <button id="clear-btn" onclick="clearAll()">🗑️ Xóa & chọn ảnh khác</button>
+
+    <p class="notes">
+      Model chạy hoàn toàn trên browser — không upload lên server<br>
+      Lần đầu load model ~5–15s tuỳ mạng · Các lần sau &lt;1s (cache)
+    </p>
+  </div>
+
+  <!-- TF.js + COCO-SSD from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+
+  <script>
+    let cocoModel = null;
+    let currentDataUrl = null;
+
+    const dotEl       = document.getElementById('model-dot');
+    const labelEl     = document.getElementById('model-label');
+    const dropZone    = document.getElementById('drop-zone');
+    const fileInput   = document.getElementById('file-input');
+    const placeholder = document.getElementById('placeholder');
+    const previewImg  = document.getElementById('preview-img');
+    const bboxCanvas  = document.getElementById('bbox-canvas');
+    const ovCheck     = document.getElementById('ov-checking');
+    const ovOk        = document.getElementById('ov-ok');
+    const ovBad       = document.getElementById('ov-bad');
+    const statusBar   = document.getElementById('status-bar');
+    const statusIcon  = document.getElementById('status-icon');
+    const statusMsg   = document.getElementById('status-msg');
+    const objSection  = document.getElementById('objects-section');
+    const objTags     = document.getElementById('obj-tags');
+    const clearBtn    = document.getElementById('clear-btn');
+
+    // ── Load model ────────────────────────────────────────────
+    async function loadModel() {
+      dotEl.className = 'loading';
+      labelEl.textContent = 'Đang tải model COCO-SSD…';
+      try {
+        cocoModel = await cocoSsd.load();
+        dotEl.className = 'ready';
+        labelEl.textContent = 'Model sẵn sàng ✓';
+      } catch (e) {
+        dotEl.className = 'error';
+        labelEl.textContent = 'Không tải được model (kiểm tra mạng)';
+        console.error(e);
+      }
+    }
+    loadModel();
+
+    // ── Drag & Drop ───────────────────────────────────────────
+    dropZone.addEventListener('dragover', e => {
+      e.preventDefault();
+      dropZone.classList.add('drag-over');
+    });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      const file = e.dataTransfer?.files?.[0];
+      if (file) handleFile(file);
+    });
+
+    fileInput.addEventListener('change', e => {
+      const file = e.target.files?.[0];
+      if (file) handleFile(file);
+      e.target.value = '';
+    });
+
+    // ── Main handler ──────────────────────────────────────────
+    async function handleFile(file) {
+      if (!file.type.startsWith('image/')) {
+        showStatus('error', '❌', 'File không hợp lệ. Vui lòng chọn ảnh (JPG/PNG/WebP).');
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        showStatus('error', '❌', 'Ảnh quá lớn (> 10MB). Vui lòng chọn ảnh nhỏ hơn.');
+        return;
+      }
+
+      resetUI();
+
+      // Đọc & hiện preview
+      currentDataUrl = await readFile(file);
+      showPreview(currentDataUrl);
+
+      // Kiểm tra model
+      if (!cocoModel) {
+        showStatus('warn', '⏳', 'Model đang tải, vui lòng thử lại sau vài giây…');
+        showOverlay('bad');
+        return;
+      }
+
+      // Detect
+      showOverlay('checking');
+      showStatus('info', '🔍', 'Đang phân tích ảnh…');
+
+      try {
+        const t0 = Date.now();
+        const img = new Image();
+        img.src = currentDataUrl;
+        await new Promise(r => img.onload = r);
+
+        const predictions = await cocoModel.detect(img);
+        const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
+
+        const persons = predictions.filter(p => p.class === 'person');
+        const count   = persons.length;
+
+        // Vẽ bbox
+        drawBboxes(img, predictions);
+
+        // Hiện object tags
+        showObjectTags(predictions);
+
+        // Kết quả
+        if (count === 0) {
+          showOverlay('bad');
+          dropZone.classList.add('invalid');
+          showStatus('error', '🚫',
+            `Không phát hiện người trong ảnh (${elapsed}s). Ảnh này không hợp lệ cho chức năng thử đồ.`);
+        } else if (count === 1) {
+          showOverlay('ok');
+          dropZone.classList.add('valid');
+          showStatus('ok', '✅',
+            `Hợp lệ! Phát hiện đúng 1 người (${elapsed}s). Ảnh này có thể dùng để thử đồ.`);
+        } else {
+          showOverlay('bad');
+          dropZone.classList.add('invalid');
+          showStatus('warn', '⚠️',
+            `Phát hiện ${count} người trong ảnh (${elapsed}s). Vui lòng chọn ảnh chỉ có 1 người.`);
+        }
+      } catch(err) {
+        showOverlay('bad');
+        showStatus('error', '❌', 'Lỗi khi phân tích ảnh: ' + err.message);
+        console.error(err);
+      }
+
+      clearBtn.style.display = 'block';
+    }
+
+    // ── Draw bounding boxes ───────────────────────────────────
+    function drawBboxes(img, predictions) {
+      bboxCanvas.style.display = 'block';
+      const W = dropZone.clientWidth;
+      const H = dropZone.clientHeight;
+      bboxCanvas.width  = W;
+      bboxCanvas.height = H;
+
+      const ctx = bboxCanvas.getContext('2d');
+      ctx.clearRect(0, 0, W, H);
+
+      // Scale image → container (object-contain logic)
+      const imgRatio = img.width / img.height;
+      const boxRatio = W / H;
+      let renderW, renderH, offsetX, offsetY;
+      if (imgRatio > boxRatio) {
+        renderW = W; renderH = W / imgRatio;
+        offsetX = 0; offsetY = (H - renderH) / 2;
+      } else {
+        renderH = H; renderW = H * imgRatio;
+        offsetY = 0; offsetX = (W - renderW) / 2;
+      }
+      const scaleX = renderW / img.width;
+      const scaleY = renderH / img.height;
+
+      predictions.forEach(p => {
+        const [x, y, w, h] = p.bbox;
+        const isPerson = p.class === 'person';
+        ctx.strokeStyle = isPerson ? '#34d399' : '#f59e0b';
+        ctx.lineWidth   = isPerson ? 2.5 : 1.5;
+        ctx.strokeRect(
+          offsetX + x * scaleX,
+          offsetY + y * scaleY,
+          w * scaleX,
+          h * scaleY
+        );
+        // Label
+        const label = `${p.class} ${(p.score * 100).toFixed(0)}%`;
+        ctx.font      = `bold ${isPerson ? 12 : 11}px Inter, sans-serif`;
+        ctx.fillStyle = isPerson ? '#34d399' : '#f59e0b';
+        ctx.fillText(label, offsetX + x * scaleX + 4, offsetY + y * scaleY - 5);
+      });
+    }
+
+    // ── Object tags ───────────────────────────────────────────
+    function showObjectTags(predictions) {
+      if (!predictions.length) return;
+      objSection.style.display = 'block';
+      objTags.innerHTML = '';
+
+      // Gom nhóm
+      const grouped = {};
+      predictions.forEach(p => {
+        if (!grouped[p.class]) grouped[p.class] = [];
+        grouped[p.class].push(p.score);
+      });
+
+      Object.entries(grouped)
+        .sort((a,b) => b[1].length - a[1].length)
+        .forEach(([cls, scores]) => {
+          const avg = scores.reduce((s,v)=>s+v,0)/scores.length;
+          const tag = document.createElement('span');
+          tag.className = 'obj-tag' + (cls === 'person' ? ' person' : '');
+          tag.innerHTML = `${cls}${scores.length > 1 ? ` ×${scores.length}` : ''}<span class="conf">${(avg*100).toFixed(0)}%</span>`;
+          objTags.appendChild(tag);
+        });
+    }
+
+    // ── Helpers ───────────────────────────────────────────────
+    function readFile(file) {
+      return new Promise(resolve => {
+        const r = new FileReader();
+        r.onload = e => resolve(e.target.result);
+        r.readAsDataURL(file);
+      });
+    }
+
+    function showPreview(src) {
+      placeholder.style.display = 'none';
+      previewImg.src = src;
+      previewImg.style.display = 'block';
+    }
+
+    function showOverlay(type) {
+      ovCheck.style.display = 'none';
+      ovOk.style.display    = 'none';
+      ovBad.style.display   = 'none';
+      previewImg.classList.remove('dimmed');
+      if (type === 'checking') {
+        ovCheck.style.display = 'flex';
+        previewImg.classList.add('dimmed');
+      } else if (type === 'ok') {
+        ovOk.style.display = 'flex';
+      } else if (type === 'bad') {
+        ovBad.style.display = 'flex';
+      }
+    }
+
+    function showStatus(type, icon, msg) {
+      statusBar.className = 'show ' + type;
+      statusIcon.textContent = icon;
+      statusMsg.textContent  = msg;
+    }
+
+    function resetUI() {
+      placeholder.style.display = 'none';
+      previewImg.style.display = 'none';
+      previewImg.classList.remove('dimmed');
+      bboxCanvas.style.display  = 'none';
+      ovCheck.style.display = ovOk.style.display = ovBad.style.display = 'none';
+      statusBar.className = 'idle';
+      objSection.style.display = 'none';
+      objTags.innerHTML = '';
+      clearBtn.style.display = 'none';
+      dropZone.classList.remove('valid','invalid','drag-over');
+    }
+
+    function clearAll() {
+      resetUI();
+      placeholder.style.display = 'flex';
+      currentDataUrl = null;
+    }
+  </script>
+</body>
+</html>

@@ -126,7 +126,7 @@
               Mua ngay
             </button>
             <button
-              @click="showTryProduct = true"
+              @click="handleTryProduct"
               class="px-6 py-2 bg-blue-700 text-white rounded hover:bg-blue-500 cursor-pointer"
             >
               Thử sản phẩm
@@ -512,6 +512,14 @@ const copyInviteLink = (link) => {
 };
 
 const showTryProduct = ref(false);
+
+const handleTryProduct = () => {
+  if (!auth.isLoggedIn) {
+    alert("Vui lòng đăng nhập để sử dụng tính năng thử đồ ảo.");
+    return;
+  }
+  showTryProduct.value = true;
+};
 
 // [NEW] State cho chia sẻ kết quả thử đồ
 const showSharePost = ref(false);

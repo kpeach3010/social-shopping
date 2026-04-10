@@ -131,10 +131,8 @@ const onSubmit = async () => {
     );
 
     // redirect theo role
-    if (res.user.role === "staff") {
-      navigateTo("/staff/products");
-    } else if (res.user.role === "admin") {
-      navigateTo("/admin/users");
+    if (res.user.role === "staff" || res.user.role === "admin") {
+      navigateTo("/admin/products");
     } else {
       navigateTo("/");
     }

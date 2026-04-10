@@ -40,33 +40,33 @@ router.get(
 router.get(
   "/search",
   authenticate,
-  hasRoles(Role.STAFF),
+  hasRoles(Role.STAFF, Role.ADMIN),
   OrderController.searchOrdersByIdController,
 );
 
 router.get(
   "/overview",
   authenticate,
-  hasRoles(Role.STAFF),
+  hasRoles(Role.STAFF, Role.ADMIN),
   OrderController.getOrdersOverviewForStaffController,
 );
 
 router.patch(
   "/approve/:id",
   authenticate,
-  hasRoles(Role.STAFF),
+  hasRoles(Role.STAFF, Role.ADMIN),
   OrderController.approveOrderController,
 );
 router.patch(
   "/approve-group/:groupOrderId",
   authenticate,
-  hasRoles(Role.STAFF),
+  hasRoles(Role.STAFF, Role.ADMIN),
   OrderController.approveGroupOrdersController,
 );
 router.patch(
   "/reject/:id",
   authenticate,
-  hasRoles(Role.STAFF),
+  hasRoles(Role.STAFF, Role.ADMIN),
   OrderController.rejectOrderController,
 );
 

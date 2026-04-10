@@ -8,21 +8,21 @@ const router = express.Router();
 router.post(
   "/create-category",
   authenticate,
-  hasRoles(Role.STAFF),
+  hasRoles(Role.ADMIN),
   CategoryController.createCategoryController
 );
 
 router.put(
   "/update-category/:id",
   authenticate,
-  hasRoles(Role.STAFF),
+  hasRoles(Role.ADMIN),
   CategoryController.updateCategoryController
 );
 
 router.delete(
   "/delete-category/:id",
   authenticate,
-  hasRoles(Role.STAFF),
+  hasRoles(Role.ADMIN),
   CategoryController.deleteCategoryController
 );
 

@@ -192,10 +192,11 @@
                     Quản lý người dùng
                   </NuxtLink>
                 </template>
-                <template v-if="auth.user?.role === 'staff'">
+                <template v-if="auth.user?.role === 'staff' || auth.user?.role === 'admin'">
                   <div class="border-b border-black mx-4 my-1"></div>
                   <NuxtLink
-                    to="/staff/products"
+                    to="/admin/products"
+                    @click="activeDropdown = null"
                     class="block px-4 py-2 text-sm text-blue-600 font-medium hover:bg-gray-100"
                   >
                     Quản lý cửa hàng

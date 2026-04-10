@@ -15,7 +15,7 @@ import { useAuthStore } from "@/stores/auth";
 
 import AddProductModal from "@/components/modals/staff/AddProductModal.vue";
 import EditProductModal from "@/components/modals/staff/EditProductModal.vue";
-// import Sidebar from "@/components/modals/staff/Sidebar.vue";
+import Sidebar from "@/components/modals/staff/Sidebar.vue";
 import Pagination from "@/components/Pagination.vue";
 
 const showModal = ref(false);
@@ -31,6 +31,10 @@ const deletingProductIds = ref(new Set());
 const auth = useAuthStore();
 const config = useRuntimeConfig();
 const searchKeyword = ref("");
+
+definePageMeta({
+  middleware: "admin",
+});
 
 // Hàm fetch chi tiết sản phẩm
 const openEditModal = async (product) => {
@@ -86,9 +90,9 @@ const openEditModal = async (product) => {
   }
 };
 
-// const toggleSidebar = () => {
-//   isOpen.value = !isOpen.value;
-// };
+const toggleSidebar = () => {
+  isOpen.value = !isOpen.value;
+};
 
 const formatPrice = (v) => {
   return new Intl.NumberFormat("vi-VN", {

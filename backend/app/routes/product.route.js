@@ -11,7 +11,7 @@ const upload = multer();
 router.post(
   "/create-product",
   authenticate,
-  hasRoles(Role.STAFF),
+  hasRoles(Role.ADMIN),
   upload.any(),
   ProductController.createProductController
 );
@@ -32,7 +32,7 @@ router.get(
 router.delete(
   "/delete-many/:ids",
   authenticate,
-  hasRoles(Role.STAFF),
+  hasRoles(Role.ADMIN),
   ProductController.deleteProductController
 );
 
@@ -40,14 +40,14 @@ router.delete(
 router.delete(
   "/delete-variant/:id",
   authenticate,
-  hasRoles(Role.STAFF),
+  hasRoles(Role.ADMIN),
   ProductController.deleteVariantController
 );
 
 router.put(
   "/update-product/:id",
   authenticate,
-  hasRoles(Role.STAFF),
+  hasRoles(Role.ADMIN),
   upload.any(),
   ProductController.updateProductController
 );
@@ -55,7 +55,7 @@ router.put(
 router.delete(
   "/delete-color/:id",
   authenticate,
-  hasRoles(Role.STAFF),
+  hasRoles(Role.ADMIN),
   ProductController.deleteColorController
 );
 

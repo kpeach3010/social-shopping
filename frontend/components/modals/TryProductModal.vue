@@ -334,7 +334,7 @@
                         :disabled="sharingLoading"
                       >
                         <ChatBubbleLeftEllipsisIcon class="w-4 h-4 text-gray-600 shrink-0" />
-                        <span>Gửi vào cuộc trò chuyện</span>
+                        <span>Gửi vào cuộc trò chuyệ</span>
                       </button>
                     </div>
                   </div>

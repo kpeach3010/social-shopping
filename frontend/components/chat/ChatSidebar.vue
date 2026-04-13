@@ -340,99 +340,128 @@ const stopDrag = () => {
 
 async function loadSidebarData() {
   try {
-    // Danh sách bạn bè
-    const res = await $fetch("/friends", {
-      baseURL: config.public.apiBase,
-      headers: { Authorization: `Bearer ${auth.accessToken}` },
-    });
+    let directUsers = [];
+    const userRole = auth.user?.role;
 
-    const friendList = Array.isArray(res?.data) ? res.data : [];
-    let directUsers = friendList.filter((u) => u.id !== props.currentUserId);
-    hasFriends.value = directUsers.length > 0;
-
-    // Nếu là khách hàng, hiển thị thêm tất cả user có role = staff
-    if (auth.user?.role === "customer") {
-      const allUsers = await $fetch("/users", {
-        baseURL: config.public.apiBase,
-        headers: { Authorization: `Bearer ${auth.accessToken}` },
-      });
-
-      const allUsersArr = Array.isArray(allUsers) ? allUsers : [];
-      const staffUsers = allUsersArr.filter(
-        (u) =>
-          u.role === "staff" &&
-          u.id !== props.currentUserId &&
-          !directUsers.some((ex) => ex.id === u.id),
-      );
-
-      if (staffUsers.length > 0) {
-        directUsers = [...directUsers, ...staffUsers];
+    if (userRole === "admin" || userRole === "staff") {
+      // --- ADMIN & STAFF: Show all users ---
+      try {
+        const allUsers = await $fetch("/users", {
+          baseURL: config.public.apiBase,
+          headers: { Authorization: `Bearer ${auth.accessToken}` },
+        });
+        const allUsersArr = Array.isArray(allUsers) ? allUsers : [];
+        directUsers = allUsersArr.filter((u) => u.id !== props.currentUserId);
+      } catch (err) {
+        console.error("Lỗi load all users cho Admin/Staff:", err);
       }
-    } else if (auth.user?.role === "staff" || auth.user?.role === "admin") {
-      // Staff hoặc Admin: hiển thị tất cả người dùng (trừ chính mình)
-      const allUsers = await $fetch("/users", {
-        baseURL: config.public.apiBase,
-        headers: { Authorization: `Bearer ${auth.accessToken}` },
-      });
+    } else {
+      // --- CUSTOMER: Show friends + staff ---
+      // 1. Fetch friend list
+      try {
+        const res = await $fetch("/friends", {
+          baseURL: config.public.apiBase,
+          headers: { Authorization: `Bearer ${auth.accessToken}` },
+        });
+        const friendList = Array.isArray(res?.data) ? res.data : [];
+        directUsers = friendList.filter((u) => u.id !== props.currentUserId);
+      } catch (err) {
+        console.error("Lỗi load danh sách bạn bè:", err);
+      }
 
-      const allUsersArr = Array.isArray(allUsers) ? allUsers : [];
-      directUsers = allUsersArr.filter((u) => u.id !== props.currentUserId);
+      hasFriends.value = directUsers.length > 0;
+
+      // 2. Fetch all users to filter for staff (so customers can always chat with support)
+      try {
+        const allUsers = await $fetch("/users", {
+          baseURL: config.public.apiBase,
+          headers: { Authorization: `Bearer ${auth.accessToken}` },
+        });
+
+        const allUsersArr = Array.isArray(allUsers) ? allUsers : [];
+        const staffUsers = allUsersArr.filter(
+          (u) =>
+            u.role === "staff" &&
+            u.id !== props.currentUserId &&
+            !directUsers.some((ex) => ex.id === u.id),
+        );
+
+        if (staffUsers.length > 0) {
+          directUsers = [...directUsers, ...staffUsers];
+        }
+      } catch (err) {
+        console.error("Lỗi load danh sách staff cho customer:", err);
+      }
     }
 
+    // Set side-to-side user list
     users.value = directUsers;
 
-    // Nhóm chat
-    const resGroups = await $fetch("/conversations/group?type=group", {
-      baseURL: config.public.apiBase,
-      headers: { Authorization: `Bearer ${auth.accessToken}` },
-    });
-    groupConversations.value = Array.isArray(resGroups) ? resGroups : [];
-
-    // Join tất cả cuộc hội thoại
-    const allConversations = await $fetch("/conversations", {
-      baseURL: config.public.apiBase,
-      headers: { Authorization: `Bearer ${auth.accessToken}` },
-    });
-
-    if (Array.isArray(allConversations)) {
-      for (const conv of allConversations) {
-        $socket.emit("join-conversation", conv.id);
-      }
+    // --- OTHER DATA: Group Conversations & Socket Joining ---
+    // Fetch group conversations
+    try {
+      const resGroups = await $fetch("/conversations/group?type=group", {
+        baseURL: config.public.apiBase,
+        headers: { Authorization: `Bearer ${auth.accessToken}` },
+      });
+      groupConversations.value = Array.isArray(resGroups) ? resGroups : [];
+    } catch (err) {
+      console.error("Lỗi load group conversations:", err);
     }
 
-    // 4️Khi nhóm được kích hoạt mới
+    // Join all active conversations for socket notifications
+    try {
+      const allConversations = await $fetch("/conversations", {
+        baseURL: config.public.apiBase,
+        headers: { Authorization: `Bearer ${auth.accessToken}` },
+      });
+
+      if (Array.isArray(allConversations)) {
+        for (const conv of allConversations) {
+          $socket.emit("join-conversation", conv.id);
+        }
+      }
+    } catch (err) {
+      console.error("Lỗi join conversations socket:", err);
+    }
+
+    // Setup Socket Listeners
+    // Group activation
     $socket.on("group-activated", async ({ conversationId }) => {
       const exists = groupConversations.value.some(
         (g) => g.id === conversationId,
       );
       if (!exists) {
-        const newGroup = await $fetch(`/conversations/${conversationId}`, {
-          baseURL: config.public.apiBase,
-          headers: { Authorization: `Bearer ${auth.accessToken}` },
-        });
-        if (newGroup?.type === "group") groupConversations.value.push(newGroup);
+        try {
+          const newGroup = await $fetch(`/conversations/${conversationId}`, {
+            baseURL: config.public.apiBase,
+            headers: { Authorization: `Bearer ${auth.accessToken}` },
+          });
+          if (newGroup?.type === "group")
+            groupConversations.value.push(newGroup);
+        } catch (err) {
+          console.error("Lỗi load new group info:", err);
+        }
       }
       $socket.emit("join-conversation", conversationId);
     });
 
-    // Khi mình rời nhóm (hoặc bị kick), Backend gửi 'force-close-chat' cho UserID
+    // Forced close (e.g., kicked from group)
     $socket.on("force-close-chat", ({ conversationId }) => {
-      // Ép kiểu String để so sánh chính xác
       groupConversations.value = groupConversations.value.filter(
         (g) => String(g.id) !== String(conversationId),
       );
     });
 
-    // Khi nhóm bị giải tán (Admin xóa hoặc rời hết)
+    // Group deletion
     $socket.on("group-deleted", ({ conversationId }) => {
-      // Ép kiểu String
       groupConversations.value = groupConversations.value.filter(
         (g) => String(g.id) !== String(conversationId),
       );
     });
   } catch (e) {
-    console.error("Lỗi load sidebar:", e);
-    users.value = [];
+    console.error("Lỗi tổng quát load sidebar data:", e);
+    // Vẫn cố gắng giữ lại data cũ nếu có thể, hoặc reset nếu lỗi nặng
   }
 }
 

@@ -108,10 +108,21 @@
 
                 <!-- Cột 2: Upload ảnh cá nhân -->
                 <div class="flex flex-col min-h-0">
-                  <label
-                    class="font-semibold text-gray-900 text-xs sm:text-sm mb-1 block shrink-0"
-                    >Ảnh của bạn</label
-                  >
+                  <div class="flex items-center justify-between mb-1.5 px-0.5">
+                    <label class="font-semibold text-gray-900 text-xs sm:text-sm block shrink-0">
+                      Ảnh của bạn
+                    </label>
+                    <button
+                      type="button"
+                      class="text-[10px] sm:text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1 hover:underline decoration-dotted underline-offset-2"
+                      @click="showGuideModal = true"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-3 h-3">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
+                      </svg>
+                      Hướng dẫn chọn ảnh
+                    </button>
+                  </div>
                   <div
                     class="relative flex-1 min-h-0 rounded-xl sm:rounded-2xl border-2 border-dashed bg-gray-50 flex flex-col items-center justify-center shadow-inner overflow-hidden"
                     :class="personPreview && !personValid && !validatingPerson ? 'border-red-400' : 'border-dashed'"
@@ -233,6 +244,7 @@
                   <span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
                   Ảnh hợp lệ. Hãy bấm "Thử ngay" để bắt đầu.
                 </p>
+
                 <button
                   type="button"
                   class="px-8 py-2.5 sm:py-3 rounded-xl font-bold transition flex items-center justify-center gap-2 text-sm sm:text-base shadow-sm active:scale-[0.98]"
@@ -368,6 +380,12 @@
       </div>
     </div>
   </Teleport>
+
+  <!-- Guide Modal -->
+  <ImageGuideModal 
+    :is-open="showGuideModal" 
+    @close="showGuideModal = false" 
+  />
 </template>
 
 <script setup>
@@ -378,6 +396,7 @@ import {
   ChatBubbleLeftEllipsisIcon,
 } from "@heroicons/vue/24/outline";
 import { Share2 as ShareIcon } from "lucide-vue-next";
+import ImageGuideModal from "./ImageGuideModal.vue";
 
 const props = defineProps({
   isOpen: { type: Boolean, default: false },
@@ -405,6 +424,8 @@ const elapsedTime = ref("0.0");
 const showShareMenu = ref(false);
 const sharingLoading = ref(false);
 const shareMenuRef = ref(null);
+
+const showGuideModal = ref(false);
 
 let timerId = null;
 
@@ -531,26 +552,14 @@ const canRun = computed(() => {
   );
 });
 
-function loadScript(src) {
-  return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`)) return resolve();
-    const s = document.createElement("script");
-    s.src = src;
-    s.onload = resolve;
-    s.onerror = reject;
-    document.head.appendChild(s);
-  });
-}
-
 async function loadCocoSsd() {
   if (window.__cocoSsdModel) return window.__cocoSsdModel;
-  await loadScript(
-    "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"
-  );
-  await loadScript(
-    "https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"
-  );
-  window.__cocoSsdModel = await window.cocoSsd.load();
+  
+  // Tải thư viện từ node_modules thay vì CDN
+  const cocoSsd = await import("@tensorflow-models/coco-ssd");
+  await import("@tensorflow/tfjs");
+  
+  window.__cocoSsdModel = await cocoSsd.load();
   return window.__cocoSsdModel;
 }
 

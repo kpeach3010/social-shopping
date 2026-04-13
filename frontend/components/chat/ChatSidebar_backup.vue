@@ -121,15 +121,32 @@ const activeTab = ref("direct");
 
 async function loadSidebarData() {
   try {
-    // Danh sách user
-    const res = await $fetch("/users", {
-      baseURL: config.public.apiBase,
-      headers: { Authorization: `Bearer ${auth.accessToken}` },
-    });
+    let directUsers = [];
+    const userRole = auth.user?.role;
 
-    users.value = Array.isArray(res)
-      ? res.filter((u) => u.id !== props.currentUserId)
-      : [];
+    if (userRole === "admin" || userRole === "staff") {
+      // Admin/Staff: Lấy tất cả người dùng
+      const res = await $fetch("/users", {
+        baseURL: config.public.apiBase,
+        headers: { Authorization: `Bearer ${auth.accessToken}` },
+      });
+      const allUsersArr = Array.isArray(res) ? res : [];
+      directUsers = allUsersArr.filter((u) => u.id !== props.currentUserId);
+    } else {
+      // Customer: Ở bản backup này ta có thể giữ đơn giản hoặc áp dụng logic bảo mật
+      // Để đồng nhất, tôi sẽ áp dụng logic lọc staff cho customer nếu họ không có bạn bè
+      const res = await $fetch("/users", {
+        baseURL: config.public.apiBase,
+        headers: { Authorization: `Bearer ${auth.accessToken}` },
+      });
+      const allUsersArr = Array.isArray(res) ? res : [];
+      // Trong backup này không có gọi /friends nên mặc định chỉ hiện Staff cho Customer
+      directUsers = allUsersArr.filter(
+        (u) => u.role === "staff" && u.id !== props.currentUserId
+      );
+    }
+
+    users.value = directUsers;
 
     // Nhóm chat
     const resGroups = await $fetch("/conversations/group?type=group", {
@@ -150,7 +167,7 @@ async function loadSidebarData() {
       }
     }
 
-    // 4️Khi nhóm được kích hoạt mới
+    // Khi nhóm được kích hoạt mới
     $socket.on("group-activated", async ({ conversationId }) => {
       const exists = groupConversations.value.some(
         (g) => g.id === conversationId
@@ -165,7 +182,7 @@ async function loadSidebarData() {
       $socket.emit("join-conversation", conversationId);
     });
   } catch (e) {
-    console.error("Lỗi load sidebar:", e);
+    console.error("Lỗi load sidebar backup:", e);
     users.value = [];
   }
 }

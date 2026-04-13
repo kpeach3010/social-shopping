@@ -17,6 +17,8 @@
     "@pinia/nuxt": "^0.11.2",
     "@supabase/supabase-js": "2.39.5",
     "@tailwindcss/postcss": "^4.1.13",
+    "@tensorflow-models/coco-ssd": "^2.2.3",
+    "@tensorflow/tfjs": "^4.22.0",
     "@vueup/vue-quill": "^1.2.0",
     "eslint": "^9.36.0",
     "lucide-vue-next": "^0.544.0",

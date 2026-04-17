@@ -15,7 +15,6 @@ import { useAuthStore } from "@/stores/auth";
 
 import AddProductModal from "@/components/modals/staff/AddProductModal.vue";
 import EditProductModal from "@/components/modals/staff/EditProductModal.vue";
-// import Sidebar from "@/components/modals/staff/Sidebar.vue";
 import Pagination from "@/components/Pagination.vue";
 
 const showModal = ref(false);
@@ -23,7 +22,6 @@ const showEditModal = ref(false);
 const editProductData = ref(null);
 const editProductLoading = ref(false);
 const editProductCategories = ref([]);
-const isOpen = ref(true);
 const products = ref([]);
 const loading = ref(false);
 const isBulkDeleting = ref(false);
@@ -87,7 +85,7 @@ const openEditModal = async (product) => {
 };
 
 // const toggleSidebar = () => {
-//   isOpen.value = !isOpen.value;
+//   // Sidebar removed
 // };
 
 const formatPrice = (v) => {
@@ -113,9 +111,6 @@ const fetchProducts = async () => {
 
 onMounted(() => {
   fetchProducts();
-  if (window.innerWidth < 1024) {
-    isOpen.value = false;
-  }
 });
 
 const currentPage = ref(1);
@@ -216,22 +211,12 @@ const deleteProducts = async (ids) => {
 </script>
 
 <template>
-  <div class="flex min-h-screen bg-gray-50">
-    <Sidebar :isOpen="isOpen" @toggle="toggleSidebar" />
-
-    <div class="flex-1 flex flex-col min-w-0">
+  <div class="min-h-screen bg-gray-50">
+    <div class="flex flex-col min-w-0">
       <main class="flex-1 p-4 md:p-6 overflow-hidden">
         <!-- Header -->
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div class="flex items-center gap-3">
-            <button
-              @click="toggleSidebar"
-              class="lg:hidden p-2 -ml-2 rounded-md hover:bg-gray-200 text-gray-600"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
             <h1 class="text-xl md:text-2xl font-bold">Quản lý sản phẩm</h1>
           </div>
           <div class="flex gap-2">

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from "vue";
+import { ref, onMounted, onBeforeUnmount, computed } from "vue";
 import {
   Shirt,
   BadgePercent,
@@ -38,9 +38,9 @@ const handleMenuClick = () => {
 
 const allMenu = [
   { to: "/admin/dashboard", label: "Thống kê", icon: BarChart, roles: ["admin"] },
-  { to: "/admin/products", label: "Sản phẩm", icon: Shirt, roles: ["admin"] },
-  { to: "/admin/category", label: "Danh mục sản phẩm", icon: ChartBarStacked, roles: ["admin"] },
-  { to: "/admin/coupons", label: "Mã giảm giá", icon: BadgePercent, roles: ["admin"] },
+  { to: "/admin/products", label: "Sản phẩm", icon: Shirt, roles: ["admin", "staff"] },
+  { to: "/admin/category", label: "Danh mục sản phẩm", icon: ChartBarStacked, roles: ["admin", "staff"] },
+  { to: "/admin/coupons", label: "Mã giảm giá", icon: BadgePercent, roles: ["admin", "staff"] },
   { to: "/admin/orders", label: "Đơn hàng", icon: ShoppingBag, roles: ["admin", "staff"] },
 ];
 

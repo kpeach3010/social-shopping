@@ -1,6 +1,5 @@
 <script setup>
 import { ref, computed, onMounted, watch } from "vue";
-import Sidebar from "@/components/modals/staff/Sidebar.vue";
 
 import { Check, X as CloseIcon, Loader2, Search, RotateCw } from "lucide-vue-next";
 import Pagination from "@/components/Pagination.vue";
@@ -10,10 +9,6 @@ const currentPage = ref(1);
 const perPage = 8;
 const searchKeyword = ref("");
 
-const isOpen = ref(true);
-const toggleSidebar = () => {
-  isOpen.value = !isOpen.value;
-};
 const orders = ref([]);
 const loading = ref(false);
 const processingOrderId = ref(null);
@@ -79,9 +74,6 @@ const fetchOrders = async () => {
 
 onMounted(() => {
   fetchOrders();
-  if (window.innerWidth < 1024) {
-    isOpen.value = false;
-  }
 });
 
 const filteredOrders = computed(() => {
@@ -254,19 +246,10 @@ const resetSearch = () => {
 </script>
 
 <template>
-  <div class="flex min-h-screen bg-gray-50">
-    <Sidebar :isOpen="isOpen" @toggle="toggleSidebar" />
-    <div class="flex-1 flex flex-col min-w-0">
+  <div class="min-h-screen bg-gray-50">
+    <div class="flex flex-col min-w-0">
       <main class="flex-1 p-4 md:p-6 overflow-hidden">
         <div class="flex items-center gap-3 mb-4">
-          <button
-            @click="toggleSidebar"
-            class="lg:hidden p-2 -ml-2 rounded-md hover:bg-gray-200 text-gray-600"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
           <div class="flex items-center gap-2">
             <h1 class="text-xl md:text-2xl font-bold">Quản lý đơn hàng</h1>
             <button

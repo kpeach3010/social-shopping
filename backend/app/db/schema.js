@@ -428,7 +428,9 @@ export const groupOrders = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     productId: uuid("product_id").references(() => products.id),
-    couponId: uuid("coupon_id").references(() => coupons.id),
+    couponId: uuid("coupon_id").references(() => coupons.id, {
+      onDelete: "set null",
+    }),
     creatorId: uuid("creator_id").references(() => users.id),
     targetMember: integer("target_member").notNull(), // so luong thanh vien muc tieu
     currentMember: integer("current_member").notNull().default(1), // so luong thanh vien hien tai

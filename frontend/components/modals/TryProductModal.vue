@@ -568,7 +568,8 @@ async function validatePersonImage(dataUrl) {
   const img = new Image();
   img.src = dataUrl;
   await new Promise((resolve) => { img.onload = resolve; });
-  const predictions = await model.detect(img);
+  // Sử dụng threshold 0.9 (90%) để lọc person
+  const predictions = await model.detect(img, 20, 0.9);
   const persons = predictions.filter((p) => p.class === "person");
   return persons.length;
 }

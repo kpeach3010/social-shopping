@@ -57,6 +57,13 @@
       "when": 1774791314438,
       "tag": "0007_lush_tomorrow_man",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1776435713153,
+      "tag": "0008_furry_tenebrous",
+      "breakpoints": true
     }
   ]
 }

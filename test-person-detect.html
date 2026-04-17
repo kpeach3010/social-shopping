@@ -282,6 +282,7 @@
       <!-- OK overlay -->
       <div class="overlay result-ok" id="ov-ok" style="display:none;">
         <div class="overlay-emoji">✅</div>
+        <div class="overlay-text" id="ov-ok-conf" style="color: #4ade80; font-size: 1.1rem; margin-top: 4px;"></div>
       </div>
 
       <!-- Bad overlay -->
@@ -335,6 +336,7 @@
     const ovCheck     = document.getElementById('ov-checking');
     const ovOk        = document.getElementById('ov-ok');
     const ovBad       = document.getElementById('ov-bad');
+    const ovOkConf    = document.getElementById('ov-ok-conf');
     const statusBar   = document.getElementById('status-bar');
     const statusIcon  = document.getElementById('status-icon');
     const statusMsg   = document.getElementById('status-msg');
@@ -411,7 +413,7 @@
         img.src = currentDataUrl;
         await new Promise(r => img.onload = r);
 
-        const predictions = await cocoModel.detect(img);
+        const predictions = await cocoModel.detect(img, 20, 0.9);
         const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
 
         const persons = predictions.filter(p => p.class === 'person');
@@ -430,15 +432,18 @@
           showStatus('error', '🚫',
             `Không phát hiện người trong ảnh (${elapsed}s). Ảnh này không hợp lệ cho chức năng thử đồ.`);
         } else if (count === 1) {
+          const confidence = (persons[0].score * 100).toFixed(1);
+          ovOkConf.textContent = confidence + '%';
           showOverlay('ok');
           dropZone.classList.add('valid');
           showStatus('ok', '✅',
-            `Hợp lệ! Phát hiện đúng 1 người (${elapsed}s). Ảnh này có thể dùng để thử đồ.`);
+            `Hợp lệ! Phát hiện 1 người (${confidence}%) trong ${elapsed}s. Ảnh này sẵn sàng để thử đồ.`);
         } else {
+          const scores = persons.map(p => (p.score * 100).toFixed(0) + '%').join(', ');
           showOverlay('bad');
           dropZone.classList.add('invalid');
           showStatus('warn', '⚠️',
-            `Phát hiện ${count} người trong ảnh (${elapsed}s). Vui lòng chọn ảnh chỉ có 1 người.`);
+            `Phát hiện ${count} người [${scores}] trong ảnh (${elapsed}s). Vui lòng chọn ảnh chỉ có 1 người.`);
         }
       } catch(err) {
         showOverlay('bad');

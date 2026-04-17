@@ -244,7 +244,7 @@
             v-if="
               isGroupChat &&
               groupDetail?.groupOrder?.creatorId === currentUserId &&
-              groupDetail?.groupOrder?.status === 'ordering' &&
+              ['ordering', 'awaiting_payment'].includes(groupDetail?.groupOrder?.status) &&
               groupDetail?.canCancelGroupOrder
             "
             @click="cancelGroupOrder"

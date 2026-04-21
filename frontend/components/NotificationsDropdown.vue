@@ -183,8 +183,8 @@ const handleNotificationClick = async (n) => {
     return;
   }
   
-  // Nếu là thông báo về tồn kho nhóm mua chung
-  if (['group_stock_warning', 'group_stock_recovered'].includes(n.type) && n.actionUrl) {
+  // Nếu là thông báo về tồn kho nhóm mua chung hoặc nhóm hết hạn
+  if (['group_stock_warning', 'group_stock_recovered', 'group_order_expired'].includes(n.type) && n.actionUrl) {
     try {
       // actionUrl có dạng /conversation/[id]
       const parts = n.actionUrl.split('/');

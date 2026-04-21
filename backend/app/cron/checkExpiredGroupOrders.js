@@ -58,7 +58,7 @@ export const checkExpiredGroupOrders = async (io) => {
       // Nếu không update được (nghĩa là đã bị hủy bởi luồng khác rồi) thì dừng
       if (!updatedGroup) continue;
 
-      // const reason = "Nhóm mua chung đã bị hủy do mã giảm giá đã hết hạn.";
+      const reason = "Nhóm mua chung đã bị hủy do mã giảm giá đã hết hạn.";
 
       // // 1.Tạo system message vào DB (tự làm trong cron)
       // const sysMsgInsert = await db

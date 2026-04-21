@@ -2,34 +2,45 @@
 import cron from "node-cron";
 import { db } from "../db/client.js";
 import { inviteLinks } from "../db/schema.js";
-import { lt, and, eq } from "drizzle-orm";
+import { and, eq, lt, sql } from "drizzle-orm";
 
-// Hàm dọn các link hết hạn
-async function cleanupExpiredInviteLinks() {
+// Hàm dọn các link chưa được sử dụng
+async function cleanupUnusedInviteLinks() {
   const now = new Date();
+  
+  // Chỉ xóa các link chưa dùng đã tạo cách đây ít nhất 180 phút để tránh xóa nhầm link vừa tạo
+  const fiveMinutesAgo = new Date(now.getTime() - 180 * 60 * 1000);
 
   try {
-    // Xóa tất cả link đã hết hạn và chưa được dùng
-    await db
+    const deletedRecords = await db
       .delete(inviteLinks)
       .where(
-        and(lt(inviteLinks.expiresAt, now), eq(inviteLinks.isUsed, false))
-      );
+        and(
+          eq(inviteLinks.isUsed, false),
+          lt(inviteLinks.createdAt, fiveMinutesAgo)
+        )
+      )
+      .returning({ id: inviteLinks.id });
 
-    console.log(
-      `[CLEANUP] ${new Date().toLocaleString("vi-VN")} - Dọn invite_links hết hạn thành công`
-    );
+    if (deletedRecords.length > 0) {
+      console.log(
+        `[CLEANUP] ${new Date().toLocaleString("vi-VN")} - Đã dọn dẹp ${deletedRecords.length} link chưa sử dụng.`
+      );
+    }
   } catch (error) {
-    console.error("[CLEANUP ERROR] Lỗi khi dọn invite_links:", error.message);
+    // Log chi tiết lỗi nếu có
+    console.error("[CLEANUP ERROR] Lỗi khi dọn invite_links:", error);
   }
 }
 
+// === CẤU HÌNH THỜI GIAN CHẠY TẠI ĐÂY ===
+const CLEANUP_CRON_SCHEDULE = "*/10 * * * *"; // Chạy mỗi 10 phút
+
 //  Hàm khởi động cron job
 export function startInviteLinkCleanupCron() {
-  // Mỗi giờ 1 lần
-  cron.schedule("0 * * * *", async () => {
-    await cleanupExpiredInviteLinks();
+  cron.schedule(CLEANUP_CRON_SCHEDULE, async () => {
+    await cleanupUnusedInviteLinks();
   });
 
-  console.log("[CRON] Đã bật cron job dọn invite_links hết hạn (mỗi 1h)");
+  console.log(`[CRON] Đã bật dọn invite_links chưa dùng (Chu kỳ: ${CLEANUP_CRON_SCHEDULE})`);
 }

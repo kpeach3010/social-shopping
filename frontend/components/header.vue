@@ -109,7 +109,6 @@
           <!-- Chat, Notifications, Friends -->
           <div class="relative flex items-center space-x-4">
             <ChatDropdown
-              v-if="auth.isCustomer"
               :open="activeDropdown === 'chat'"
               @toggle="onDropdownToggle('chat')"
             />

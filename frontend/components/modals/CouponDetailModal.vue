@@ -72,7 +72,7 @@
             v-if="coupon.kind === 'group'"
             class="flex items-center justify-between py-2 border-b"
           >
-            <span class="text-sm text-gray-600">Số thành viên tối đa</span>
+            <span class="text-sm text-gray-600">Số thành viên yêu cầu</span>
             <span class="text-sm font-medium text-gray-900">
               {{ coupon.maxMember }} người
             </span>

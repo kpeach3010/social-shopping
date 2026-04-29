@@ -6,7 +6,7 @@ import { createNotificationService } from "../services/notification.service.js";
 export const checkExpiredGroupOrders = async (io) => {
   const now = new Date();
 
-  // Lấy các group chưa hoàn tất/hủy
+  // Lấy các group chưa hoàn tất/hủy kèm theo thông tin hết hạn của Coupon
   const groups = await db
     .select({
       id: groupOrders.id,
@@ -15,9 +15,11 @@ export const checkExpiredGroupOrders = async (io) => {
       conversationId: conversations.id,
       conversationName: conversations.name,
       thumbnailUrl: products.thumbnailUrl,
+      couponEndsAt: coupons.endsAt, // Lấy luôn ngày hết hạn ở đây
     })
     .from(groupOrders)
     .innerJoin(conversations, eq(conversations.groupOrderId, groupOrders.id))
+    .innerJoin(coupons, eq(coupons.id, groupOrders.couponId)) // JOIN để lấy thông tin coupon
     .leftJoin(products, eq(products.id, groupOrders.productId))
     .where(
       and(
@@ -28,15 +30,9 @@ export const checkExpiredGroupOrders = async (io) => {
     );
 
   for (const g of groups) {
-    const coupon = await db
-      .select()
-      .from(coupons)
-      .where(eq(coupons.id, g.couponId))
-      .limit(1);
+    if (!g.couponEndsAt) continue;
 
-    if (!coupon.length) continue;
-
-    const endsAt = new Date(coupon[0].endsAt);
+    const endsAt = new Date(g.couponEndsAt);
 
     // Coupon hết hạn -> hủy nhóm
     if (endsAt <= now) {

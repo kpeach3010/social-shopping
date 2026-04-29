@@ -371,15 +371,13 @@ export const getNewFeedService = async (userId) => {
 
   const postIds = feedPosts.map((p) => p.posts.id);
 
-  // 4) Lấy media
-  const mediaList = await db
-    .select()
-    .from(postMedia)
-    .where(inArray(postMedia.postId, postIds));
+  // Chạy song song các truy vấn phụ để giảm độ trễ (Latency)
+  const [mediaList, productList, likesCountList, commentsCountList] = await Promise.all([
+    // 4) Lấy media
+    db.select().from(postMedia).where(inArray(postMedia.postId, postIds)),
 
-  // 5) Lấy product gắn với post
-  const productList = await db
-    .select({
+    // 5) Lấy product gắn với post
+    db.select({
       postId: postProducts.postId,
       id: products.id,
       name: products.name,
@@ -388,14 +386,38 @@ export const getNewFeedService = async (userId) => {
     })
     .from(postProducts)
     .leftJoin(products, eq(postProducts.productId, products.id))
-    .where(inArray(postProducts.postId, postIds));
+    .where(inArray(postProducts.postId, postIds)),
 
-  // 6) Gom dữ liệu
+    // 6) Lấy số lượng Like
+    db.select({
+      postId: postLikes.postId,
+      count: sql`count(*)`
+    })
+    .from(postLikes)
+    .where(inArray(postLikes.postId, postIds))
+    .groupBy(postLikes.postId),
+
+    // 7) Lấy số lượng Comment
+    db.select({
+      postId: postComments.postId,
+      count: sql`count(*)`
+    })
+    .from(postComments)
+    .where(inArray(postComments.postId, postIds))
+    .groupBy(postComments.postId)
+  ]);
+
+  const likesMap = new Map(likesCountList.map(item => [item.postId, Number(item.count)]));
+  const commentsMap = new Map(commentsCountList.map(item => [item.postId, Number(item.count)]));
+
+  // 8) Gom dữ liệu
   return feedPosts.map(({ posts: post, users: author }) => ({
     ...post,
     authorName: author.fullName || author.email,
     media: mediaList.filter((m) => m.postId === post.id),
     products: productList.filter((p) => p.postId === post.id),
+    likeCount: likesMap.get(post.id) || 0,
+    commentCount: commentsMap.get(post.id) || 0,
   }));
 };
 
@@ -413,15 +435,13 @@ export const getPublicFeedService = async () => {
 
   const postIds = publicPosts.map((p) => p.posts.id);
 
-  // 2) Lấy media
-  const mediaList = await db
-    .select()
-    .from(postMedia)
-    .where(inArray(postMedia.postId, postIds));
+  // Chạy song song các truy vấn phụ
+  const [mediaList, productList, likesCountList, commentsCountList] = await Promise.all([
+    // 2) Lấy media
+    db.select().from(postMedia).where(inArray(postMedia.postId, postIds)),
 
-  // 3) Lấy product gắn với post
-  const productList = await db
-    .select({
+    // 3) Lấy product gắn với post
+    db.select({
       postId: postProducts.postId,
       id: products.id,
       name: products.name,
@@ -430,14 +450,32 @@ export const getPublicFeedService = async () => {
     })
     .from(postProducts)
     .leftJoin(products, eq(postProducts.productId, products.id))
-    .where(inArray(postProducts.postId, postIds));
+    .where(inArray(postProducts.postId, postIds)),
 
-  // 4) Gom dữ liệu
+    // 4) Lấy số lượng Like
+    db.select({ postId: postLikes.postId, count: sql`count(*)` })
+      .from(postLikes)
+      .where(inArray(postLikes.postId, postIds))
+      .groupBy(postLikes.postId),
+
+    // 5) Lấy số lượng Comment
+    db.select({ postId: postComments.postId, count: sql`count(*)` })
+      .from(postComments)
+      .where(inArray(postComments.postId, postIds))
+      .groupBy(postComments.postId)
+  ]);
+
+  const likesMap = new Map(likesCountList.map(item => [item.postId, Number(item.count)]));
+  const commentsMap = new Map(commentsCountList.map(item => [item.postId, Number(item.count)]));
+
+  // 6) Gom dữ liệu
   return publicPosts.map(({ posts: post, users: author }) => ({
     ...post,
     authorName: author.fullName || author.email,
     media: mediaList.filter((m) => m.postId === post.id),
     products: productList.filter((p) => p.postId === post.id),
+    likeCount: likesMap.get(post.id) || 0,
+    commentCount: commentsMap.get(post.id) || 0,
   }));
 };
 
@@ -477,15 +515,13 @@ export const getUserPostsService = async (userId, currentUserId = null) => {
 
     const postIds = userPosts.map((p) => p.posts.id);
 
-    // 3) Lấy media
-    const mediaList = await db
-      .select()
-      .from(postMedia)
-      .where(inArray(postMedia.postId, postIds));
+    // Chạy song song các truy vấn phụ
+    const [mediaList, productList, likesCountList, commentsCountList] = await Promise.all([
+      // 3) Lấy media
+      db.select().from(postMedia).where(inArray(postMedia.postId, postIds)),
 
-    // 4) Lấy product gắn với post
-    const productList = await db
-      .select({
+      // 4) Lấy product gắn với post
+      db.select({
         postId: postProducts.postId,
         id: products.id,
         name: products.name,
@@ -494,15 +530,33 @@ export const getUserPostsService = async (userId, currentUserId = null) => {
       })
       .from(postProducts)
       .leftJoin(products, eq(postProducts.productId, products.id))
-      .where(inArray(postProducts.postId, postIds));
+      .where(inArray(postProducts.postId, postIds)),
 
-    // 5) Gom dữ liệu
+      // 5) Lấy số lượng Like
+      db.select({ postId: postLikes.postId, count: sql`count(*)` })
+        .from(postLikes)
+        .where(inArray(postLikes.postId, postIds))
+        .groupBy(postLikes.postId),
+
+      // 6) Lấy số lượng Comment
+      db.select({ postId: postComments.postId, count: sql`count(*)` })
+        .from(postComments)
+        .where(inArray(postComments.postId, postIds))
+        .groupBy(postComments.postId)
+    ]);
+
+    const likesMap = new Map(likesCountList.map(item => [item.postId, Number(item.count)]));
+    const commentsMap = new Map(commentsCountList.map(item => [item.postId, Number(item.count)]));
+
+    // 7) Gom dữ liệu
     return userPosts.map(({ posts: post, users: author }) => ({
       ...post,
       authorName: author.fullName || author.email,
       authorId: author.id,
       media: mediaList.filter((m) => m.postId === post.id),
       products: productList.filter((p) => p.postId === post.id),
+      likeCount: likesMap.get(post.id) || 0,
+      commentCount: commentsMap.get(post.id) || 0,
     }));
   } catch (error) {
     console.error("Error getting user posts:", error);

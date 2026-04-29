@@ -47,6 +47,21 @@ export function usePostStats(postsRef, apiBase, tokenSource) {
     const list = postsRef?.value || [];
     const ids = list.map((p) => p?.id).filter(Boolean);
     if (!ids.length) return;
+
+    // Ưu tiên nạp dữ liệu có sẵn từ bài viết vào store để không phải fetch lại
+    list.forEach((p) => {
+      if (p.id && (p.likeCount !== undefined || p.commentCount !== undefined)) {
+        // Chỉ nạp nếu store chưa có hoặc bài viết có dữ liệu mới
+        if (!postStats[p.id]) {
+          postStats[p.id] = {
+            likes: Number(p.likeCount) || 0,
+            comments: Number(p.commentCount) || 0,
+          };
+        }
+      }
+    });
+
+    // Chỉ fetch những bài thực sự thiếu thông tin
     await Promise.all(ids.map((id) => (postStats[id] ? null : fetchStat(id))));
   };
 

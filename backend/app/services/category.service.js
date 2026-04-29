@@ -72,7 +72,7 @@ export const getCategoryById = async (id) => {
       .from(categories)
       .where(eq(categories.id, id))
       .limit(1);
-    console.log("Kết quả truy vấn:", category);
+    // console.log("Kết quả truy vấn:", category);
     if (category.length === 0) {
       throw new Error("category not found");
     }

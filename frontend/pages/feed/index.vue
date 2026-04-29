@@ -709,32 +709,33 @@ const fetchDiscover = async () => {
       return String(u.role || "").toLowerCase() === "customer";
     });
 
-    // Lấy trạng thái kết bạn cho từng user, loại bỏ đã là bạn
-    const enriched = await Promise.all(
-      all.slice(0, 40).map(async (u) => {
-        try {
-          const st = await $fetch(`/friends/status/${u.id}`, {
-            baseURL: config.public.apiBase,
-            headers: { Authorization: `Bearer ${auth.accessToken}` },
-          });
-          const status = st?.data?.status || st?.status || "not_friends";
-          const requestId = st?.data?.requestId || st?.requestId || null;
-          return {
-            ...u,
-            friendshipStatus: status,
-            requestSent: status === "request_sent",
-            requestId,
-          };
-        } catch {
-          return {
-            ...u,
-            friendshipStatus: "not_friends",
-            requestSent: false,
-            requestId: null,
-          };
-        }
-      }),
-    );
+    // Lấy trạng thái kết bạn hàng loạt (Batch), tránh N+1 API
+    const targetIds = all.slice(0, 40).map((u) => u.id);
+    let batchStatus = {};
+    
+    if (targetIds.length > 0) {
+      try {
+        const stRes = await $fetch("/friends/status/batch", {
+          method: "POST",
+          baseURL: config.public.apiBase,
+          headers: { Authorization: `Bearer ${auth.accessToken}` },
+          body: { targetIds },
+        });
+        batchStatus = stRes?.data || {};
+      } catch (err) {
+        console.error("Lỗi lấy trạng thái kết bạn batch:", err);
+      }
+    }
+
+    const enriched = all.slice(0, 40).map((u) => {
+      const info = batchStatus[u.id] || { status: "not_friends" };
+      return {
+        ...u,
+        friendshipStatus: info.status,
+        requestSent: info.status === "request_sent",
+        requestId: info.requestId || null,
+      };
+    });
 
     discoverUsers.value = enriched.filter(
       (u) => u.friendshipStatus !== "friends",

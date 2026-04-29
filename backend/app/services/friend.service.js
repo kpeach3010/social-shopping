@@ -1,6 +1,6 @@
 import { db } from "../db/client.js";
 import { friendRequests, friendships, users } from "../db/schema.js";
-import { eq, and, or, desc, sql } from "drizzle-orm";
+import { eq, and, or, desc, sql, inArray } from "drizzle-orm";
 
 // Gửi lời mời kết bạn
 export const sendFriendRequestService = async (senderId, receiverId) => {
@@ -409,6 +409,63 @@ export const checkFriendshipStatusService = async (userId, targetId) => {
     };
   } catch (error) {
     console.error("Error checking friendship status:", error);
+    throw error;
+  }
+};
+// Kiểm tra trạng thái bạn bè cho danh sách nhiều user (Batch)
+export const checkBatchFriendshipStatusService = async (userId, targetIds) => {
+  try {
+    if (!targetIds || !targetIds.length) return {};
+
+    // 1) Lấy danh sách bạn bè trong tập targetIds
+    const friendshipsList = await db
+      .select({ friendId: friendships.friendId })
+      .from(friendships)
+      .where(
+        and(
+          eq(friendships.userId, userId),
+          inArray(friendships.friendId, targetIds)
+        )
+      );
+
+    const friendsSet = new Set(friendshipsList.map((f) => f.friendId));
+
+    // 2) Lấy tất cả lời mời liên quan (cả gửi và nhận)
+    const requests = await db
+      .select()
+      .from(friendRequests)
+      .where(
+        and(
+          or(
+            and(eq(friendRequests.senderId, userId), inArray(friendRequests.receiverId, targetIds)),
+            and(eq(friendRequests.receiverId, userId), inArray(friendRequests.senderId, targetIds))
+          ),
+          eq(friendRequests.status, "pending")
+        )
+      );
+
+    const results = {};
+    targetIds.forEach((tid) => {
+      if (friendsSet.has(tid)) {
+        results[tid] = { status: "friends", message: "Đã là bạn bè" };
+      } else {
+        const req = requests.find(r => r.senderId === userId && r.receiverId === tid);
+        if (req) {
+          results[tid] = { status: "request_sent", requestId: req.id, message: "Đã gửi lời mời" };
+        } else {
+          const recv = requests.find(r => r.receiverId === userId && r.senderId === tid);
+          if (recv) {
+            results[tid] = { status: "request_received", requestId: recv.id, message: "Có lời mời kết bạn" };
+          } else {
+            results[tid] = { status: "not_friends", message: "Chưa kết bạn" };
+          }
+        }
+      }
+    });
+
+    return results;
+  } catch (error) {
+    console.error("Error checking batch friendship status:", error);
     throw error;
   }
 };

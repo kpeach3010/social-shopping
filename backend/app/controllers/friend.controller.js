@@ -8,6 +8,7 @@ import {
   getPendingFriendRequestsService,
   checkFriendshipStatusService,
   getFriendCountService,
+  checkBatchFriendshipStatusService,
 } from "../services/friend.service.js";
 import { createNotificationService } from "../services/notification.service.js";
 import { db } from "../db/client.js";
@@ -303,6 +304,33 @@ export const getFriendCountController = async (req, res) => {
   } catch (error) {
     console.error("Get friend count error:", error);
     res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+// Kiểm tra trạng thái bạn bè cho danh sách ID (Batch)
+export const checkBatchFriendshipStatusController = async (req, res) => {
+  try {
+    const { targetIds } = req.body;
+    const userId = req.user.id;
+
+    if (!Array.isArray(targetIds)) {
+      return res.status(400).json({
+        success: false,
+        message: "targetIds phải là một mảng",
+      });
+    }
+
+    const statuses = await checkBatchFriendshipStatusService(userId, targetIds);
+
+    res.status(200).json({
+      success: true,
+      data: statuses,
+    });
+  } catch (error) {
+    console.error("Batch friendship status error:", error);
+    res.status(500).json({
       success: false,
       message: error.message,
     });

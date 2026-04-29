@@ -42,6 +42,9 @@ router.get(
   FriendController.getPendingFriendRequestsController
 );
 
+// Kiểm tra tình trạng bạn bè hàng loạt
+router.post("/status/batch", FriendController.checkBatchFriendshipStatusController);
+
 // Kiểm tra tình trạng bạn bè
 router.get(
   "/status/:targetId",

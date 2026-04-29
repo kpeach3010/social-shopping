@@ -1,435 +1,210 @@
 <template>
   <div class="min-h-screen bg-gray-50">
     <div class="container mx-auto px-4 py-8 max-w-6xl">
-      <!-- Loading State -->
-      <div v-if="pending" class="flex items-center justify-center py-20">
-        <div
-          class="animate-spin rounded-full h-12 w-12 border-b-2 border-black"
-        ></div>
-      </div>
-
-      <!-- Error State -->
-      <div
-        v-else-if="error"
-        class="bg-white rounded-xl p-12 shadow-sm text-center border border-gray-200"
-      >
-        <div
-          class="w-20 h-20 mx-auto rounded-full bg-red-100 flex items-center justify-center mb-4"
-        >
-          <svg
-            class="w-10 h-10 text-red-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-            ></path>
-          </svg>
+      <ClientOnly>
+        <!-- Loading State -->
+        <div v-if="pending" class="flex items-center justify-center py-20">
+          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-black"></div>
         </div>
-        <h3 class="text-lg font-semibold text-gray-900 mb-2">
-          Không thể tải feed
-        </h3>
-        <p class="text-gray-500">{{ errorMessage }}</p>
-      </div>
-
-      <!-- Main Content -->
-      <div v-else>
-        <!-- TOP COMPOSER -->
-        <div class="mb-8">
-          <div
-            class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden"
-          >
-            <div class="p-5">
-              <div class="flex items-center gap-4">
-                <div
-                  class="w-12 h-12 rounded-full bg-linear-to-br from-gray-700 to-gray-900 flex items-center justify-center shrink-0"
-                >
-                  <UserCircleIcon class="w-9 h-9 text-white" />
+        <div v-else-if="error" class="bg-white rounded-xl p-12 shadow-sm text-center border border-gray-200">
+          <div class="w-20 h-20 mx-auto rounded-full bg-red-100 flex items-center justify-center mb-4">
+            <svg class="w-10 h-10 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </div>
+          <h3 class="text-lg font-semibold text-gray-900 mb-2">Không thể tải feed</h3>
+          <p class="text-gray-500">{{ errorMessage }}</p>
+        </div>
+        <div v-else>
+          <!-- TOP COMPOSER -->
+          <div class="mb-8">
+            <div class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
+              <div class="p-5">
+                <div class="flex items-center gap-4">
+                  <div class="w-12 h-12 rounded-full bg-linear-to-br from-gray-700 to-gray-900 flex items-center justify-center shrink-0">
+                    <UserCircleIcon class="w-9 h-9 text-white" />
+                  </div>
+                  <button
+                    @click="handleOpenComposer"
+                    class="flex-1 text-left text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-full px-5 py-3 text-sm transition"
+                  >
+                    {{ auth.isLoggedIn ? "Bạn đang nghĩ gì?" : "Đăng nhập để viết bài" }}
+                  </button>
                 </div>
-                <button
-                  @click="handleOpenComposer"
-                  class="flex-1 text-left text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-full px-5 py-3 text-sm transition"
-                >
-                  {{
-                    auth.isLoggedIn
-                      ? "Bạn đang nghĩ gì?"
-                      : "Đăng nhập để viết bài"
-                  }}
-                </button>
               </div>
             </div>
           </div>
-        </div>
-
-        <!-- DISCOVER USERS -->
-        <div class="mb-8" v-if="auth.isLoggedIn && auth.isCustomer">
-          <div
-            class="bg-white rounded-lg border border-gray-200 overflow-hidden"
-          >
-            <div
-              class="flex items-center justify-between px-3 py-2 border-b border-gray-200"
-            >
-              <h3 class="text-sm font-semibold text-gray-900">Gợi ý kết bạn</h3>
-              <div class="flex items-center gap-2">
-                <button
-                  @click="scrollDiscover(-1)"
-                  class="p-1.5 rounded-full text-gray-600 hover:text-gray-800 hover:bg-gray-100 transition"
-                  aria-label="Cuộn trái"
-                >
-                  <ChevronLeftIcon class="w-5 h-5" />
-                </button>
-                <button
-                  @click="scrollDiscover(1)"
-                  class="p-1.5 rounded-full text-gray-600 hover:text-gray-800 hover:bg-gray-100 transition"
-                  aria-label="Cuộn phải"
-                >
-                  <ChevronRightIcon class="w-5 h-5" />
-                </button>
+          <!-- DISCOVER USERS -->
+          <div class="mb-8" v-if="auth.isLoggedIn && auth.isCustomer">
+            <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+              <div class="flex items-center justify-between px-3 py-2 border-b border-gray-200">
+                <h3 class="text-sm font-semibold text-gray-900">Gợi ý kết bạn</h3>
+                <div class="flex items-center gap-2">
+                  <button @click="scrollDiscover(-1)" class="p-1.5 rounded-full text-gray-600 hover:text-gray-800 hover:bg-gray-100 transition">
+                    <ChevronLeftIcon class="w-5 h-5" />
+                  </button>
+                  <button @click="scrollDiscover(1)" class="p-1.5 rounded-full text-gray-600 hover:text-gray-800 hover:bg-gray-100 transition">
+                    <ChevronRightIcon class="w-5 h-5" />
+                  </button>
+                </div>
               </div>
-            </div>
-
-            <div class="px-3 py-3">
-              <div ref="discoverWrap" class="overflow-x-auto whitespace-nowrap">
-                <div class="inline-flex gap-3">
-                  <div
-                    v-for="u in discoverUsers || []"
-                    :key="u.id || u.email"
-                    class="w-56 flex-shrink-0 border border-gray-200 rounded-md p-3 bg-white"
-                  >
-                    <div class="flex flex-col items-center text-center gap-3">
-                      <div
-                        class="w-16 h-16 rounded-md bg-gray-100 text-gray-700 flex items-center justify-center text-xl font-bold"
-                      >
-                        {{ initial(u.fullName || u.email) }}
-                      </div>
-                      <NuxtLink
-                        v-if="u.id"
-                        :to="`/feed/${u.id}`"
-                        class="text-sm font-semibold text-gray-900 truncate w-full hover:text-gray-700"
-                      >
-                        {{ u.fullName || u.email || "Người dùng" }}
-                      </NuxtLink>
-                      <p
-                        v-else
-                        class="text-sm font-semibold text-gray-900 truncate w-full"
-                      >
-                        {{ u.fullName || u.email || "Người dùng" }}
-                      </p>
-                      <button
-                        v-if="!u.requestSent"
-                        @click="sendFriend(u)"
-                        :disabled="requesting.has(u.id)"
-                        class="w-full py-2 rounded-md bg-black text-white hover:bg-gray-800 disabled:opacity-60 text-sm font-semibold"
-                      >
-                        {{ requesting.has(u.id) ? "Đang gửi..." : "Kết bạn" }}
-                      </button>
-                      <div v-else class="w-full flex flex-col gap-2">
-                        <div
-                          class="w-full py-2 rounded-md bg-gray-100 text-gray-700 border border-gray-200 text-sm font-semibold text-center"
-                        >
-                          Đã gửi lời mời
+              <div class="px-3 py-3">
+                <div ref="discoverWrap" class="overflow-x-auto whitespace-nowrap">
+                  <div class="inline-flex gap-3">
+                    <div
+                      v-for="u in discoverUsers || []"
+                      :key="u.id || u.email"
+                      class="w-56 flex-shrink-0 border border-gray-200 rounded-md p-3 bg-white"
+                    >
+                      <div class="flex flex-col items-center text-center gap-3">
+                        <div class="w-16 h-16 rounded-md bg-gray-100 text-gray-700 flex items-center justify-center text-xl font-bold">
+                          {{ initial(u.fullName || u.email) }}
                         </div>
+                        <NuxtLink
+                          v-if="u.id"
+                          :to="`/feed/${u.id}`"
+                          class="text-sm font-semibold text-gray-900 truncate w-full hover:text-gray-700"
+                        >
+                          {{ u.fullName || u.email || "Người dùng" }}
+                        </NuxtLink>
+                        <p v-else class="text-sm font-semibold text-gray-900 truncate w-full">
+                          {{ u.fullName || u.email || "Người dùng" }}
+                        </p>
                         <button
-                          @click="cancelRequest(u)"
-                          :disabled="requesting.has(u.id) || !u.requestId"
-                          class="w-full py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-60 text-sm font-semibold"
+                          v-if="!u.requestSent"
+                          @click="sendFriend(u)"
+                          :disabled="requesting.has(u.id)"
+                          class="w-full py-2 rounded-md bg-black text-white hover:bg-gray-800 disabled:opacity-60 text-sm font-semibold"
                         >
-                          {{
-                            requesting.has(u.id) ? "Đang hủy..." : "Hủy lời mời"
-                          }}
+                          {{ requesting.has(u.id) ? "Đang gửi..." : "Kết bạn" }}
                         </button>
+                        <div v-else class="w-full flex flex-col gap-2">
+                          <div class="w-full py-2 rounded-md bg-gray-100 text-gray-700 border border-gray-200 text-sm font-semibold text-center">
+                            Đã gửi lời mời
+                          </div>
+                          <button
+                            @click="cancelRequest(u)"
+                            :disabled="requesting.has(u.id) || !u.requestId"
+                            class="w-full py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-60 text-sm font-semibold"
+                          >
+                            {{ requesting.has(u.id) ? "Đang hủy..." : "Hủy lời mời" }}
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-
-                  <!-- Loading placeholder -->
-                  <div
-                    v-if="loadingDiscover && !discoverUsers.length"
-                    class="text-sm text-gray-500 px-3 py-2"
-                  >
-                    Đang tải người dùng…
+                    <div v-if="loadingDiscover && !discoverUsers.length" class="text-sm text-gray-500 px-3 py-2">
+                      Đang tải người dùng…
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-
-        <!-- POSTS GRID -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <!-- Empty State -->
-          <div
-            v-if="!posts?.length"
-            class="col-span-1 lg:col-span-2 bg-white rounded-xl p-12 shadow text-center border border-gray-200"
-          >
-            <div
-              class="w-20 h-20 mx-auto rounded-full bg-gray-100 flex items-center justify-center mb-4"
-            >
-              <svg
-                class="w-10 h-10 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                ></path>
-              </svg>
+          <!-- POSTS GRID -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Empty State -->
+            <div v-if="!posts?.length" class="col-span-1 lg:col-span-2 bg-white rounded-xl p-12 shadow text-center border border-gray-200">
+              <div class="w-20 h-20 mx-auto rounded-full bg-gray-100 flex items-center justify-center mb-4">
+                <svg class="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                </svg>
+              </div>
+              <h3 class="text-lg font-semibold text-gray-900 mb-2">{{ auth.isLoggedIn ? "Chưa có bài viết nào" : "Hãy đăng nhập để xem bài viết" }}</h3>
+              <p class="text-gray-500 mb-6">{{ auth.isLoggedIn ? "Bạn bè của bạn chưa đăng bài viết nào hoặc các bài viết công khai chưa xuất hiện" : "Đăng nhập để xem bài viết của bạn bè và những bài viết công khai" }}</p>
+              <NuxtLink v-if="!auth.isLoggedIn" to="/login-page" class="px-6 py-2.5 rounded-lg bg-black text-white hover:bg-gray-800 transition inline-block">Đăng nhập</NuxtLink>
             </div>
-            <h3 class="text-lg font-semibold text-gray-900 mb-2">
-              {{
-                auth.isLoggedIn
-                  ? "Chưa có bài viết nào"
-                  : "Hãy đăng nhập để xem bài viết"
-              }}
-            </h3>
-            <p class="text-gray-500 mb-6">
-              {{
-                auth.isLoggedIn
-                  ? "Bạn bè của bạn chưa đăng bài viết nào hoặc các bài viết công khai chưa xuất hiện"
-                  : "Đăng nhập để xem bài viết của bạn bè và những bài viết công khai"
-              }}
-            </p>
-            <NuxtLink
-              v-if="!auth.isLoggedIn"
-              to="/login-page"
-              class="px-6 py-2.5 rounded-lg bg-black text-white hover:bg-gray-800 transition inline-block"
-            >
-              Đăng nhập
-            </NuxtLink>
-          </div>
-
-          <!-- Posts List -->
-          <div v-else class="col-span-1 lg:col-span-2 space-y-5">
-            <div
-              v-for="post in posts"
-              :key="post.id"
-              class="bg-white rounded-lg shadow hover:shadow-md transition-shadow duration-200 overflow-hidden border border-gray-200"
-            >
-              <!-- Post Header -->
-              <div class="px-4 py-3 border-b border-gray-200 bg-gray-50">
-                <div class="flex items-center gap-3">
-                  <div
-                    class="w-10 h-10 rounded-full bg-linear-to-br from-gray-700 to-gray-900 flex items-center justify-center shrink-0"
-                  >
-                    <UserCircleIcon class="w-7 h-7 text-white" />
-                  </div>
-                  <div class="flex-1 min-w-0">
-                    <NuxtLink
-                      :to="`/feed/${post.authorId}`"
-                      class="font-semibold text-sm text-gray-900 hover:text-gray-700 truncate block"
-                    >
-                      {{ post.authorName || "Người dùng" }}
-                    </NuxtLink>
-                    <div
-                      class="flex items-center gap-1.5 text-xs text-gray-500 mt-0.5"
-                    >
-                      <span>{{ mapPrivacy(post.visibility) }}</span>
-                      <span>•</span>
-                      <span>{{ formatDate(post.createdAt) }}</span>
-                      <template v-if="post.isEdited">
+            <!-- Posts List -->
+            <div v-else class="col-span-1 lg:col-span-2 space-y-5">
+              <div
+                v-for="post in posts"
+                :key="post.id"
+                class="bg-white rounded-lg shadow hover:shadow-md transition-shadow duration-200 overflow-hidden border border-gray-200"
+              >
+                <!-- Post Header -->
+                <div class="px-4 py-3 border-b border-gray-200 bg-gray-50">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-linear-to-br from-gray-700 to-gray-900 flex items-center justify-center shrink-0">
+                      <UserCircleIcon class="w-7 h-7 text-white" />
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <NuxtLink :to="`/feed/${post.authorId}`" class="font-semibold text-sm text-gray-900 hover:text-gray-700 truncate block">{{ post.authorName || "Người dùng" }}</NuxtLink>
+                      <div class="flex items-center gap-1.5 text-xs text-gray-500 mt-0.5">
+                        <span>{{ mapPrivacy(post.visibility) }}</span>
                         <span>•</span>
-                        <span class="text-gray-400 italic">Đã chỉnh sửa</span>
-                      </template>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Post Content -->
-              <div class="px-4 py-3 bg-gray-50">
-                <p
-                  v-html="renderContent(post)"
-                  class="text-gray-900 leading-relaxed whitespace-pre-wrap text-sm break-words"
-                ></p>
-                <button
-                  v-if="isContentLong(post.content)"
-                  @click="toggleExpand(post.id)"
-                  class="mt-2 text-sm font-semibold text-blue-700 hover:text-blue-800 transition"
-                >
-                  {{ isExpanded(post.id) ? "Thu gọn" : "Xem thêm" }}
-                </button>
-              </div>
-
-              <!-- Post Media -->
-              <div v-if="mediaOf(post.id).length" class="bg-white">
-                <div
-                  :class="[
-                    'grid gap-0.5',
-                    mediaOf(post.id).length === 1
-                      ? 'grid-cols-1'
-                      : mediaOf(post.id).length === 2
-                        ? 'grid-cols-2'
-                        : mediaOf(post.id).length === 3
-                          ? 'grid-cols-3'
-                          : 'grid-cols-2',
-                  ]"
-                >
-                  <div
-                    v-for="(m, index) in mediaOf(post.id).slice(0, 4)"
-                    :key="m.id"
-                    class="relative bg-white group cursor-pointer overflow-hidden"
-                    :class="[mediaOf(post.id).length === 1 ? 'h-96' : 'h-56']"
-                    @click="openMediaGallery(mediaOf(post.id), index)"
-                  >
-                    <!-- Video -->
-                    <video
-                      v-if="isVideo(m.postFileUrl)"
-                      :src="m.postFileUrl"
-                      class="w-full h-full object-contain bg-white"
-                      autoplay
-                      loop
-                      muted
-                      playsinline
-                    ></video>
-
-                    <!-- Image -->
-                    <img
-                      v-else
-                      :src="m.postFileUrl"
-                      :alt="'Post media'"
-                      class="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
-                    />
-
-                    <!-- More items overlay -->
-                    <div
-                      v-if="index === 3 && mediaOf(post.id).length > 4"
-                      class="absolute inset-0 bg-linear-to-br from-black/20 via-black/30 to-black/40 flex items-center justify-center hover:from-black/30 hover:via-black/40 hover:to-black/50 transition"
-                    >
-                      <span class="text-white text-4xl font-bold drop-shadow-lg"
-                        >+{{ mediaOf(post.id).length - 4 }}</span
-                      >
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Post Footer with Tagged Products -->
-              <div
-                v-if="post.products?.length"
-                class="px-4 py-3 border-t border-gray-200 bg-gray-50"
-              >
-                <p class="text-xs text-gray-600 mb-2 font-semibold">
-                  Sản phẩm đính kèm:
-                </p>
-                <div class="flex flex-wrap gap-1.5">
-                  <template v-for="product in post.products" :key="product.id">
-                    <NuxtLink
-                      v-if="product.name"
-                      :to="`/product/${product.id}`"
-                      class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] bg-white text-gray-800 hover:bg-gray-100 transition cursor-pointer font-medium border border-gray-300 hover:border-gray-400"
-                    >
-                      <img
-                        v-if="product.thumbnailUrl"
-                        :src="product.thumbnailUrl"
-                        alt=""
-                        class="w-8 h-8 rounded object-cover border border-gray-200"
-                      />
-                      <span class="truncate max-w-[140px]">{{
-                        product.name
-                      }}</span>
-                    </NuxtLink>
-                    <div
-                      v-else
-                      class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] bg-gray-50 text-gray-400 border border-gray-200 cursor-default font-medium"
-                      title="Sản phẩm này không còn tồn tại"
-                    >
-                      <div
-                        class="w-8 h-8 rounded bg-gray-100 flex items-center justify-center border border-gray-200"
-                      >
-                        <svg
-                          class="w-4 h-4 text-gray-300"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-                          ></path>
-                        </svg>
+                        <span>{{ formatDate(post.createdAt) }}</span>
+                        <template v-if="post.isEdited">
+                          <span>•</span>
+                          <span class="text-gray-400 italic">Đã chỉnh sửa</span>
+                        </template>
                       </div>
-                      <span class="italic text-[10px]">Sản phẩm đã bị xóa</span>
                     </div>
-                  </template>
+                  </div>
                 </div>
-              </div>
-
-              <!-- Post Files -->
-              <div
-                v-if="post.media?.some((m) => m.type === 'file')"
-                class="px-4 py-3 border-t border-gray-200 bg-gray-50"
-              >
-                <p class="text-xs text-gray-600 mb-2.5 font-semibold">
-                  Tập tin đính kèm:
-                </p>
-                <div class="space-y-1.5">
-                  <a
-                    v-for="file in post.media.filter((m) => m.type === 'file')"
-                    :key="file.id"
-                    :href="file.postFileUrl"
-                    target="_blank"
-                    rel="noopener"
-                    class="flex items-center gap-2 text-xs text-blue-700 hover:text-blue-900 hover:underline group"
-                  >
-                    <span
-                      class="inline-flex items-center justify-center w-8 h-8 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-semibold group-hover:bg-blue-100"
-                    >
-                      {{ fileExtension(file.postFileUrl) || "DOC" }}
-                    </span>
-                    <span class="truncate">{{
-                      fileNameFromUrl(file.postFileUrl)
-                    }}</span>
-                  </a>
+                <!-- Post Content -->
+                <div class="px-4 py-3 bg-gray-50">
+                  <p v-html="renderContent(post)" class="text-gray-900 leading-relaxed whitespace-pre-wrap text-sm break-words"></p>
+                  <button v-if="isContentLong(post.content)" @click="toggleExpand(post.id)" class="mt-2 text-sm font-semibold text-blue-700 hover:text-blue-800 transition">{{ isExpanded(post.id) ? "Thu gọn" : "Xem thêm" }}</button>
                 </div>
-              </div>
-
-              <!-- Actions -->
-              <div class="px-4 py-3 border-t border-gray-200 bg-white">
-                <div class="flex items-center justify-center gap-3">
-                  <button
-                    @click="toggleLike(post)"
-                    :class="[
-                      'inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full text-sm font-medium shadow-sm transition-all min-w-[160px] ring-1 ring-inset',
-                      likedPostIds.has(post.id)
-                        ? 'bg-blue-600 text-white ring-blue-600 hover:bg-blue-700'
-                        : 'bg-white text-gray-700 ring-gray-200 hover:bg-gray-50',
-                    ]"
-                    aria-label="Thích bài viết"
-                  >
-                    <HandThumbUpIcon class="w-5 h-5" />
-                    <span>Thích</span>
-                    <span class="text-xs opacity-80"
-                      >({{ postStats[post.id]?.likes ?? 0 }})</span
+                <!-- Post Media -->
+                <div v-if="mediaOf(post.id).length" class="bg-white">
+                  <div :class="['grid gap-0.5', mediaOf(post.id).length === 1 ? 'grid-cols-1' : mediaOf(post.id).length === 2 ? 'grid-cols-2' : mediaOf(post.id).length === 3 ? 'grid-cols-3' : 'grid-cols-2']">
+                    <div
+                      v-for="(m, index) in mediaOf(post.id).slice(0, 4)"
+                      :key="m.id"
+                      class="relative bg-white group cursor-pointer overflow-hidden"
+                      :class="[mediaOf(post.id).length === 1 ? 'h-96' : 'h-56']"
+                      @click="openMediaGallery(mediaOf(post.id), index)"
                     >
-                  </button>
-                  <button
-                    @click="openComments(post.id)"
-                    class="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-white text-gray-700 hover:bg-gray-50 text-sm font-medium shadow-sm transition-all min-w-[160px] ring-1 ring-inset ring-gray-200"
-                    aria-label="Bình luận bài viết"
-                  >
-                    <ChatBubbleLeftEllipsisIcon class="w-5 h-5" />
-                    <span>Bình luận</span>
-                    <span class="text-xs opacity-80"
-                      >({{ postStats[post.id]?.comments ?? 0 }})</span
-                    >
-                  </button>
+                      <video v-if="isVideo(m.postFileUrl)" :src="m.postFileUrl" class="w-full h-full object-contain bg-white" autoplay loop muted playsinline></video>
+                      <img v-else :src="m.postFileUrl" :alt="'Post media'" class="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" />
+                      <div v-if="index === 3 && mediaOf(post.id).length > 4" class="absolute inset-0 bg-linear-to-br from-black/20 via-black/30 to-black/40 flex items-center justify-center hover:from-black/30 hover:via-black/40 hover:to-black/50 transition">
+                        <span class="text-white text-4xl font-bold drop-shadow-lg">+{{ mediaOf(post.id).length - 4 }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <!-- Post Footer with Tagged Products -->
+                <div v-if="post.products?.length" class="px-4 py-3 border-t border-gray-200 bg-gray-50">
+                  <p class="text-xs text-gray-600 mb-2 font-semibold">Sản phẩm đính kèm:</p>
+                  <div class="flex flex-wrap gap-1.5">
+                    <template v-for="product in post.products" :key="product.id">
+                      <NuxtLink v-if="product.name" :to="`/product/${product.id}`" class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] bg-white text-gray-800 hover:bg-gray-100 transition cursor-pointer font-medium border border-gray-300 hover:border-gray-400">
+                        <img v-if="product.thumbnailUrl" :src="product.thumbnailUrl" alt="" class="w-8 h-8 rounded object-cover border border-gray-200" />
+                        <span class="truncate max-w-[140px]">{{ product.name }}</span>
+                      </NuxtLink>
+                      <div v-else class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] bg-gray-50 text-gray-400 border border-gray-200 cursor-default font-medium" title="Sản phẩm này không còn tồn tại">
+                        <div class="w-8 h-8 rounded bg-gray-100 flex items-center justify-center border border-gray-200">
+                          <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                        </div>
+                        <span class="italic text-[10px]">Sản phẩm đã bị xóa</span>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+                <!-- Post Files -->
+                <div v-if="post.media?.some((m) => m.type === 'file')" class="px-4 py-3 border-t border-gray-200 bg-gray-50">
+                  <p class="text-xs text-gray-600 mb-2.5 font-semibold">Tập tin đính kèm:</p>
+                  <div class="space-y-1.5">
+                    <a v-for="file in post.media.filter((m) => m.type === 'file')" :key="file.id" :href="file.postFileUrl" target="_blank" rel="noopener" class="flex items-center gap-2 text-xs text-blue-700 hover:text-blue-900 hover:underline group">
+                      <span class="inline-flex items-center justify-center w-8 h-8 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-semibold group-hover:bg-blue-100">{{ fileExtension(file.postFileUrl) || "DOC" }}</span>
+                      <span class="truncate">{{ fileNameFromUrl(file.postFileUrl) }}</span>
+                    </a>
+                  </div>
+                </div>
+                <!-- Actions -->
+                <div class="px-4 py-3 border-t border-gray-200 bg-white">
+                  <div class="flex items-center justify-center gap-3">
+                    <button @click="toggleLike(post)" :class="['inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full text-sm font-medium shadow-sm transition-all min-w-[160px] ring-1 ring-inset', likedPostIds.has(post.id) ? 'bg-blue-600 text-white ring-blue-600 hover:bg-blue-700' : 'bg-white text-gray-700 ring-gray-200 hover:bg-gray-50']" aria-label="Thích bài viết"><HandThumbUpIcon class="w-5 h-5" /><span>Thích</span><span class="text-xs opacity-80">({{ postStats[post.id]?.likes ?? 0 }})</span></button>
+                    <button @click="openComments(post.id)" class="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-white text-gray-700 hover:bg-gray-50 text-sm font-medium shadow-sm transition-all min-w-[160px] ring-1 ring-inset ring-gray-200" aria-label="Bình luận bài viết"><ChatBubbleLeftEllipsisIcon class="w-5 h-5" /><span>Bình luận</span><span class="text-xs opacity-80">({{ postStats[post.id]?.comments ?? 0 }})</span></button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </ClientOnly>
     </div>
+
 
     <!-- Create Post Modal -->
     <CreatePostModal

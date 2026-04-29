@@ -49,6 +49,7 @@
                   v-model="form.fullName"
                   type="text"
                   required
+                  autocomplete="name"
                   :class="[
                     'appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500',
                     fullNameError ? 'border-red-300' : 'border-gray-300',
@@ -70,6 +71,7 @@
                   v-model="form.phone"
                   type="tel"
                   required
+                  autocomplete="tel"
                   :class="[
                     'appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500',
                     phoneError ? 'border-red-300' : 'border-gray-300',
@@ -135,6 +137,7 @@
                   v-model="form.email"
                   type="email"
                   required
+                  autocomplete="email"
                   :class="[
                     'appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500',
                     emailError ? 'border-red-300' : 'border-gray-300',
@@ -178,6 +181,7 @@
                   :type="showPassword ? 'text' : 'password'"
                   placeholder="Lớn hơn 5 ký tự"
                   required
+                  autocomplete="new-password"
                   :class="[
                     'appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 pr-10',
                     passwordError ? 'border-red-300' : 'border-gray-300',
@@ -228,6 +232,7 @@
                   v-model="form.confirmPassword"
                   :type="showConfirmPassword ? 'text' : 'password'"
                   required
+                  autocomplete="new-password"
                   :class="[
                     'appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 pr-10',
                     confirmPasswordError ? 'border-red-300' : 'border-gray-300',

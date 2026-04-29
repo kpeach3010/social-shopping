@@ -21,6 +21,7 @@
                 v-model="form.email"
                 type="email"
                 required
+                autocomplete="email"
                 placeholder="Nhập email"
                 class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
               />
@@ -37,6 +38,7 @@
                 v-model="form.password"
                 :type="showPassword ? 'text' : 'password'"
                 required
+                autocomplete="current-password"
                 placeholder="Nhập mật khẩu"
                 class="appearance-none block w-full px-3 py-2 pr-24 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
               />
@@ -123,7 +125,7 @@ const onSubmit = async () => {
   errorMessage.value = null;
   loading.value = true;
   const payload = { ...form };
-  console.log("Payload gửi lên:", payload);
+  // console.log("Payload gửi lên:", payload);
 
   try {
     const res = await $fetch("/auth/login", {

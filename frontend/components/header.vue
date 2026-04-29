@@ -71,147 +71,149 @@
 
       <!-- Auth & Mobile Controls -->
       <div ref="dropdownContainer" class="flex items-center space-x-2 sm:space-x-4" :key="headerKey">
-        <template v-if="!auth.isLoggedIn">
-          <NuxtLink
-            to="/login-page"
-            class="px-4 py-2 text-sm font-medium text-white bg-black rounded hover:bg-gray-800"
-          >
-            Đăng nhập
-          </NuxtLink>
-          <NuxtLink
-            to="/register-page"
-            class="px-4 py-2 text-sm font-medium text-black border border-black rounded hover:bg-gray-100"
-          >
-            Đăng ký
-          </NuxtLink>
-        </template>
+        <ClientOnly>
+          <template v-if="!auth.isLoggedIn">
+            <NuxtLink
+              to="/login-page"
+              class="px-4 py-2 text-sm font-medium text-white bg-black rounded hover:bg-gray-800"
+            >
+              Đăng nhập
+            </NuxtLink>
+            <NuxtLink
+              to="/register-page"
+              class="px-4 py-2 text-sm font-medium text-black border border-black rounded hover:bg-gray-100"
+            >
+              Đăng ký
+            </NuxtLink>
+          </template>
 
-        <template v-else>
-          <!-- Giỏ hàng -->
+          <template v-else>
+            <!-- Giỏ hàng -->
 
-          <NuxtLink
-            to="/cart"
-            v-if="auth.isCustomer"
-            class="relative flex items-center text-gray-700 hover:text-black focus:outline-none focus-visible:outline-none focus:ring-0 active:outline-none"
-            tabindex="-1"
-          >
-            <div class="relative inline-block">
-              <ShoppingCartIcon class="w-6 h-6" />
-              <span
-                v-if="cartCount > 0"
-                class="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-semibold rounded-full min-w-[16px] h-[16px] flex items-center justify-center"
-              >
-                {{ cartCount }}
-              </span>
-            </div>
-          </NuxtLink>
-
-          <!-- Chat, Notifications, Friends -->
-          <div class="relative flex items-center space-x-4">
-            <ChatDropdown
-              :open="activeDropdown === 'chat'"
-              @toggle="onDropdownToggle('chat')"
-            />
-            <FriendsDropdown
+            <NuxtLink
+              to="/cart"
               v-if="auth.isCustomer"
-              :open="activeDropdown === 'friends'"
-              @toggle="onDropdownToggle('friends')"
-            />
-            <NotificationsDropdown
-              :open="activeDropdown === 'notifications'"
-              @toggle="onDropdownToggle('notifications')"
-            />
-          </div>
-
-          <!-- Dropdown user -->
-          <div class="relative group">
-            <button
-              @click.stop="onDropdownToggle('user')"
-              class="flex items-center space-x-1 text-gray-700 hover:text-black cursor-pointer focus:outline-none"
+              class="relative flex items-center text-gray-700 hover:text-black focus:outline-none focus-visible:outline-none focus:ring-0 active:outline-none"
+              tabindex="-1"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke-width="1.5"
-                stroke="currentColor"
-                class="w-6 h-6"
+              <div class="relative inline-block">
+                <ShoppingCartIcon class="w-6 h-6" />
+                <span
+                  v-if="cartCount > 0"
+                  class="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-semibold rounded-full min-w-[16px] h-[16px] flex items-center justify-center"
+                >
+                  {{ cartCount }}
+                </span>
+              </div>
+            </NuxtLink>
+
+            <!-- Chat, Notifications, Friends -->
+            <div class="relative flex items-center space-x-4">
+              <ChatDropdown
+                :open="activeDropdown === 'chat'"
+                @toggle="onDropdownToggle('chat')"
+              />
+              <FriendsDropdown
+                v-if="auth.isCustomer"
+                :open="activeDropdown === 'friends'"
+                @toggle="onDropdownToggle('friends')"
+              />
+              <NotificationsDropdown
+                :open="activeDropdown === 'notifications'"
+                @toggle="onDropdownToggle('notifications')"
+              />
+            </div>
+
+            <!-- Dropdown user -->
+            <div class="relative group">
+              <button
+                @click.stop="onDropdownToggle('user')"
+                class="flex items-center space-x-1 text-gray-700 hover:text-black cursor-pointer focus:outline-none"
               >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 
-                  0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 
-                  8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
-                />
-              </svg>
-              <span class="text-sm font-medium hidden md:block">{{ userDisplayName }}</span>
-              <svg
+                <svg
                   xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke-width="1.5"
-                stroke="currentColor"
-                class="w-4 h-4"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="m19.5 8.25-7.5 7.5-7.5-7.5"
-                />
-              </svg>
-            </button>
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke-width="1.5"
+                  stroke="currentColor"
+                  class="w-6 h-6"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 
+                    0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 
+                    8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
+                  />
+                </svg>
+                <span class="text-sm font-medium hidden md:block">{{ userDisplayName }}</span>
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke-width="1.5"
+                  stroke="currentColor"
+                  class="w-4 h-4"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="m19.5 8.25-7.5 7.5-7.5-7.5"
+                  />
+                </svg>
+              </button>
 
-            <div
-              :class="[
-                'absolute right-0 top-full mt-0 w-50 bg-white border rounded-md shadow-lg transition duration-200 z-50',
-                activeDropdown === 'user' ? 'opacity-100 visible translate-y-1' : 'opacity-0 invisible group-hover:opacity-100 group-hover:visible'
-              ]"
-            >
-              <div class="py-1">
-                <NuxtLink
-                  :to="`/feed/${auth.user?.id}`"
-                  class="block px-4 py-2 text-sm hover:bg-gray-100"
-                >
-                  Trang cá nhân
-                </NuxtLink>
-                <div class="border-b border-black mx-4 my-1"></div>
-                <NuxtLink
-                  to="/profile"
-                  class="block px-4 py-2 text-sm hover:bg-gray-100"
-                >
-                  Tài khoản của tôi
-                </NuxtLink>
-                <template v-if="auth.user?.role === 'admin'">
+              <div
+                :class="[
+                  'absolute right-0 top-full mt-0 w-50 bg-white border rounded-md shadow-lg transition duration-200 z-50',
+                  activeDropdown === 'user' ? 'opacity-100 visible translate-y-1' : 'opacity-0 invisible group-hover:opacity-100 group-hover:visible'
+                ]"
+              >
+                <div class="py-1">
+                  <NuxtLink
+                    :to="`/feed/${auth.user?.id}`"
+                    class="block px-4 py-2 text-sm hover:bg-gray-100"
+                  >
+                    Trang cá nhân
+                  </NuxtLink>
                   <div class="border-b border-black mx-4 my-1"></div>
                   <NuxtLink
-                    to="/admin/users"
-                    class="block px-4 py-2 text-sm text-red-600 font-medium hover:bg-gray-100"
+                    to="/profile"
+                    class="block px-4 py-2 text-sm hover:bg-gray-100"
                   >
-                    Quản lý người dùng
+                    Tài khoản của tôi
                   </NuxtLink>
-                </template>
-                <template v-if="auth.user?.role === 'staff' || auth.user?.role === 'admin'">
+                  <template v-if="auth.user?.role === 'admin'">
+                    <div class="border-b border-black mx-4 my-1"></div>
+                    <NuxtLink
+                      to="/admin/users"
+                      class="block px-4 py-2 text-sm text-red-600 font-medium hover:bg-gray-100"
+                    >
+                      Quản lý người dùng
+                    </NuxtLink>
+                  </template>
+                  <template v-if="auth.user?.role === 'staff' || auth.user?.role === 'admin'">
+                    <div class="border-b border-black mx-4 my-1"></div>
+                    <NuxtLink
+                      to="/admin/products"
+                      @click="activeDropdown = null"
+                      class="block px-4 py-2 text-sm text-blue-600 font-medium hover:bg-gray-100"
+                    >
+                      Quản lý cửa hàng
+                    </NuxtLink>
+                  </template>
                   <div class="border-b border-black mx-4 my-1"></div>
-                  <NuxtLink
-                    to="/admin/products"
-                    @click="activeDropdown = null"
-                    class="block px-4 py-2 text-sm text-blue-600 font-medium hover:bg-gray-100"
+                  <button
+                    @click="handleLogout"
+                    class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
                   >
-                    Quản lý cửa hàng
-                  </NuxtLink>
-                </template>
-                <div class="border-b border-black mx-4 my-1"></div>
-                <button
-                  @click="handleLogout"
-                  class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
-                >
-                  Đăng xuất
-                </button>
+                    Đăng xuất
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        </template>
+          </template>
+        </ClientOnly>
       </div>
     </div>
 
@@ -327,6 +329,7 @@ const cartCount = ref(0);
 const chatStore = useChatStore();
 const friendStore = useFriendStore();
 let __authChangedHandler = null;
+let __cartUpdatedHandler = null;
 const dropdownContainer = ref(null);
 
 // Chỉ cho phép 1 dropdown (chat / friends / notifications) mở tại 1 thời điểm
@@ -466,7 +469,7 @@ onMounted(async () => {
   if (process.client)
     window.addEventListener("auth-changed", __authChangedHandler);
   // listen for cart-updated event dispatched by interceptor after refresh
-  const __cartUpdatedHandler = async (e) => {
+  __cartUpdatedHandler = async (e) => {
     try {
       const c = e?.detail?.count;
 
@@ -490,11 +493,6 @@ onMounted(async () => {
   };
   if (process.client)
     window.addEventListener("cart-updated", __cartUpdatedHandler);
-  // remove handler on unmount
-  onBeforeUnmount(() => {
-    if (process.client && __cartUpdatedHandler)
-      window.removeEventListener("cart-updated", __cartUpdatedHandler);
-  });
 
   if (process.client) {
     document.addEventListener("click", handleClickOutside);
@@ -502,11 +500,13 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
-  if (process.client && __authChangedHandler) {
-    window.removeEventListener("auth-changed", __authChangedHandler);
-    __authChangedHandler = null;
-  }
   if (process.client) {
+    if (__authChangedHandler) {
+      window.removeEventListener("auth-changed", __authChangedHandler);
+    }
+    if (__cartUpdatedHandler) {
+      window.removeEventListener("cart-updated", __cartUpdatedHandler);
+    }
     document.removeEventListener("click", handleClickOutside);
   }
 });

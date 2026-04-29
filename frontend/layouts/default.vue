@@ -12,45 +12,45 @@
     <Footer />
 
     <!-- Sidebar chat (floating widget) -->
-    <div
-      v-if="isLoggedIn && currentUserId"
-      class="fixed bottom-20 right-6 z-40"
-      style="max-height: 60vh"
-    >
-      <ChatSidebar
-        :isOpen="sidebarOpen"
+    <ClientOnly>
+      <div
+        v-if="isLoggedIn && currentUserId"
+        class="fixed bottom-20 right-6 z-40"
+        style="max-height: 60vh"
+      >
+        <ChatSidebar
+          :isOpen="sidebarOpen"
+          :currentUserId="currentUserId"
+          :showToggle="true"
+          @toggle="sidebarOpen = !sidebarOpen"
+          @openChat="openChat"
+        />
+      </div>
+
+      <!-- ChatBox -->
+      <ChatBox
+        ref="chatBoxRef"
+        v-show="(activePartner || activeConversation) && chatBoxVisible"
+        v-model:conversationId="activeConversationId"
+        :partner="activePartner"
+        :conversation="activeConversation"
         :currentUserId="currentUserId"
-        :showToggle="true"
-        @toggle="sidebarOpen = !sidebarOpen"
-        @openChat="openChat"
+        @close="closeChat"
+        class="z-50"
       />
-    </div>
 
-    <!-- Nút mở/đóng sidebar (removed) -->
-
-    <!-- ChatBox -->
-    <ChatBox
-      ref="chatBoxRef"
-      v-show="(activePartner || activeConversation) && chatBoxVisible"
-      v-model:conversationId="activeConversationId"
-      :partner="activePartner"
-      :conversation="activeConversation"
-      :currentUserId="currentUserId"
-      @close="closeChat"
-      class="z-50"
-    />
-
-    <!-- Modal bình luận kích hoạt từ thông báo -->
-    <CommentsModal
-      :is-open="showNotifyComments"
-      :post-id="notifyPostId"
-      @close="
-        () => {
-          showNotifyComments = false;
-          notifyPostId = null;
-        }
-      "
-    />
+      <!-- Modal bình luận kích hoạt từ thông báo -->
+      <CommentsModal
+        :is-open="showNotifyComments"
+        :post-id="notifyPostId"
+        @close="
+          () => {
+            showNotifyComments = false;
+            notifyPostId = null;
+          }
+        "
+      />
+    </ClientOnly>
   </div>
 </template>
 
@@ -323,25 +323,21 @@ onMounted(async () => {
 
   $socket.on("group-deleted", refreshUnread);
   $socket.on("force-close-chat", refreshUnread);
-  onBeforeUnmount(() => {
-    $socket.off("message");
-    $socket.off("unread-count-updated");
-    $socket.off("new-conversation");
-    $socket.off("connect");
-    $socket.off("group-deleted");
-    $socket.off("force-close-chat");
-    window.removeEventListener("incoming-message");
-    window.removeEventListener("unread-count-updated", unreadHandler);
-    window.removeEventListener("typing-message", typingHandler);
-  });
-
-  onBeforeUnmount(() => {
-    window.removeEventListener("notification-open", handleNotificationOpen);
-  });
 });
 
+// Move ALL onBeforeUnmount to the top level of script setup
 onBeforeUnmount(() => {
-  window.removeEventListener("notification-open", handleNotificationOpen);
+  $socket.off("message");
+  $socket.off("unread-count-updated");
+  $socket.off("new-conversation");
+  $socket.off("connect");
+  $socket.off("group-deleted");
+  $socket.off("force-close-chat");
+  
+  if (process.client) {
+    window.removeEventListener("notification-open", handleNotificationOpen);
+
+  }
 });
 </script>
 

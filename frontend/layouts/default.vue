@@ -90,8 +90,12 @@ watch(activeConversationId, (val) => {
 
 function openChat(payload) {
   // Nếu đã mở chính hội thoại này -> trigger hiệu ứng
-  const isSameDirect = payload.type === "direct" && activePartner.value?.id === payload.partner?.id;
-  const isSameGroup = payload.type === "group" && String(activeConversationId.value) === String(payload.conversation?.id);
+  const isSameDirect =
+    payload.type === "direct" &&
+    activePartner.value?.id === payload.partner?.id;
+  const isSameGroup =
+    payload.type === "group" &&
+    String(activeConversationId.value) === String(payload.conversation?.id);
 
   if (chatBoxVisible.value && (isSameDirect || isSameGroup)) {
     chatBoxRef.value?.triggerAttention();
@@ -122,6 +126,19 @@ function closeChat() {
 const route = useRoute();
 const config = useRuntimeConfig();
 const { $socket } = useNuxtApp();
+
+useHead({
+  script: [
+    {
+      src: "https://vielora.vn/widget.js",
+      defer: true,
+      "data-bot-id": "a64124ae-aa60-4252-81b2-452077d80379",
+      "data-base-url": "https://vielora.vn",
+      id: "vielora-script",
+      tagPosition: "bodyClose",
+    },
+  ],
+});
 
 const handleNotificationOpen = (e) => {
   const data = e.detail || {};
@@ -161,7 +178,10 @@ onMounted(async () => {
     if (!conversationId) return;
 
     // Nếu chatbox đã mở đúng hội thoại này -> trigger hiệu ứng gây chú ý
-    if (chatBoxVisible.value && String(activeConversationId.value) === String(conversationId)) {
+    if (
+      chatBoxVisible.value &&
+      String(activeConversationId.value) === String(conversationId)
+    ) {
       chatBoxRef.value?.triggerAttention();
       return;
     }
@@ -239,7 +259,7 @@ onMounted(async () => {
             msg.senderFullName || msg.sender_full_name || msg.sender_name;
           const partner = res.partner ||
             window.__users?.find(
-              (u) => u.id === (msg.sender_id || msg.senderId)
+              (u) => u.id === (msg.sender_id || msg.senderId),
             ) || {
               id: msg.sender_id || msg.senderId,
               fullName: senderFullName || "Người gửi",
@@ -333,10 +353,9 @@ onBeforeUnmount(() => {
   $socket.off("connect");
   $socket.off("group-deleted");
   $socket.off("force-close-chat");
-  
+
   if (process.client) {
     window.removeEventListener("notification-open", handleNotificationOpen);
-
   }
 });
 </script>

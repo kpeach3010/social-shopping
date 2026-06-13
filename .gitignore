@@ -11,6 +11,7 @@ frontend/.nuxt/
 frontend/.output/
 frontend/dist/
 frontend/.env
+frontend/.env.production
 
 # Logs
 npm-debug.log*

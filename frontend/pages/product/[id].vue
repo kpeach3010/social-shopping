@@ -248,11 +248,26 @@
       <!-- Mô tả sản phẩm đặt dưới grid -->
       <div v-if="product.description" class="mt-16 border-t pt-10">
         <h3 class="text-2xl font-bold text-gray-900 mb-8">Mô tả chi tiết</h3>
-        <div class="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-md">
+        <div class="border border-gray-200 rounded-xl p-6 bg-white shadow-sm relative">
           <div
-            class="text-gray-700 leading-relaxed product-description"
+            ref="descriptionRef"
+            class="text-gray-700 leading-relaxed product-description transition-all duration-300"
+            :class="(!isDescriptionExpanded && showExpandButton) ? 'max-h-96 overflow-hidden' : ''"
             v-html="product.description"
           ></div>
+          
+          <div v-if="!isDescriptionExpanded && showExpandButton" class="absolute bottom-[72px] left-0 w-full h-32 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
+          
+          <div v-if="showExpandButton" class="flex justify-center mt-6 pt-2">
+            <button
+              @click="isDescriptionExpanded = !isDescriptionExpanded"
+              class="flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-emerald-600 border border-emerald-600 rounded-full hover:bg-emerald-50 transition-all active:scale-[0.98] bg-white z-10 shadow-sm cursor-pointer"
+            >
+              {{ isDescriptionExpanded ? 'Thu gọn nội dung' : 'Xem thêm nội dung' }}
+              <svg v-if="!isDescriptionExpanded" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+              <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -579,6 +594,17 @@ const showCouponDetail = ref(false);
 const selectedCoupon = ref(null);
 const videoPlayStates = ref({});
 const videoHoverStates = ref({});
+
+const isDescriptionExpanded = ref(false);
+const descriptionRef = ref(null);
+const showExpandButton = ref(false);
+
+// Kiểm tra chiều cao nội dung để hiển thị nút Xem thêm
+onUpdated(() => {
+  if (descriptionRef.value && descriptionRef.value.scrollHeight > 384 && !showExpandButton.value) {
+    showExpandButton.value = true;
+  }
+});
 
 const allImages = computed(() => {
   if (!product.value) return [];

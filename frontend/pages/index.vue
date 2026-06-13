@@ -69,6 +69,56 @@
       </ClientOnly>
     </section>
 
+    <!-- Platform Features Bar -->
+    <section class="container mx-auto px-4 mt-6 mb-4">
+      <div class="bg-white border border-gray-100 rounded-lg p-3 sm:p-4 shadow-sm flex flex-wrap items-center justify-between md:justify-around gap-y-4 gap-x-2 text-sm">
+        
+        <!-- Mua Chung Feature (Clickable) -->
+        <NuxtLink to="/group-buying-guide" class="flex items-center gap-2.5 text-gray-700 hover:text-emerald-700 transition group cursor-pointer w-[45%] md:w-auto">
+          <div class="p-1.5 sm:p-2 bg-emerald-50 text-emerald-600 rounded-lg group-hover:bg-emerald-100 transition flex-shrink-0">
+            <UserGroupIcon class="w-5 h-5" />
+          </div>
+          <div class="flex flex-col">
+            <span class="font-semibold text-[13px] sm:text-sm text-gray-800">Mua chung tiết kiệm</span>
+            <span class="text-emerald-600 text-[10px] sm:text-xs flex items-center font-medium mt-0.5 group-hover:underline">
+              Xem hướng dẫn <ArrowRightIcon class="w-3 h-3 ml-0.5" />
+            </span>
+          </div>
+        </NuxtLink>
+
+        <div class="hidden md:block w-px h-8 bg-gray-100"></div>
+
+        <!-- AI Try On -->
+        <div class="flex items-center gap-2.5 text-gray-700 w-[45%] md:w-auto">
+          <div class="p-1.5 sm:p-2 bg-blue-50 text-blue-600 rounded-lg flex-shrink-0">
+            <SparklesIcon class="w-5 h-5" />
+          </div>
+          <span class="font-semibold text-[13px] sm:text-sm text-gray-800">Thử đồ AI ảo</span>
+        </div>
+
+        <div class="hidden md:block w-px h-8 bg-gray-100"></div>
+
+        <!-- Delivery -->
+        <div class="flex items-center gap-2.5 text-gray-700 w-[45%] md:w-auto">
+          <div class="p-1.5 sm:p-2 bg-orange-50 text-orange-600 rounded-lg flex-shrink-0">
+            <TruckIcon class="w-5 h-5" />
+          </div>
+          <span class="font-semibold text-[13px] sm:text-sm text-gray-800">Giao hàng toàn quốc</span>
+        </div>
+
+        <div class="hidden md:block w-px h-8 bg-gray-100"></div>
+
+        <!-- Secure Payment -->
+        <div class="flex items-center gap-2.5 text-gray-700 w-[45%] md:w-auto">
+          <div class="p-1.5 sm:p-2 bg-purple-50 text-purple-600 rounded-lg flex-shrink-0">
+            <ShieldCheckIcon class="w-5 h-5" />
+          </div>
+          <span class="font-semibold text-[13px] sm:text-sm text-gray-800">Thanh toán an toàn</span>
+        </div>
+
+      </div>
+    </section>
+
     <!-- Loading -->
     <div
       v-if="loading"
@@ -174,8 +224,16 @@
 </template>
 
 <script setup>
-import { FunnelIcon } from "@heroicons/vue/24/outline";
-import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/vue/24/outline";
+import { 
+  FunnelIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  UserGroupIcon,
+  SparklesIcon,
+  TruckIcon,
+  ShieldCheckIcon,
+  ArrowRightIcon
+} from "@heroicons/vue/24/outline";
 import Pagination from "@/components/Pagination.vue";
 
 // Slider Images from public/slider

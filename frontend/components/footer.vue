@@ -69,10 +69,8 @@
           <div class="flex space-x-2">
             <!-- COD Icon -->
             <div class="bg-gray-100 px-2 py-1 rounded text-xs font-bold text-gray-600 border border-gray-200">COD</div>
-            <!-- QR Icon -->
-            <div class="bg-gray-100 px-2 py-1 rounded text-xs font-bold text-gray-600 border border-gray-200">VietQR</div>
-            <!-- Bank Icon -->
-            <div class="bg-gray-100 px-2 py-1 rounded text-xs font-bold text-gray-600 border border-gray-200">ATM</div>
+            <!-- PayPal Icon -->
+            <div class="bg-gray-100 px-2 py-1 rounded text-xs font-bold text-gray-600 border border-gray-200">PayPal</div>
           </div>
         </div>
       </div>

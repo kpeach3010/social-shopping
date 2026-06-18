@@ -23,9 +23,7 @@
         <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
           Liên hệ
         </h1>
-        <p class="text-xl text-gray-600 mb-12">
-          Trang liên hệ đang được phát triển
-        </p>
+
 
         <div class="space-y-6 max-w-md mx-auto mb-12">
           <div class="flex items-center gap-4">
@@ -46,7 +44,7 @@
                 ></path>
               </svg>
             </div>
-            <span class="text-gray-700 text-lg">support@socialshop.com</span>
+            <span class="text-gray-700 text-lg">kimkhanh6933@gmail.com</span>
           </div>
 
           <div class="flex items-center gap-4">
@@ -67,7 +65,7 @@
                 ></path>
               </svg>
             </div>
-            <span class="text-gray-700 text-lg">1900-1234</span>
+            <span class="text-gray-700 text-lg">0901 086 499</span>
           </div>
         </div>
 

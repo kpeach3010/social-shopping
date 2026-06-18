@@ -184,6 +184,60 @@
       </div>
     </section>
 
+    <!-- VÒNG ĐỜI NHÓM -->
+    <section class="py-12 px-4 bg-white border-y border-gray-100">
+      <div class="container mx-auto max-w-5xl">
+        <h2 class="text-2xl font-bold text-center text-gray-900 mb-2">Vòng đời của một nhóm</h2>
+        <p class="text-center text-gray-500 text-sm mb-6">Nhóm mua chung trải qua các trạng thái khác nhau. Mỗi trạng thái cho phép những hành động riêng biệt.</p>
+
+        <div class="mb-10 flex flex-wrap items-center justify-center gap-2 text-xs text-gray-500">
+          <span class="font-semibold text-gray-700 mr-1">Quy trình mua chung:</span>
+          <span class="px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded font-semibold border border-yellow-200">Chờ thành viên</span>
+          <ArrowRightIcon class="w-3 h-3 text-gray-400" />
+          <span class="px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-semibold border border-blue-200">Đã đủ người</span>
+          <ArrowRightIcon class="w-3 h-3 text-gray-400" />
+          <span class="px-2 py-0.5 bg-purple-100 text-purple-800 rounded font-semibold border border-purple-200">Đang đặt hàng</span>
+          <ArrowRightIcon class="w-3 h-3 text-gray-400" />
+          <span class="px-2 py-0.5 bg-orange-100 text-orange-800 rounded font-semibold border border-orange-200">Chờ thanh toán</span>
+          <ArrowRightIcon class="w-3 h-3 text-gray-400" />
+          <span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-semibold border border-emerald-200">Hoàn tất</span>
+        </div>
+
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div
+            v-for="stage in lifecycleStages"
+            :key="stage.status"
+            class="rounded-xl border p-5 flex flex-col gap-3"
+            :class="stage.cardClass"
+          >
+            <div class="flex items-center justify-between">
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border" :class="stage.badgeClass">
+                <component :is="stage.icon" class="w-3.5 h-3.5" />
+                {{ stage.label }}
+              </span>
+              <span class="text-[10px] font-mono text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{{ stage.status }}</span>
+            </div>
+
+            <p class="text-sm text-gray-700 leading-relaxed">{{ stage.desc }}</p>
+
+            <div class="mt-auto pt-3 border-t border-dashed" :class="stage.dividerClass">
+              <p class="text-[10px] font-bold uppercase tracking-wider mb-2" :class="stage.labelColor">Có thể thực hiện</p>
+              <ul class="space-y-1.5">
+                <li
+                  v-for="action in stage.actions"
+                  :key="action"
+                  class="flex items-start gap-1.5 text-xs text-gray-600"
+                >
+                  <CheckCircleIcon class="w-3.5 h-3.5 mt-0.5 flex-shrink-0" :class="stage.checkColor" />
+                  {{ action }}
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- FAQ SECTION -->
     <section class="py-12 px-4">
       <div class="container mx-auto max-w-3xl">
@@ -244,7 +298,14 @@ import {
   ChatBubbleLeftRightIcon,
   TicketIcon,
   CubeTransparentIcon,
-  ChatBubbleLeftEllipsisIcon
+  ChatBubbleLeftEllipsisIcon,
+  ArrowRightIcon,
+  ClockIcon,
+  LockClosedIcon,
+  ShoppingCartIcon,
+  CreditCardIcon,
+  CheckBadgeIcon,
+  NoSymbolIcon,
 } from '@heroicons/vue/24/outline';
 
 useHead({
@@ -258,6 +319,104 @@ useHead({
 });
 
 const openFaq = ref(null);
+
+const lifecycleStages = [
+  {
+    status: 'pending',
+    label: 'Chờ thành viên',
+    icon: ClockIcon,
+    cardClass: 'bg-yellow-50 border-yellow-200',
+    badgeClass: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+    dividerClass: 'border-yellow-200',
+    labelColor: 'text-yellow-700',
+    checkColor: 'text-yellow-500',
+    desc: 'Nhóm vừa được tạo và đang chờ đủ số thành viên theo yêu cầu của coupon. Cửa nhóm vẫn mở.',
+    actions: [
+      'Thành viên tham gia qua link mời',
+      'Trưởng nhóm đổi sản phẩm nhóm',
+      'Thành viên rời nhóm tự do',
+      'Trưởng nhóm giải tán nhóm',
+    ],
+  },
+  {
+    status: 'locked',
+    label: 'Đã đủ người',
+    icon: LockClosedIcon,
+    cardClass: 'bg-blue-50 border-blue-200',
+    badgeClass: 'bg-blue-100 text-blue-800 border-blue-300',
+    dividerClass: 'border-blue-200',
+    labelColor: 'text-blue-700',
+    checkColor: 'text-blue-500',
+    desc: 'Nhóm đã đủ số thành viên. Không nhận thêm người mới. Chờ tất cả chọn xong phân loại sản phẩm.',
+    actions: [
+      'Thành viên hoàn tất chọn size và màu',
+      'Trưởng nhóm đổi sản phẩm (reset lựa chọn của mọi người)',
+      'Thành viên rời nhóm',
+      'Trưởng nhóm giải tán nhóm',
+    ],
+  },
+  {
+    status: 'ordering',
+    label: 'Đang đặt hàng',
+    icon: ShoppingCartIcon,
+    cardClass: 'bg-purple-50 border-purple-200',
+    badgeClass: 'bg-purple-100 text-purple-800 border-purple-300',
+    dividerClass: 'border-purple-200',
+    labelColor: 'text-purple-700',
+    checkColor: 'text-purple-500',
+    desc: 'Trưởng nhóm đã bắt đầu quy trình đặt hàng. Hệ thống khóa lựa chọn và tạo đơn hàng cho từng thành viên.',
+    actions: [
+      'Trưởng nhóm chọn phương thức thanh toán',
+      'Hủy đơn hàng nhóm nếu chưa được nhân viên xác nhận',
+    ],
+  },
+  {
+    status: 'awaiting_payment',
+    label: 'Chờ thanh toán',
+    icon: CreditCardIcon,
+    cardClass: 'bg-orange-50 border-orange-200',
+    badgeClass: 'bg-orange-100 text-orange-800 border-orange-300',
+    dividerClass: 'border-orange-200',
+    labelColor: 'text-orange-700',
+    checkColor: 'text-orange-500',
+    desc: 'Đơn hàng đã được tạo, đang chờ trưởng nhóm hoàn tất thanh toán. Có giới hạn thời gian thanh toán.',
+    actions: [
+      'Trưởng nhóm thanh toán qua PayPal hoặc COD',
+      'Hủy đơn nếu chưa được nhân viên xác nhận',
+    ],
+  },
+  {
+    status: 'completed',
+    label: 'Hoàn tất',
+    icon: CheckBadgeIcon,
+    cardClass: 'bg-emerald-50 border-emerald-200',
+    badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+    dividerClass: 'border-emerald-200',
+    labelColor: 'text-emerald-700',
+    checkColor: 'text-emerald-500',
+    desc: 'Thanh toán thành công. Đơn hàng riêng của từng thành viên được tạo và bắt đầu xử lý vận chuyển.',
+    actions: [
+      'Mỗi thành viên theo dõi đơn hàng cá nhân',
+      'Đánh giá sản phẩm sau khi nhận hàng',
+      'Thành viên rời phòng chat',
+    ],
+  },
+  {
+    status: 'cancelled',
+    label: 'Đã hủy',
+    icon: NoSymbolIcon,
+    cardClass: 'bg-red-50 border-red-200',
+    badgeClass: 'bg-red-100 text-red-800 border-red-300',
+    dividerClass: 'border-red-200',
+    labelColor: 'text-red-600',
+    checkColor: 'text-red-400',
+    desc: 'Nhóm bị hủy do trưởng nhóm hủy đơn, hết thời gian thanh toán hoặc nhân viên từ chối đơn. Tồn kho được hoàn trả.',
+    actions: [
+      'Thành viên xem lại lịch sử nhóm trong chat',
+      'Trưởng nhóm có thể tạo nhóm mới',
+    ],
+  },
+];
 
 const toggleFaq = (index) => {
   openFaq.value = openFaq.value === index ? null : index;

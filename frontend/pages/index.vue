@@ -121,6 +121,17 @@
           <span class="font-semibold text-[13px] sm:text-sm text-gray-800">Thanh toán an toàn</span>
         </div>
 
+        <!-- Về dự án -->
+        <div class="hidden md:block w-px h-8 bg-gray-100"></div>
+        <NuxtLink
+          to="/about"
+          class="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 transition-colors group w-[45%] md:w-auto justify-center md:justify-start"
+        >
+          <InformationCircleIcon class="w-4 h-4 flex-shrink-0" />
+          <span>Về dự án</span>
+          <ArrowRightIcon class="w-3 h-3 opacity-70 group-hover:translate-x-0.5 transition-transform" />
+        </NuxtLink>
+
       </div>
     </section>
 
@@ -237,7 +248,8 @@ import {
   SparklesIcon,
   TruckIcon,
   ShieldCheckIcon,
-  ArrowRightIcon
+  ArrowRightIcon,
+  InformationCircleIcon
 } from "@heroicons/vue/24/outline";
 import Pagination from "@/components/Pagination.vue";
 

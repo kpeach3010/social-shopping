@@ -47,6 +47,9 @@
             <li>
               <NuxtLink to="/group-buying-guide" class="hover:text-emerald-600 transition-colors">Hướng dẫn Mua Chung</NuxtLink>
             </li>
+            <li>
+              <NuxtLink to="/virtual-try-on-guide" class="hover:text-emerald-600 transition-colors">Hướng dẫn Thử Đồ Ảo AI</NuxtLink>
+            </li>
           </ul>
         </div>
 

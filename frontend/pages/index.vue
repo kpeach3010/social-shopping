@@ -88,13 +88,18 @@
 
         <div class="hidden md:block w-px h-8 bg-gray-100"></div>
 
-        <!-- AI Try On -->
-        <div class="flex items-center gap-2.5 text-gray-700 w-[45%] md:w-auto">
-          <div class="p-1.5 sm:p-2 bg-blue-50 text-blue-600 rounded-lg flex-shrink-0">
+        <!-- AI Try On (Clickable) -->
+        <NuxtLink to="/virtual-try-on-guide" class="flex items-center gap-2.5 text-gray-700 hover:text-blue-700 transition group cursor-pointer w-[45%] md:w-auto">
+          <div class="p-1.5 sm:p-2 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-100 transition flex-shrink-0">
             <SparklesIcon class="w-5 h-5" />
           </div>
-          <span class="font-semibold text-[13px] sm:text-sm text-gray-800">Thử đồ AI ảo</span>
-        </div>
+          <div class="flex flex-col">
+            <span class="font-semibold text-[13px] sm:text-sm text-gray-800">Thử đồ AI ảo</span>
+            <span class="text-blue-600 text-[10px] sm:text-xs flex items-center font-medium mt-0.5 group-hover:underline">
+              Xem hướng dẫn <ArrowRightIcon class="w-3 h-3 ml-0.5" />
+            </span>
+          </div>
+        </NuxtLink>
 
         <div class="hidden md:block w-px h-8 bg-gray-100"></div>
 
